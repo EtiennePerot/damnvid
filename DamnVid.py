@@ -1,13 +1,15 @@
-import wx
-from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin
-import os
-import re
-import subprocess
-import time
+import wx # Oh my, it's wx.
+from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
+import os # Filesystem functions
+import re # Regular expressions \o/
+import subprocess # Spawn sub-processes (ffmpeg)
+import time # Sleepin'
+import urllib # Fetch data from the tubes
+import htmlentitydefs # HTML entities dictionaries
 try:
-    import threading as thr
+    import threading as thr # Threads
 except ImportError:
-    import dummy_threading as thr
+    import dummy_threading as thr # Moar threads
 # Begin constants
 OS_PATH_SEPARATOR='\\'
 DV_VERSION='1.0'
@@ -44,21 +46,29 @@ ID_BUTTON_DEL_SELECTION=122
 ID_BUTTON_DEL_ALL=123
 ID_BUTTON_GO=124
 ID_COL_VIDNAME=0
-ID_COL_VIDTYPE=1
-ID_COL_VIDSTAT=2
-ID_COL_VIDPATH=3
+ID_COL_VIDSTAT=1
+ID_COL_VIDPATH=2
+# Begin regex constants
+REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;\w]*)?$',re.IGNORECASE)
+REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
+REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
+REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
+REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
+REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
+REGEX_HTTP_YOUTUBE_TITLE_EXTRACT=re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE)
+REGEX_HTTP_YOUTUBE_TICKET_EXTRACT=re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2')
 # End constants
-class DropHandler(wx.FileDropTarget):
+class DropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
     def __init__(self,window):
         wx.FileDropTarget.__init__(self)
         self.window=window
     def OnDropFiles(self,x,y,filenames):
         self.window.addVid(filenames)
-class TehList(wx.ListCtrl,ListCtrlAutoWidthMixin):
+class TehList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
     def __init__(self,parent):
         wx.ListCtrl.__init__(self,parent,-1,style=wx.LC_REPORT)
         ListCtrlAutoWidthMixin.__init__(self)
-class DamnVidPrefs():
+class DamnVidPrefs(): # Preference manager... Should have used wx.Config
     def __init__(self):
         self.conf={}
         f=open(DV_CONF_FILE)
@@ -81,14 +91,14 @@ class DamnVidPrefs():
         for i in self.conf:
             f.write("\r\n"+i+'='+str(self.conf[i]).replace(os.getcwd(),'%CWD%'))
         f.close()
-class DamnVidPrefEditor(wx.Dialog):
+class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
     def __init__(self,parent,id,title):
         wx.Dialog.__init__(self,parent,id,title)
     def onOK(self,event):
         pass
     def onCancel(self,event):
         pass
-class DamnWait(wx.Dialog):
+class DamnWait(wx.Dialog): # Moal dialog that displays progress
     def __init__(self,parent,id,title):
         wx.Dialog.__init__(self,parent,id,title,size=(250,150),style=wx.CLOSE_BOX)
         panel=wx.Panel(self,-1)
@@ -111,12 +121,29 @@ class DamnWait(wx.Dialog):
         self.SetSizer(self.hbox)
     def onStop(self,event):
         pass
-class DamnConverter(thr.Thread):
+class DamnConverter(thr.Thread): # The actual converter
     def __init__(self,i,parent):
         self.i=i
         self.parent=parent
-        self.uri=parent.videos[i]
+        self.uri=self.getURI(parent.videos[i])
         thr.Thread.__init__(self)
+    def getURI(self,uri):
+        if uri[0:3]=='yt:':
+            # YouTube video, must grab download ticket before continuing.
+            html=urllib.urlopen('http://www.youtube.com/watch?v='+uri[3:])
+            for i in html:
+                res=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
+                if res:
+                    return 'http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)+'&fmt=18' # If there's no match, ffmpeg will error by itself.
+        return uri
+    def cmd2str(self,cmd):
+        s=''
+        for i in cmd:
+            if i.find(' ')!=-1 or i.find('&')!=-1:
+                s+='"'+i+'" '
+            else:
+                s+=i+' '
+        return s[0:len(s)-1]
     def run(self):
         cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',self.uri,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_LOG_PATH+'pass']
         options=('vcodec','b','g','acodec','ab','ar','r','bt','maxrate','minrate','bufsize','pass','ac','vol')
@@ -124,26 +151,32 @@ class DamnConverter(thr.Thread):
             pref=self.parent.prefs.get('Encoding_'+i)
             if pref:
                 cmd.extend(['-'+i,pref])
-        filename=self.parent.meta[self.parent.videos[self.i]]['name']
+        filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.i]]['name'])
         vcodec=self.parent.prefs.get('Encoding_vcodec')
         if DV_FILE_EXT.has_key(vcodec):
-            filename=filename+'.'+DV_FILE_EXT[vcodec]
+            ext='.'+DV_FILE_EXT[vcodec]
         else:
-            filename=filename+'.avi'
+            ext='.avi'
+        if os.path.lexists(self.parent.prefs.get('Outdir')+filename+ext):
+            c=2
+            while os.path.lexists(self.parent.prefs.get('Outdir')+filename+' ('+str(c)+')'+ext):
+                c=c+1
+            filename=filename+' ('+str(c)+')'
+        filename=filename+ext
         cmd.append(self.parent.prefs.get('Outdir')+filename)
         self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.i]]['fromfile']+' to '+filename+'...')
         self.parent.wait.gauge.SetValue(float(self.i+1)/float(len(self.parent.videos))*100)
         self.parent.wait.progress.SetLabel(str(self.i+1)+'/'+str(len(self.parent.videos)))
         self.parent.wait.vbox.Layout()
         self.parent.wait.hbox.Layout()
-        self.process=subprocess.Popen(cmd,shell=True)
+        self.process=subprocess.Popen(self.cmd2str(cmd),shell=True)
         result=self.process.wait()
         time.sleep(0.5)
         for i in os.listdir(DV_LOG_PATH):
             if i[-4:].lower()=='.log':
                 os.unlink(DV_LOG_PATH+i)
         self.parent.go(self.i,result)
-class MainFrame(wx.Frame):
+class MainFrame(wx.Frame): # The main window
     def __init__(self,parent,id,title):
         wx.Frame.__init__(self,parent,wx.ID_ANY,title,size=(780,580),style=wx.DEFAULT_FRAME_STYLE)
         self.CreateStatusBar()
@@ -182,14 +215,14 @@ class MainFrame(wx.Frame):
         self.list=TehList(panel1)
         self.list.InsertColumn(ID_COL_VIDNAME,'Name')
         self.list.SetColumnWidth(ID_COL_VIDNAME,width=120)
-        self.list.InsertColumn(ID_COL_VIDTYPE,'Type')
-        self.list.SetColumnWidth(ID_COL_VIDTYPE,width=80)
         self.list.InsertColumn(ID_COL_VIDPATH,'Path')
         self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
         self.list.InsertColumn(ID_COL_VIDSTAT,'Status')
         self.list.SetColumnWidth(ID_COL_VIDSTAT,width=80)
         il=wx.ImageList(16,16,True)
         self.ID_ICON_LOCAL=il.Add(wx.Bitmap(DV_IMAGES_PATH+'video.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_ONLINE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'online.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_YOUTUBE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtube.png',wx.BITMAP_TYPE_PNG))
         self.list.AssignImageList(il,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DropHandler(self))
         tmppanel=wx.Panel(self,-1)
@@ -232,45 +265,108 @@ class MainFrame(wx.Frame):
             self.addVid(dlg.GetPaths())
         dlg.Destroy()
     def onAddURL(self,event):
-        dlg=wx.TextEntryDialog(self,'Enter the URL of the video you wish to download.','Enter URL.')
-        self.addVid([dlg.GetValue()])
+        default=''
+        try:
+            if wx.TheClipboard.Open():
+                dataobject=wx.TextDataObject()
+                wx.TheClipboard.GetData(dataobject)
+                default=dataobject.GetText()
+                wx.TheClipboard.Close()
+                if not REGEX_HTTP_GENERIC.match(default):
+                    default='' # Only set that as default text if the clipboard's text content is not a URL
+        except:
+            default=''
+        try:
+            wx.TheClipboard.Close() # In case there's been an error before the clipboard could be closed, try to close it now
+        except:
+            pass # There's probably wasn't any error, just pass
+        dlg=wx.TextEntryDialog(self,'Enter the URL of the video you wish to download.','Enter URL.',default)
+        if dlg.ShowModal()==wx.ID_OK:
+            self.addVid([dlg.GetValue()])
         dlg.Destroy()
-    def validURI(uri):
-        if re.match('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;\w]*)?$',uri,re.IGNORECASE):
-            
+    def validURI(self,uri):
+        if REGEX_HTTP_GENERIC.match(uri):
+            if REGEX_HTTP_YOUTUBE.match(uri):
+                return 'YouTube Video'
+            else:
+                # Add elif's
+                return 'Online video' # Not necessarily true, but ffmpeg will tell
         elif os.path.lexists(uri):
             return 'Local file'
         return None
+    def getVidName(self,uri):
+        if uri[0:3]=='yt:':
+            try:
+                html=urllib.urlopen('http://www.youtube.com/watch?v='+uri[3:])
+                for i in html:
+                    res=REGEX_HTTP_YOUTUBE_TITLE_EXTRACT.search(i)
+                    if res:
+                        return self.noHtmlEnt(res.group(1))
+                    else:
+                        res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
+                        if res:
+                            return self.noHtmlEnt(res.group(1))
+                        else:
+                            pass # Return Unknown title
+                
+            except:
+                pass # Can't grab this? Return Unknown title
+        return 'Unknown title'
+    def noHtmlEnt(self,html): # Replaces HTML entities from html
+        for i in htmlentitydefs.entitydefs.iterkeys():
+            html=html.replace('&'+str(i)+';',htmlentitydefs.entitydefs[i])
+        return html
     def addVid(self,uris):
         for uri in uris:
-            if os.path.isdir(uri):
-                if self.prefs.get('DirRecursion')=='True':
-                    for i in os.listdir(uri):
-                        self.addVid([uri+OS_PATH_SEPARATOR+i]) # This is recursive; if i is a directory, this block will be executed for it too
-                else:
-                    if len(uris)==1: # Only one dir, so an alert here is tolerable
-                        dlg=wx.MessageDialog(None,'This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.','Recursion is disabled.',wx.OK|wx.ICON_EXCLAMATION)
-                        dlg.ShowModal()
-                        dlg.Destroy()
+            if self.validURI(uri):
+                if REGEX_HTTP_GENERIC.match(uri):
+                    # It's a URL
+                    match=REGEX_HTTP_YOUTUBE.search(uri)
+                    if match:
+                        uri='yt:'+match.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'fromfile':name,'dirname':'YouTube','uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
                     else:
-                        self.SetStatusText('Skipped '+uri+' (directory recursion disabled).')
-            else:
-                filename=os.path.basename(uri)
-                if uri in self.videos:
-                    self.SetStatusText('Skipped '+filename+' (already in list).')
-                    if len(uris)==1: # There's only one file, so an alert here is tolerable
-                        dlg=wx.MessageDialog(None,'This video is already in the list!','Duplicate found',wx.ICON_EXCLAMATION|wx.OK)
-                        dlg.ShowModal()
-                        dlg.Destroy()
+                        name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
+                        self.addValid({'name':name,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
                 else:
-                    self.list.InsertStringItem(len(self.videos),filename)
-                    self.list.SetStringItem(len(self.videos),ID_COL_VIDTYPE,'Local file')
-                    self.list.SetStringItem(len(self.videos),ID_COL_VIDPATH,os.path.dirname(uri))
-                    self.list.SetStringItem(len(self.videos),ID_COL_VIDSTAT,'Pending.')
-                    self.list.SetItemImage(len(self.videos),self.ID_ICON_LOCAL,self.ID_ICON_LOCAL)
-                    self.videos.append(uri)
-                    self.meta[uri]={'name':filename[0:filename.rfind('.')],'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.'}
-                    self.SetStatusText('Added '+filename+'.')
+                    # It's a file
+                    if os.path.isdir(uri):
+                        if self.prefs.get('DirRecursion')=='True':
+                            for i in os.listdir(uri):
+                                self.addVid([uri+OS_PATH_SEPARATOR+i]) # This is recursive; if i is a directory, this block will be executed for it too
+                        else:
+                            if len(uris)==1: # Only one dir, so an alert here is tolerable
+                                dlg=wx.MessageDialog(None,'This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.','Recursion is disabled.',wx.OK|wx.ICON_EXCLAMATION)
+                                dlg.ShowModal()
+                                dlg.Destroy()
+                            else:
+                                self.SetStatusText('Skipped '+uri+' (directory recursion disabled).')
+                    else:
+                        filename=os.path.basename(uri)
+                        if uri in self.videos:
+                            self.SetStatusText('Skipped '+filename+' (already in list).')
+                            if len(uris)==1: # There's only one file, so an alert here is tolerable
+                                dlg=wx.MessageDialog(None,'This video is already in the list!','Duplicate found',wx.ICON_EXCLAMATION|wx.OK)
+                                dlg.ShowModal()
+                                dlg.Destroy()
+                        else:
+                            self.addValid({'name':filename[0:filename.rfind('.')],'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.ID_ICON_LOCAL})
+            else:
+                if len(uris)==1: # There's only one URI, so an alert here is tolerable
+                    dlg=wx.MessageDialog(None,'This is not a valid video!','Invalid video',wx.ICON_EXCLAMATION|wx.OK)
+                    dlg.ShowModal()
+                    dlg.Destroy()
+                self.SetStatusText('Skipped '+uri+' (invalid video).')
+    def addValid(self,meta):
+        curvid=len(self.videos)
+        self.list.InsertStringItem(curvid,meta['name'])
+        self.list.SetStringItem(curvid,ID_COL_VIDPATH,meta['dirname'])
+        self.list.SetStringItem(curvid,ID_COL_VIDSTAT,meta['status'])
+        self.list.SetItemImage(curvid,meta['icon'],meta['icon'])
+        self.videos.append(meta['uri'])
+        self.meta[meta['uri']]=meta
+        self.SetStatusText('Added '+meta['name']+'.')
     def go(self,i,result):
         if result is not None:
             if not result:
