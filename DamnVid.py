@@ -76,7 +76,7 @@ class TehList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherit
     def __init__(self,parent):
         wx.ListCtrl.__init__(self,parent,-1,style=wx.LC_REPORT)
         ListCtrlAutoWidthMixin.__init__(self)
-class DamnVidPrefs(): # Preference manager... Should have used wx.Config
+class DamnVidPrefs: # Preference manager... Should have used wx.Config
     def __init__(self):
         self.conf={}
         f=open(DV_CONF_FILE)
