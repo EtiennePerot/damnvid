@@ -1,21 +1,27 @@
 import wx # Oh my, it's wx.
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
-import os # Filesystem functions
+import os # Filesystem functions.
+import shutil # Moar filesystem functions
 import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg)
 import time # Sleepin'
 import urllib # Fetch data from the tubes
 import htmlentitydefs # HTML entities dictionaries
+import signal # Process signals
 try:
     import threading as thr # Threads
 except ImportError:
     import dummy_threading as thr # Moar threads
 # Begin constants
-OS_PATH_SEPARATOR='\\'
+if os.name=='nt':
+    OS_PATH_SEPARATOR='\\'
+else:
+    OS_PATH_SEPARATOR='/'
 DV_VERSION='1.0'
 DV_CONF_FILE='conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
+DV_LINE_PARSING_STEP=2
 DV_IMAGES_PATH='img/'.replace('/',OS_PATH_SEPARATOR)
-DV_BIN_PATH='exe/'.replace('/',OS_PATH_SEPARATOR)
+DV_BIN_PATH='bin/'.replace('/',OS_PATH_SEPARATOR)
 DV_LOG_PATH='log/'.replace('/',OS_PATH_SEPARATOR)
 DV_FILE_EXT={
     'mpeg4':'avi',
@@ -49,6 +55,8 @@ ID_COL_VIDNAME=0
 ID_COL_VIDSTAT=1
 ID_COL_VIDPATH=2
 # Begin regex constants
+REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration: (\\d+):(\\d\\d):([.\\d]+),',re.IGNORECASE)
+REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
 REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;\w]*)?$',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
@@ -73,7 +81,7 @@ class DamnVidPrefs(): # Preference manager... Should have used wx.Config
         self.conf={}
         f=open(DV_CONF_FILE)
         for i in re.finditer('(?m)^([_\\w]+)=(.*)$',f.read()):
-            self.conf[i.group(1)]=i.group(2).replace('%CWD%',os.getcwd()).strip()
+            self.conf[i.group(1)]=i.group(2).replace('/',OS_PATH_SEPARATOR).strip()
         f.close()
     def get(self,name):
         try:
@@ -89,7 +97,7 @@ class DamnVidPrefs(): # Preference manager... Should have used wx.Config
         f=open(DV_CONF_FILE,'w')
         f.write('[DamnVid]')
         for i in self.conf:
-            f.write("\r\n"+i+'='+str(self.conf[i]).replace(os.getcwd(),'%CWD%'))
+            f.write("\r\n"+i+'='+str(self.conf[i]).replace(OS_PATH_SEPARATOR,'/'))
         f.close()
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
     def __init__(self,parent,id,title):
@@ -98,9 +106,10 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         pass
     def onCancel(self,event):
         pass
-class DamnWait(wx.Dialog): # Moal dialog that displays progress
-    def __init__(self,parent,id,title):
+class DamnWait(wx.Dialog): # Modal dialog that displays progress
+    def __init__(self,parent,id,title,main):
         wx.Dialog.__init__(self,parent,id,title,size=(250,150),style=wx.CLOSE_BOX)
+        self.parent=main
         panel=wx.Panel(self,-1)
         self.vbox=wx.BoxSizer(wx.VERTICAL)
         self.hbox=wx.BoxSizer(wx.HORIZONTAL)
@@ -120,7 +129,7 @@ class DamnWait(wx.Dialog): # Moal dialog that displays progress
         panel.SetSizer(self.vbox)
         self.SetSizer(self.hbox)
     def onStop(self,event):
-        pass
+        self.parent.thread.abortProcess()
 class DamnConverter(thr.Thread): # The actual converter
     def __init__(self,i,parent):
         self.i=i
@@ -139,7 +148,7 @@ class DamnConverter(thr.Thread): # The actual converter
     def cmd2str(self,cmd):
         s=''
         for i in cmd:
-            if i.find(' ')!=-1 or i.find('&')!=-1:
+            if i.find(' ')!=-1 or i.find('&')!=-1 or i.find('|')!=-1:
                 s+='"'+i+'" '
             else:
                 s+=i+' '
@@ -151,31 +160,67 @@ class DamnConverter(thr.Thread): # The actual converter
             pref=self.parent.prefs.get('Encoding_'+i)
             if pref:
                 cmd.extend(['-'+i,pref])
-        filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.i]]['name'])
+        self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.i]]['name'])
         vcodec=self.parent.prefs.get('Encoding_vcodec')
         if DV_FILE_EXT.has_key(vcodec):
             ext='.'+DV_FILE_EXT[vcodec]
         else:
             ext='.avi'
-        if os.path.lexists(self.parent.prefs.get('Outdir')+filename+ext):
+        if os.path.lexists(self.parent.prefs.get('Outdir')+self.filename+ext):
             c=2
-            while os.path.lexists(self.parent.prefs.get('Outdir')+filename+' ('+str(c)+')'+ext):
+            while os.path.lexists(self.parent.prefs.get('Outdir')+self.filename+' ('+str(c)+')'+ext):
                 c=c+1
-            filename=filename+' ('+str(c)+')'
-        filename=filename+ext
-        cmd.append(self.parent.prefs.get('Outdir')+filename)
-        self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.i]]['fromfile']+' to '+filename+'...')
-        self.parent.wait.gauge.SetValue(float(self.i+1)/float(len(self.parent.videos))*100)
+            self.filename=self.filename+' ('+str(c)+')'
+        self.filename=self.filename+ext
+        cmd.append(self.parent.prefs.get('Outdir')+self.filename)
+        self.duration=None
+        self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.i]]['fromfile']+' to '+self.filename+'...')
         self.parent.wait.progress.SetLabel(str(self.i+1)+'/'+str(len(self.parent.videos)))
         self.parent.wait.vbox.Layout()
         self.parent.wait.hbox.Layout()
-        self.process=subprocess.Popen(self.cmd2str(cmd),shell=True)
-        result=self.process.wait()
-        time.sleep(0.5)
+        self.process=subprocess.Popen(self.cmd2str(cmd)+' >&2',shell=True,stderr=subprocess.PIPE)
+        self.abort=False
+        curline=''
+        self.curstep=0 # This is to prevent overparsing and slowing down by parsing EVERY line from stderr. Instead, only one line out of DV_LINE_PARSING_STEP (defined in the constants) will be parsed
+        while self.process.poll()==None:
+            c=self.process.stderr.read(1)
+            curline+=c
+            if c=="\r" or c=="\n":
+                self.parseLine(curline)
+                curline=''
+        result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
+        time.sleep(.5) # Wait a bit
+        self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
         for i in os.listdir(DV_LOG_PATH):
             if i[-4:].lower()=='.log':
-                os.unlink(DV_LOG_PATH+i)
-        self.parent.go(self.i,result)
+                os.remove(DV_LOG_PATH+i)
+        self.parent.go(self.i,result,self.abort)
+    def parseLine(self,line):
+        if self.duration==None:
+            res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
+            if res:
+                self.duration=int(res.group(1))*3600+int(res.group(2))*60+float(res.group(3))
+        else:
+            self.curstep=self.curstep+1
+            if self.curstep==DV_LINE_PARSING_STEP:
+                self.curstep=0
+                res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
+                if res:
+                    self.parent.wait.gauge.SetValue(float(self.i+float(res.group(1))/self.duration)/float(len(self.parent.videos))*100)
+    def abortProcess(self): # FIXME, I tried stdin.write('q') but seems not to be working?
+        self.abort=True # This prevents the converter from going to the next file
+        self.parent.wait.close.Disable() # Disable the Stop button
+        if os.name=='nt':
+            subprocess.Popen('TASKKILL /PID '+str(self.process.pid)+' /F').wait()
+        elif os.name=='mac':
+            subprocess.Popen('kill -SIGTERM '+str(self.process.pid)).wait() # Untested, from http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
+        else:
+            os.kill(self.process.pid,signal.SIGTERM)
+        time.sleep(.5) # Wait a bit, let the files get unlocked
+        try:
+            os.remove(self.parent.prefs.get('Outdir')+self.filename)
+        except:
+            pass # Maybe the file wasn't created yet
 class MainFrame(wx.Frame): # The main window
     def __init__(self,parent,id,title):
         wx.Frame.__init__(self,parent,wx.ID_ANY,title,size=(780,580),style=wx.DEFAULT_FRAME_STYLE)
@@ -219,6 +264,7 @@ class MainFrame(wx.Frame): # The main window
         self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
         self.list.InsertColumn(ID_COL_VIDSTAT,'Status')
         self.list.SetColumnWidth(ID_COL_VIDSTAT,width=80)
+        self.list.Bind(wx.EVT_KEY_DOWN,self.onListKeyDown)
         il=wx.ImageList(16,16,True)
         self.ID_ICON_LOCAL=il.Add(wx.Bitmap(DV_IMAGES_PATH+'video.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_ONLINE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'online.png',wx.BITMAP_TYPE_PNG))
@@ -259,6 +305,9 @@ class MainFrame(wx.Frame): # The main window
         self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
     def onExit(self,event):
         self.Close(True)
+    def onListKeyDown(self,event):
+        if (event.GetKeyCode()==8 or event.GetKeyCode()==127) and self.list.GetSelectedItemCount(): # Backspace or delete, but only when there's at least one selected video
+            self.onDelSelection(None)
     def onAddFile(self,event):
         dlg=wx.FileDialog(self,'Choose a damn video.',os.getcwd(),'','All files|*.*|AVI files (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',wx.OPEN|wx.FD_MULTIPLE)
         if dlg.ShowModal()==wx.ID_OK:
@@ -367,7 +416,7 @@ class MainFrame(wx.Frame): # The main window
         self.videos.append(meta['uri'])
         self.meta[meta['uri']]=meta
         self.SetStatusText('Added '+meta['name']+'.')
-    def go(self,i,result):
+    def go(self,i,result,aborted=False):
         if result is not None:
             if not result:
                 self.meta[self.videos[i]]['status']='Success!'
@@ -376,44 +425,59 @@ class MainFrame(wx.Frame): # The main window
                 self.meta[self.videos[i]]['status']='Failure.'
                 self.list.SetStringItem(i,ID_COL_VIDSTAT,'Failure.')
         i=i+1 # Next~
-        if len(self.videos)>i:
+        if len(self.videos)>i and not aborted:
             # Let's go for the actual conversion...
-            if self.meta[self.videos[i]]=='Success!':
-                self.go(i,0)
+            if self.meta[self.videos[i]]['status']=='Success!':
+                self.go(i,0) # Skip current video and go to the next one
             else:
                 self.meta[self.videos[i]]['status']='Converting...'
                 self.list.SetStringItem(i,ID_COL_VIDSTAT,'Converting...')
-                self.converting=True
-                thread=DamnConverter(i=i,parent=self)
-                thread.start()
+                self.thisbatch.append(i)
+                self.thread=DamnConverter(i=i,parent=self)
+                self.thread.start()
         else:
-            self.converting=False
             self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
             success=0
             failure=0
-            for i in self.videos:
-                if self.meta[i]['status']=='Success!':
+            for i in self.thisbatch:
+                if self.meta[self.videos[i]]['status']=='Success!':
                     success=success+1
-                elif self.meta[i]['status']=='Failure.':
+                elif self.meta[self.videos[i]]['status']=='Failure.':
                     failure=failure+1
-            dlg=wx.MessageDialog(None,'All videos were processed.\r\nResults:\r\n\r\nFiles: '+str(len(self.videos))+'\r\nSuccess: '+str(success)+' file(s)\r\nFailure: '+str(failure)+' file(s)\r\nDamnVid '+DV_VERSION+' is '+str(round(float(success)/float(len(self.videos))*100,2))+'% successful.\r\n\r\nWant to open the output directory?','Done!',wx.YES_NO|wx.ICON_INFORMATION)
+            if aborted:
+                if result:
+                    failure=failure-1
+                else:
+                    success=succes-1
+            total=success+failure # Note: CANNOT use len(self.videos) for the total, because it's not true if the user aborted the process.
+            if total:
+                dlg=wx.MessageDialog(None,str(total)+' video(s) was/were processed.\r\nResults:\r\nSuccess: '+str(success)+' file(s)\r\nFailure: '+str(failure)+' file(s)\r\nDamnVid '+DV_VERSION+' is '+str(round(float(success)/float(total)*100,0))+'% successful.\r\n\r\nWant to open the output directory?','Done!',wx.YES_NO|wx.ICON_INFORMATION)
+            else:
+                dlg=wx.MessageDialog(None,'No videos were processed.','Aborted',wx.OK|wx.ICON_INFORMATION)
             if dlg.ShowModal()==wx.ID_YES:
                 self.onOpenOutDir(None)
-            self.wait.Close(True)
+            try:
+                self.wait.Close(True)
+            except:
+                pass # If all videos were successful and the user presses Go again, DamnWait doesn't show, and the Close() method raises a PyDeadObjectError
     def onGo(self,event):
         if not len(self.videos):
             dlg=wx.MessageDialog(None,'Put some videos in the list first!','No videos!',wx.ICON_EXCLAMATION|wx.OK)
             dlg.ShowModal()
             dlg.Destroy()
         else:
+            self.thisbatch=[]
             self.go(-1,None)
-            self.wait=DamnWait(None,-1,'Converting, please wait...')
+            self.wait=DamnWait(None,-1,'Converting, please wait...',main=self)
             self.wait.ShowModal()
             self.wait.Destroy()
     def onPrefs(self,event):
         pass
     def onOpenOutDir(self,event):
-        os.system('explorer.exe "'+self.prefs.get('Outdir').replace('/',OS_PATH_SEPARATOR)+'"')
+        if os.name=='nt':
+            os.system('explorer.exe "'+self.prefs.get('Outdir').replace('/',OS_PATH_SEPARATOR)+'"')
+        else:
+            pass # Halp here?
     def onHalp(self,event):
         pass
     def onAboutDV(self,event):
