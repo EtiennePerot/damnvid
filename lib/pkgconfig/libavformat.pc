@@ -1,0 +1,13 @@
+prefix=../
+exec_prefix=${prefix}
+libdir=$(PREFIX)/lib
+includedir=$(PREFIX)/include
+
+Name: libavformat
+Description: FFmpeg container format library
+Version: 52.14.0
+Requires:  theora vorbisenc libavcodec = 51.57.0
+Conflicts:
+Libs: -L${libdir} -lavformat
+Libs.private:   -lz -lbz2 -pthread -lm -la52 -lfaac -lfaad -lmp3lame -lm -ltheora -logg -lvorbisenc -lvorbis -logg -lx264 -lm -lxvidcore    -ldl -ldl
+Cflags: -I${includedir}
