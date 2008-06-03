@@ -78,7 +78,7 @@ DV_PREFERENCE_TYPE={
         'type':DV_PREFERENCE_TYPE_VIDEO,
         'kind':'intk:7-13', # Int in kilobytes
         'strict':None,
-        'default':''
+        'default':'768k'
     },
     'Encoding_bufsize':{
         'name':'Buffer size',
@@ -124,7 +124,7 @@ DV_PREFERENCE_TYPE={
         'type':DV_PREFERENCE_TYPE_AUDIO,
         'kind':'%256',
         'strict':False,
-        'default':'256'
+        'default':'256.0'
     },
     'Encoding_minrate':{
         'name':'Minimum bitrate',
@@ -190,7 +190,7 @@ DV_PREFERENCE_TYPE={
         'type':DV_PREFERENCE_TYPE_OTHER,
         'kind':'dir',
         'strict':True,
-        'default':'%CWD/output/'
+        'default':'%CWD%/output/'
     }
 }
 DV_PREFERENCE_ORDER=['Encoding_vcodec','Encoding_r','Encoding_b','Encoding_minrate','Encoding_maxrate','Encoding_bt','Encoding_bufsize','Encoding_pass','Encoding_g','Encoding_acodec','Encoding_vol','Encoding_ab','Encoding_ar','Encoding_ac','DirRecursion','Outdir']
@@ -265,6 +265,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         wx.Dialog.__init__(self,parent,id,title)
         self.parent=main
         self.controls={}
+        self.listvalues={}
         self.toppanel=wx.Panel(self,-1)
         self.topvbox=wx.BoxSizer(wx.VERTICAL)
         self.toppanel.SetSizer(self.topvbox)
@@ -311,6 +312,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                 if not val:
                     val=i['kind'][self.parent.prefs.get(name)]
                 self.controls[name]=self.makeList(i['strict'],choices,panel,val)
+                self.listvalues[name]=choices
                 sizer.Add(self.controls[name])
             elif i['kind'][0:3]=='int':
                 choices=['(default)']
@@ -320,9 +322,10 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                 if not val:
                     val=self.parent.prefs.get(name)
                 self.controls[name]=self.makeList(i['strict'],choices,panel,val)
+                self.listvalues[name]=choices
                 sizer.Add(self.controls[name])
             elif i['kind'][0]=='%':
-                self.controls[name]=wx.SpinCtrl(panel,-1,initial=100*int(self.parent.prefs.get(name))/int(i['kind'][1:]),min=0,max=200)
+                self.controls[name]=wx.SpinCtrl(panel,-1,initial=int(100.0*float(self.parent.prefs.get(name))/float(i['kind'][1:])),min=0,max=200)
                 sizer.Add(self.controls[name])
             elif i['kind']=='dir':
                 self.controls[name]=wx.TextCtrl(panel,-1,self.parent.prefs.get(name))
@@ -336,10 +339,14 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                 sizer.Add(self.controls[name])
         tophbox=wx.BoxSizer(wx.HORIZONTAL)
         self.topvbox.Add(tophbox,0,wx.EXPAND)
-        self.okButton=wx.Button(self.toppanel,-1,'OK')
+        self.okButton=wx.Button(self.toppanel,wx.ID_OK,'OK')
         self.Bind(wx.EVT_BUTTON,self.onOK,self.okButton)
         self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,'Cancel')
         self.Bind(wx.EVT_BUTTON,self.onClose,self.closeButton)
+        reset=wx.Choice(self.toppanel,-1,choices=['Reset to default config...','DamnVid '+DV_VERSION+' default','FFmpeg default'])
+        reset.SetSelection(0)
+        self.Bind(wx.EVT_CHOICE,self.onReset,reset)
+        tophbox.Add(reset,0,wx.ALIGN_LEFT)
         tophbox.Add(wx.StaticText(self.toppanel,-1,''),1,wx.ALIGN_LEFT)
         tophbox.Add(self.okButton,0,wx.ALIGN_RIGHT)
         tophbox.Add(self.closeButton,0,wx.ALIGN_RIGHT)
@@ -357,8 +364,80 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         else:
             cont=wx.ComboBox(panel,-1,choices=choices,value=value)
         return cont
+    def getListValue(self,name,strict):
+        if strict:
+            val=self.listvalues[name][self.controls[name].GetSelection()]
+        else:
+            val=self.controls[name].GetValue()
+        if val=='(default)':
+            val=''
+        elif type(DV_PREFERENCE_TYPE[name]['kind']) is types.DictType:
+            for key,i in DV_PREFERENCE_TYPE[name]['kind'].iteritems():
+                if i==val:
+                    return key
+        return val
+    def setListValue(self,name,strict,value):
+        if not value:
+            if strict:
+                self.controls[name].SetSelection(0)
+            else:
+                self.controls[name].SetValue('(default)')
+        else:
+            if strict:
+                if type(DV_PREFERENCE_TYPE[name]['kind']) is types.DictType:
+                    value=DV_PREFERENCE_TYPE[name]['kind'][value]
+                c=0
+                for i in self.listvalues[name]:
+                    if i==value:
+                        self.controls[name].SetSelection(c)
+                    c=c+1
+            else:
+                self.controls[name].SetValue(value)
     def onOK(self,event):
-        pass
+        prefs={}
+        for name,i in DV_PREFERENCE_TYPE.iteritems():
+            if type(i['kind']) is types.DictType:
+                prefs[name]=self.getListValue(name,i['strict'])
+            elif i['kind'][0:3]=='int':
+                prefs[name]=self.getListValue(name,i['strict'])
+            elif i['kind']=='bool':
+                if self.controls[name].GetValue():
+                    prefs[name]='True'
+                else:
+                    prefs[name]='False'
+            elif i['kind']=='dir':
+                if os.path.lexists(self.controls[name].GetValue()):
+                    if os.path.isdir(self.controls[name].GetValue()):
+                        prefs[name]=self.controls[name].GetValue()
+            elif i['kind'][0]=='%':
+                prefs[name]=str(round(float(self.controls[name].GetValue())*float(i['kind'][1:])/100.0,5)) # This may be a float, but DamnConverter will ensure it's an int when converting
+            self.parent.prefs.set(name,prefs[name])
+        self.parent.prefs.save()
+        self.Close(True)
+    def onReset(self,event):
+        l=event.GetEventObject()
+        if l.GetSelection()==1: # DamnVid default
+            for name,i in DV_PREFERENCE_TYPE.iteritems():
+                if type(i['kind']) is types.DictType:
+                    self.setListValue(name,i['strict'],i['default'])
+                elif i['kind'][0:3]=='int':
+                    self.setListValue(name,i['strict'],i['default'])
+                elif i['kind']=='dir':
+                    self.controls[name].SetValue(i['default'].replace('%CWD%',os.getcwd()).replace('/',OS_PATH_SEPARATOR))
+                elif i['kind'][0]=='%':
+                    self.controls[name].SetValue(int(100.0*float(i['default'])/float(i['kind'][1:])))
+                elif i['kind']=='bool':
+                    self.controls[name].SetValue(i['default']=='True')
+        elif l.GetSelection()==2: # FFmpeg default
+            for name,i in DV_PREFERENCE_TYPE.iteritems():
+                if name[0:9]=='Encoding_':
+                    if type(i['kind']) is types.DictType:
+                        self.setListValue(name,i['strict'],'')
+                    elif i['kind'][0:3]=='int':
+                        self.setListValue(name,i['strict'],'')
+                    elif i['kind'][0]=='%':
+                        self.controls[name].SetValue(int(100.0))
+        l.SetSelection(0)
     def onClose(self,event):
         self.Close(True)
 class DamnWait(wx.Dialog): # Modal dialog that displays progress
@@ -410,11 +489,14 @@ class DamnConverter(thr.Thread): # The actual converter
         return s[0:len(s)-1]
     def run(self):
         cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',self.uri,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
-        options=('vcodec','b','g','acodec','ab','ar','r','bt','maxrate','minrate','bufsize','pass','ac','vol')
-        for i in options:
-            pref=self.parent.prefs.get('Encoding_'+i)
-            if pref:
-                cmd.extend(['-'+i,pref])
+        for i in DV_PREFERENCE_ORDER:
+            if i[0:9]=='Encoding_':
+                pref=self.parent.prefs.get(i)
+                if pref:
+                    if type(DV_PREFERENCE_TYPE[i]['kind']) is types.StringType:
+                        if DV_PREFERENCE_TYPE[i]['kind'][0]=='%':
+                            pref=str(int(pref)) # Round
+                    cmd.extend(['-'+i[9:],pref])
         self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.i]]['name'])
         vcodec=self.parent.prefs.get('Encoding_vcodec')
         if DV_FILE_EXT.has_key(vcodec):
