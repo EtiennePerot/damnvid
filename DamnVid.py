@@ -58,7 +58,8 @@ DV_PREFERENCE_TYPE={
             'wmv2':'Windows Media Video v2',
             'wmv1':'Windows Media Video v1'
         },
-        'strict':False, # ffmpeg encodes in more codecs than that, hopefully, but this should be enough
+        'order':['mpeg4','mpeg1video','mpeg2video','flv','h263p','h263','h261','msmpeg4','msmpeg4v2','msmpeg4v1','wmv2', 'wmv1'], # Because Python can't fucking remember the order of dictionaries, it seems.
+        'strict':True,
         'default':'mpeg4'
     },
     'Encoding_pass':{
@@ -68,13 +69,14 @@ DV_PREFERENCE_TYPE={
             '1':'1 pass',
             '2':'2 passes'
         },
+        'order':['1','2'],
         'strict':True,
         'default':'1'
     },
     'Encoding_b':{
         'name':'Bitrate',
         'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk', # Int in kilobytes
+        'kind':'intk:7-13', # Int in kilobytes
         'strict':None,
         'default':''
     },
@@ -86,7 +88,7 @@ DV_PREFERENCE_TYPE={
         'default':''
     },
     'DirRecursion':{
-        'name':'Directory Recursion',
+        'name':'Enable directory Recursion',
         'type':DV_PREFERENCE_TYPE_OTHER,
         'kind':'bool',
         'strict':True,
@@ -95,7 +97,7 @@ DV_PREFERENCE_TYPE={
     'Encoding_ab':{
         'name':'Bitrate',
         'type':DV_PREFERENCE_TYPE_AUDIO,
-        'kind':'intk',
+        'kind':'intk:5-10',
         'strict':True,
         'default':'128k'
     },
@@ -106,6 +108,7 @@ DV_PREFERENCE_TYPE={
             '1':'1 (Mono)',
             '2':'2 (Stereo)'
         },
+        'order':['1','2'],
         'strict':True,
         'default':'1'
     },
@@ -117,7 +120,7 @@ DV_PREFERENCE_TYPE={
         'default':''
     },
     'Encoding_vol':{
-        'name':'Volume',
+        'name':'Volume (%)',
         'type':DV_PREFERENCE_TYPE_AUDIO,
         'kind':'%256',
         'strict':False,
@@ -126,14 +129,14 @@ DV_PREFERENCE_TYPE={
     'Encoding_minrate':{
         'name':'Minimum bitrate',
         'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk',
+        'kind':'intk:7-13',
         'strict':False,
         'default':''
     },
     'Encoding_maxrate':{
         'name':'Maximum bitrate',
         'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk',
+        'kind':'intk:7-13',
         'strict':False,
         'default':''
     },
@@ -150,7 +153,8 @@ DV_PREFERENCE_TYPE={
             'wmav2':'Windows Media Audio v2',
             'wmav1':'Windows Media Audio v1'
         },
-        'strict':False,
+        'order':['libmp3lame','mp2','ac3','flac','libfaac','vorbis','wmav2','wmav1'],
+        'strict':True,
         'default':''
     },
     'Encoding_g':{
@@ -170,24 +174,26 @@ DV_PREFERENCE_TYPE={
             '48000':'48000 Hz',
             '96000':'96000 Hz'
         },
+        'order':['11250','22500','44100','48000','96000'],
         'strict':True,
         'default':'44100'
     },
     'Encoding_bt':{
         'name':'Bitrate tolerance',
         'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk',
+        'kind':'intk:3-10',
         'strict':False,
         'default':''
     },
     'Outdir':{
         'name':'Output directory',
         'type':DV_PREFERENCE_TYPE_OTHER,
-        'kind':'path',
+        'kind':'dir',
         'strict':True,
-        'default':'output/'
+        'default':'%CWD/output/'
     }
 }
+DV_PREFERENCE_ORDER=['Encoding_vcodec','Encoding_r','Encoding_b','Encoding_minrate','Encoding_maxrate','Encoding_bt','Encoding_bufsize','Encoding_pass','Encoding_g','Encoding_acodec','Encoding_vol','Encoding_ab','Encoding_ar','Encoding_ac','DirRecursion','Outdir']
 # Begin ID constants
 ID_MENU_EXIT=101
 ID_MENU_ADD_FILE=102
@@ -197,11 +203,6 @@ ID_MENU_PREFERENCES=105
 ID_MENU_OUTDIR=106
 ID_MENU_HALP=107
 ID_MENU_ABOUT=109
-ID_BUTTON_ADD_FILE=120
-ID_BUTTON_ADD_URL=121
-ID_BUTTON_DEL_SELECTION=122
-ID_BUTTON_DEL_ALL=123
-ID_BUTTON_GO=124
 ID_COL_VIDNAME=0
 ID_COL_VIDSTAT=1
 ID_COL_VIDPATH=2
@@ -232,7 +233,7 @@ class DamnVidPrefs: # Preference manager... Should have used wx.Config
         self.conf={}
         f=open(DV_CONF_FILE)
         for i in re.finditer('(?m)^([_\\w]+)=(.*)$',f.read()):
-            self.conf[i.group(1)]=i.group(2).replace('/',OS_PATH_SEPARATOR).strip()
+            self.conf[i.group(1)]=i.group(2).replace('%CWD%',os.getcwd()).replace('/',OS_PATH_SEPARATOR).strip()
         f.close()
     def get(self,name):
         try:
@@ -250,65 +251,116 @@ class DamnVidPrefs: # Preference manager... Should have used wx.Config
         for i in self.conf:
             f.write("\r\n"+i+'='+str(self.conf[i]).replace(OS_PATH_SEPARATOR,'/'))
         f.close()
+class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
+    def __init__(self,parent,id,label,filefield):
+        self.filefield=filefield
+        wx.Button.__init__(self,parent,id,label)
+    def onBrowse(self,event):
+        dlg=wx.DirDialog(self,'Select DamnVid '+DV_VERSION+'\'s output directory.',self.filefield.GetValue(),style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
+        if dlg.ShowModal()==wx.ID_OK:
+            self.filefield.SetValue(dlg.GetPath())
+        dlg.Destroy()
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
     def __init__(self,parent,id,title,main):
         wx.Dialog.__init__(self,parent,id,title)
         self.parent=main
         self.controls={}
+        self.toppanel=wx.Panel(self,-1)
         self.topvbox=wx.BoxSizer(wx.VERTICAL)
+        self.toppanel.SetSizer(self.topvbox)
         self.hbox=wx.BoxSizer(wx.HORIZONTAL)
-        self.audiovideopanel=wx.Panel(self,-1)
+        self.audiovideopanel=wx.Panel(self.toppanel,-1)
         self.topvbox.Add(self.audiovideopanel,1,wx.EXPAND)
         self.audiovideopanel.SetSizer(self.hbox)
-        self.SetSizer(self.topvbox)
-        self.panel1=wx.Panel(self.audiovideopanel,-1)
-        self.panel2=wx.Panel(self.audiovideopanel,-1)
-        self.box1=wx.StaticBox(self.panel1,-1,'Video encoding options')
-        self.vbox1=wx.StaticBoxSizer(self.box1,wx.VERTICAL)
-        self.box2=wx.StaticBox(self.panel2,-1,'Audio encoding options')
-        self.vbox2=wx.StaticBoxSizer(self.box2,wx.VERTICAL)
-        self.hbox.Add(self.panel1,1,wx.EXPAND)
-        self.hbox.Add(self.panel2,1,wx.EXPAND)
-        self.panel1.SetSizer(self.vbox1)
-        self.panel2.SetSizer(self.vbox2)
-        for name,i in DV_PREFERENCE_TYPE.iteritems():
-            val=self.parent.prefs.get(name)
+        self.toppanel.SetSizer(self.topvbox)
+        panel1=wx.Panel(self.audiovideopanel,-1)
+        panel2=wx.Panel(self.audiovideopanel,-1)
+        vbox1=wx.StaticBoxSizer(wx.StaticBox(panel1,-1,'Video encoding options'),wx.VERTICAL)
+        vbox2=wx.StaticBoxSizer(wx.StaticBox(panel2,-1,'Audio encoding options'),wx.VERTICAL)
+        self.hbox.Add(panel1,1,wx.EXPAND)
+        self.hbox.Add(panel2,1,wx.EXPAND)
+        panel1.SetSizer(vbox1)
+        panel2.SetSizer(vbox2)
+        self.grid1=wx.GridSizer(0,2)
+        self.grid2=wx.GridSizer(0,2)
+        vbox1.Add(self.grid1,0)
+        vbox2.Add(self.grid2,0)
+        self.topvbox.Add((0,5))
+        for name in DV_PREFERENCE_ORDER:
+            i=DV_PREFERENCE_TYPE[name]
+            add=False
+            val=''
             if i['type']==DV_PREFERENCE_TYPE_VIDEO:
-                panel=wx.Panel(self.panel1,-1)
-                self.vbox1.Add(panel)
+                panel=panel1
+                sizer=self.grid1
             elif i['type']==DV_PREFERENCE_TYPE_AUDIO:
-                panel=wx.Panel(self.panel2,-1)
-                self.vbox2.Add(panel)
+                panel=panel2
+                sizer=self.grid2
             else:
-                panel=wx.Panel(self,-1)
-                self.topvbox.Add(panel)
-            sizer=wx.BoxSizer(wx.HORIZONTAL)
-            panel.SetSizer(sizer)
-            sizer.Add(wx.StaticText(panel,-1,i['name']+': '))
-            if i['kind']=='intk':
-                self.controls[name]=wx.SpinCtrl(panel,-1,'')
-                self.controls[name].SetRange(0,4096)
-                sizer.Add(self.controls[name],1,wx.EXPAND|wx.ALL)
-                sizer.Add(wx.StaticText(panel,-1,'k'),0,wx.ALIGN_RIGHT|wx.ALL)
-        self.ShowModal()
-        self.Destroy()
-    def makePref(self,name,kind,label,value):
-        val=self.parent.prefs.get(name)
-        if kind==DV_PREFERENCE_TYPE_VIDEO:
-            panel=wx.Panel(self.panel1,-1)
-            self.vbox1.Add(panel)
-        elif kind==DV_PREFERENCE_TYPE_AUDIO:
-            panel=wx.Panel(self.panel2,-1)
-            self.vbox2.Add(panel)
-        sizer=wx.BoxSizer(wx.HORIZONTAL)
-        panel.SetSizer(sizer)
-        label=wx.StaticText(panel,-1,label+': ')
-        sizer.Add(label,0)
-        if type(value) is types.DictType:
-            self.controls[name]=wx.ComboBox(panel,-1,choices=value,value=val)
-            sizer.Add(self.controls[name],1,wx.EXPAND)
+                panel=self.toppanel
+                sizer=wx.BoxSizer(wx.HORIZONTAL)
+                self.topvbox.Add(sizer,0,wx.EXPAND)
+            if i['kind']!='bool': # Otherwise it's a checkbox, the label goes with it
+                sizer.Add(wx.StaticText(panel,-1,i['name']+': '))
+            if not self.parent.prefs.get(name):
+                val='(default)'
+            if type(i['kind']) is types.DictType:
+                choices=['(default)']
+                for f in i['order']:
+                    choices.append(i['kind'][f])
+                if not val:
+                    val=i['kind'][self.parent.prefs.get(name)]
+                self.controls[name]=self.makeList(i['strict'],choices,panel,val)
+                sizer.Add(self.controls[name])
+            elif i['kind'][0:3]=='int':
+                choices=['(default)']
+                if len(i['kind'])>3:
+                    for f in range(int(i['kind'][i['kind'].find(':')+1:i['kind'].find('-')]),int(i['kind'][i['kind'].find('-')+1:])):
+                        choices.append(str(pow(2,f))+'k')
+                if not val:
+                    val=self.parent.prefs.get(name)
+                self.controls[name]=self.makeList(i['strict'],choices,panel,val)
+                sizer.Add(self.controls[name])
+            elif i['kind'][0]=='%':
+                self.controls[name]=wx.SpinCtrl(panel,-1,initial=100*int(self.parent.prefs.get(name))/int(i['kind'][1:]),min=0,max=200)
+                sizer.Add(self.controls[name])
+            elif i['kind']=='dir':
+                self.controls[name]=wx.TextCtrl(panel,-1,self.parent.prefs.get(name))
+                sizer.Add(self.controls[name],1,wx.EXPAND)
+                button=DamnBrowseDirButton(panel,-1,'Browse...',self.controls[name])
+                sizer.Add(button,0)
+                self.Bind(wx.EVT_BUTTON,button.onBrowse,button)
+            elif i['kind']=='bool':
+                self.controls[name]=wx.CheckBox(panel,-1,i['name'])
+                self.controls[name].SetValue(self.parent.prefs.get(name)=='True')
+                sizer.Add(self.controls[name])
+        tophbox=wx.BoxSizer(wx.HORIZONTAL)
+        self.topvbox.Add(tophbox,0,wx.EXPAND)
+        self.okButton=wx.Button(self.toppanel,-1,'OK')
+        self.Bind(wx.EVT_BUTTON,self.onOK,self.okButton)
+        self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,'Cancel')
+        self.Bind(wx.EVT_BUTTON,self.onClose,self.closeButton)
+        tophbox.Add(wx.StaticText(self.toppanel,-1,''),1,wx.ALIGN_LEFT)
+        tophbox.Add(self.okButton,0,wx.ALIGN_RIGHT)
+        tophbox.Add(self.closeButton,0,wx.ALIGN_RIGHT)
+        self.SetClientSize(self.toppanel.GetBestSize())
+        self.Centre()
+    def makeList(self,strict,choices,panel,value):
+        if strict:
+            cont=wx.Choice(panel,-1,choices=choices)
+            if value=='(default)':
+                cont.SetSelection(0)
+            else:
+                for f in range(len(choices)):
+                    if choices[f]==value:
+                        cont.SetSelection(f)
+        else:
+            cont=wx.ComboBox(panel,-1,choices=choices,value=value)
+        return cont
     def onOK(self,event):
         pass
+    def onClose(self,event):
+        self.Close(True)
 class DamnWait(wx.Dialog): # Modal dialog that displays progress
     def __init__(self,parent,id,title,main):
         wx.Dialog.__init__(self,parent,id,title,size=(250,150),style=wx.CLOSE_BOX)
@@ -326,7 +378,7 @@ class DamnWait(wx.Dialog): # Modal dialog that displays progress
         self.vbox.Add(self.progress,0,wx.ALIGN_CENTRE)
         self.vbox.Add((0,10),0)
         self.close=wx.Button(panel,wx.ID_STOP)
-        wx.EVT_BUTTON(self,wx.ID_STOP,self.onStop)
+        self.Bind(wx.EVT_BUTTON,self.onStop,id=wx.ID_STOP)
         self.vbox.Add(self.close,0,wx.ALIGN_CENTRE)
         self.hbox.Add(panel,1,wx.ALIGN_CENTRE)
         panel.SetSizer(self.vbox)
@@ -489,21 +541,21 @@ class MainFrame(wx.Frame): # The main window
         panel2=wx.Panel(self,-1)
         sizer2=wx.BoxSizer(wx.VERTICAL)
         panel2.SetSizer(sizer2)
-        self.addByFile=wx.Button(panel2,ID_BUTTON_ADD_FILE,'Add Files')
+        self.addByFile=wx.Button(panel2,-1,'Add Files')
         sizer2.Add(self.addByFile,0)
-        self.Bind(wx.EVT_BUTTON,self.onAddFile,id=ID_BUTTON_ADD_FILE)
-        self.addByURL=wx.Button(panel2,ID_BUTTON_ADD_URL,'Add URL')
+        self.Bind(wx.EVT_BUTTON,self.onAddFile,self.addByFile)
+        self.addByURL=wx.Button(panel2,-1,'Add URL')
         sizer2.Add(self.addByURL,0)
-        self.Bind(wx.EVT_BUTTON,self.onAddURL,id=ID_BUTTON_ADD_URL)
-        self.delSelection=wx.Button(panel2,ID_BUTTON_DEL_SELECTION,'Remove')
+        self.Bind(wx.EVT_BUTTON,self.onAddURL,self.addByURL)
+        self.delSelection=wx.Button(panel2,-1,'Remove')
         sizer2.Add(self.delSelection,0)
-        self.Bind(wx.EVT_BUTTON,self.onDelSelection,id=ID_BUTTON_DEL_SELECTION)
-        self.delAll=wx.Button(panel2,ID_BUTTON_DEL_ALL,'Remove all')
+        self.Bind(wx.EVT_BUTTON,self.onDelSelection,self.delSelection)
+        self.delAll=wx.Button(panel2,-1,'Remove all')
         sizer2.Add(self.delAll,0)
-        self.Bind(wx.EVT_BUTTON,self.onDelAll,id=ID_BUTTON_DEL_ALL)
-        self.letsgo=wx.Button(panel2,ID_BUTTON_GO,'Let\'s go!')
+        self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
+        self.letsgo=wx.Button(panel2,-1,'Let\'s go!')
         sizer2.Add(self.letsgo,0)
-        self.Bind(wx.EVT_BUTTON,self.onGo,id=ID_BUTTON_GO)
+        self.Bind(wx.EVT_BUTTON,self.onGo,self.letsgo)
         hbox.Add(panel2,0,wx.EXPAND)
         self.videos=[]
         self.meta={}
@@ -689,6 +741,8 @@ class MainFrame(wx.Frame): # The main window
                 self.wait.Destroy()
     def onPrefs(self,event):
         prefs=DamnVidPrefEditor(None,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
+        prefs.ShowModal()
+        prefs.Destroy()
     def onOpenOutDir(self,event):
         if os.name=='nt':
             os.system('explorer.exe "'+self.prefs.get('Outdir').replace('/',OS_PATH_SEPARATOR)+'"')
