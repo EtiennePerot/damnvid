@@ -7,6 +7,7 @@ import time # Sleepin'
 import urllib # Fetch data from the tubes
 import htmlentitydefs # HTML entities dictionaries
 import signal # Process signals
+import types # Names of built-in types
 try:
     import threading as thr # Threads
 except ImportError:
@@ -21,7 +22,7 @@ DV_CONF_FILE='conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
 DV_LINE_PARSING_STEP=2
 DV_IMAGES_PATH='img/'.replace('/',OS_PATH_SEPARATOR)
 DV_BIN_PATH='bin/'.replace('/',OS_PATH_SEPARATOR)
-DV_LOG_PATH='log/'.replace('/',OS_PATH_SEPARATOR)
+DV_TMP_PATH='log/'.replace('/',OS_PATH_SEPARATOR)
 DV_FILE_EXT={
     'mpeg4':'avi',
     'mpeg1video':'avi',
@@ -35,6 +36,157 @@ DV_FILE_EXT={
     'msmpeg4v2':'avi',
     'wmv1':'wmv',
     'wmv2':'wmv'
+} # This needs to be completed, or just fixed, since the video codec doesn't really define the file extension
+DV_PREFERENCE_TYPE_VIDEO=1
+DV_PREFERENCE_TYPE_AUDIO=2
+DV_PREFERENCE_TYPE_OTHER=3
+DV_PREFERENCE_TYPE={
+    'Encoding_vcodec':{
+        'name':'Codec',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            'mpeg4':'MPEG-4',
+            'mpeg1video':'MPEG-1',
+            'mpeg2video':'MPEG-2',
+            'flv':'Flash Video',
+            'h263p':'H.263+',
+            'h263':'H.263',
+            'h261':'H.261',
+            'msmpeg4':'Microsoft MPEG-4 v3',
+            'msmpeg4v2':'Microsoft MPEG-4 v2',
+            'msmpeg4v1':'Microsoft MPEG-4 v1',
+            'wmv2':'Windows Media Video v2',
+            'wmv1':'Windows Media Video v1'
+        },
+        'strict':False, # ffmpeg encodes in more codecs than that, hopefully, but this should be enough
+        'default':'mpeg4'
+    },
+    'Encoding_pass':{
+        'name':'Number of passes',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            '1':'1 pass',
+            '2':'2 passes'
+        },
+        'strict':True,
+        'default':'1'
+    },
+    'Encoding_b':{
+        'name':'Bitrate',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk', # Int in kilobytes
+        'strict':None,
+        'default':''
+    },
+    'Encoding_bufsize':{
+        'name':'Buffer size',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int',
+        'strict':False,
+        'default':''
+    },
+    'DirRecursion':{
+        'name':'Directory Recursion',
+        'type':DV_PREFERENCE_TYPE_OTHER,
+        'kind':'bool',
+        'strict':True,
+        'default':'True'
+    },
+    'Encoding_ab':{
+        'name':'Bitrate',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':'intk',
+        'strict':True,
+        'default':'128k'
+    },
+    'Encoding_ac':{
+        'name':'Channels',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':{
+            '1':'1 (Mono)',
+            '2':'2 (Stereo)'
+        },
+        'strict':True,
+        'default':'1'
+    },
+    'Encoding_r':{
+        'name':'Frames per second',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int',
+        'strict':False,
+        'default':''
+    },
+    'Encoding_vol':{
+        'name':'Volume',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':'%256',
+        'strict':False,
+        'default':'256'
+    },
+    'Encoding_minrate':{
+        'name':'Minimum bitrate',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk',
+        'strict':False,
+        'default':''
+    },
+    'Encoding_maxrate':{
+        'name':'Maximum bitrate',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk',
+        'strict':False,
+        'default':''
+    },
+    'Encoding_acodec':{
+        'name':'Codec',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':{
+            'libmp3lame':'MP3',
+            'mp2':'MP2',
+            'ac3':'AC-3',
+            'flac':'FLAC',
+            'libfaac':'libfaac AAC',
+            'vorbis':'Vorbis',
+            'wmav2':'Windows Media Audio v2',
+            'wmav1':'Windows Media Audio v1'
+        },
+        'strict':False,
+        'default':''
+    },
+    'Encoding_g':{
+        'name':'Group of pictures size',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int',
+        'strict':False,
+        'default':''
+    },
+    'Encoding_ar':{
+        'name':'Sampling frequency',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':{
+            '11250':'11250 Hz',
+            '22500':'11250 Hz',
+            '44100':'44100 Hz',
+            '48000':'48000 Hz',
+            '96000':'96000 Hz'
+        },
+        'strict':True,
+        'default':'44100'
+    },
+    'Encoding_bt':{
+        'name':'Bitrate tolerance',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk',
+        'strict':False,
+        'default':''
+    },
+    'Outdir':{
+        'name':'Output directory',
+        'type':DV_PREFERENCE_TYPE_OTHER,
+        'kind':'path',
+        'strict':True,
+        'default':'output/'
+    }
 }
 # Begin ID constants
 ID_MENU_EXIT=101
@@ -99,11 +251,63 @@ class DamnVidPrefs: # Preference manager... Should have used wx.Config
             f.write("\r\n"+i+'='+str(self.conf[i]).replace(OS_PATH_SEPARATOR,'/'))
         f.close()
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
-    def __init__(self,parent,id,title):
+    def __init__(self,parent,id,title,main):
         wx.Dialog.__init__(self,parent,id,title)
+        self.parent=main
+        self.controls={}
+        self.topvbox=wx.BoxSizer(wx.VERTICAL)
+        self.hbox=wx.BoxSizer(wx.HORIZONTAL)
+        self.audiovideopanel=wx.Panel(self,-1)
+        self.topvbox.Add(self.audiovideopanel,1,wx.EXPAND)
+        self.audiovideopanel.SetSizer(self.hbox)
+        self.SetSizer(self.topvbox)
+        self.panel1=wx.Panel(self.audiovideopanel,-1)
+        self.panel2=wx.Panel(self.audiovideopanel,-1)
+        self.box1=wx.StaticBox(self.panel1,-1,'Video encoding options')
+        self.vbox1=wx.StaticBoxSizer(self.box1,wx.VERTICAL)
+        self.box2=wx.StaticBox(self.panel2,-1,'Audio encoding options')
+        self.vbox2=wx.StaticBoxSizer(self.box2,wx.VERTICAL)
+        self.hbox.Add(self.panel1,1,wx.EXPAND)
+        self.hbox.Add(self.panel2,1,wx.EXPAND)
+        self.panel1.SetSizer(self.vbox1)
+        self.panel2.SetSizer(self.vbox2)
+        for name,i in DV_PREFERENCE_TYPE.iteritems():
+            val=self.parent.prefs.get(name)
+            if i['type']==DV_PREFERENCE_TYPE_VIDEO:
+                panel=wx.Panel(self.panel1,-1)
+                self.vbox1.Add(panel)
+            elif i['type']==DV_PREFERENCE_TYPE_AUDIO:
+                panel=wx.Panel(self.panel2,-1)
+                self.vbox2.Add(panel)
+            else:
+                panel=wx.Panel(self,-1)
+                self.topvbox.Add(panel)
+            sizer=wx.BoxSizer(wx.HORIZONTAL)
+            panel.SetSizer(sizer)
+            sizer.Add(wx.StaticText(panel,-1,i['name']+': '))
+            if i['kind']=='intk':
+                self.controls[name]=wx.SpinCtrl(panel,-1,'')
+                self.controls[name].SetRange(0,4096)
+                sizer.Add(self.controls[name],1,wx.EXPAND|wx.ALL)
+                sizer.Add(wx.StaticText(panel,-1,'k'),0,wx.ALIGN_RIGHT|wx.ALL)
+        self.ShowModal()
+        self.Destroy()
+    def makePref(self,name,kind,label,value):
+        val=self.parent.prefs.get(name)
+        if kind==DV_PREFERENCE_TYPE_VIDEO:
+            panel=wx.Panel(self.panel1,-1)
+            self.vbox1.Add(panel)
+        elif kind==DV_PREFERENCE_TYPE_AUDIO:
+            panel=wx.Panel(self.panel2,-1)
+            self.vbox2.Add(panel)
+        sizer=wx.BoxSizer(wx.HORIZONTAL)
+        panel.SetSizer(sizer)
+        label=wx.StaticText(panel,-1,label+': ')
+        sizer.Add(label,0)
+        if type(value) is types.DictType:
+            self.controls[name]=wx.ComboBox(panel,-1,choices=value,value=val)
+            sizer.Add(self.controls[name],1,wx.EXPAND)
     def onOK(self,event):
-        pass
-    def onCancel(self,event):
         pass
 class DamnWait(wx.Dialog): # Modal dialog that displays progress
     def __init__(self,parent,id,title,main):
@@ -153,7 +357,7 @@ class DamnConverter(thr.Thread): # The actual converter
                 s+=i+' '
         return s[0:len(s)-1]
     def run(self):
-        cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',self.uri,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_LOG_PATH+'pass']
+        cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',self.uri,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
         options=('vcodec','b','g','acodec','ab','ar','r','bt','maxrate','minrate','bufsize','pass','ac','vol')
         for i in options:
             pref=self.parent.prefs.get('Encoding_'+i)
@@ -171,13 +375,13 @@ class DamnConverter(thr.Thread): # The actual converter
                 c=c+1
             self.filename=self.filename+' ('+str(c)+')'
         self.filename=self.filename+ext
-        cmd.append(self.parent.prefs.get('Outdir')+self.filename)
+        cmd.append(DV_TMP_PATH+self.filename)
         self.duration=None
         self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.i]]['fromfile']+' to '+self.filename+'...')
         self.parent.wait.progress.SetLabel(str(self.i+1)+'/'+str(len(self.parent.videos)))
         self.parent.wait.vbox.Layout()
         self.parent.wait.hbox.Layout()
-        self.process=subprocess.Popen(self.cmd2str(cmd)+' >&2',shell=True,stderr=subprocess.PIPE)
+        self.process=subprocess.Popen(self.cmd2str(cmd),shell=False,stderr=subprocess.PIPE)
         self.abort=False
         curline=''
         self.curstep=0 # This is to prevent overparsing and slowing down by parsing EVERY line from stderr. Instead, only one line out of DV_LINE_PARSING_STEP (defined in the constants) will be parsed
@@ -190,9 +394,13 @@ class DamnConverter(thr.Thread): # The actual converter
         result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
         time.sleep(.5) # Wait a bit
         self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
-        for i in os.listdir(DV_LOG_PATH):
+        if self.abort and result and os.path.lexists(self.parent.prefs.get('Outdir')+self.filename):
+            os.remove(self.parent.prefs.get('Outdir')+self.filename) # Delete the output file if ffmpeg has been aborted and exitted with a bad return code
+        for i in os.listdir(DV_TMP_PATH):
             if i[-4:].lower()=='.log':
-                os.remove(DV_LOG_PATH+i)
+                os.remove(DV_TMP_PATH+i)
+            if i==self.filename:
+                os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
         self.parent.go(self.i,result,self.abort)
     def parseLine(self,line):
         if self.duration==None:
@@ -373,7 +581,7 @@ class MainFrame(wx.Frame): # The main window
                     if match:
                         uri='yt:'+match.group(1)
                         name=self.getVidName(uri)
-                        self.addValid({'name':name,'fromfile':name,'dirname':'YouTube','uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
+                        self.addValid({'name':name,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
                     else:
                         name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
                         self.addValid({'name':name,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
@@ -465,13 +673,22 @@ class MainFrame(wx.Frame): # The main window
             dlg.ShowModal()
             dlg.Destroy()
         else:
-            self.thisbatch=[]
-            self.go(-1,None)
-            self.wait=DamnWait(None,-1,'Converting, please wait...',main=self)
-            self.wait.ShowModal()
-            self.wait.Destroy()
+            success=0
+            for i in self.videos:
+                if self.meta[i]['status']=='Success!':
+                    success=success+1
+            if success==len(self.videos):
+                dlg=wx.MessageDialog(None,'All videos in the list have already been processed!','Already done',wx.OK|wx.ICON_INFORMATION)
+                dlg.ShowModal()
+                dlg.Destroy()
+            else:
+                self.thisbatch=[]
+                self.go(-1,None)
+                self.wait=DamnWait(None,-1,'Converting, please wait...',main=self)
+                self.wait.ShowModal()
+                self.wait.Destroy()
     def onPrefs(self,event):
-        pass
+        prefs=DamnVidPrefEditor(None,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
     def onOpenOutDir(self,event):
         if os.name=='nt':
             os.system('explorer.exe "'+self.prefs.get('Outdir').replace('/',OS_PATH_SEPARATOR)+'"')
