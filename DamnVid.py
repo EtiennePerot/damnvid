@@ -612,7 +612,6 @@ class DamnConverter(thr.Thread): # The actual converter
             self.parent.list.SetStringItem(self.i,ID_COL_VIDSTAT,'Failure.')
         self.parent.go(self.abort)
     def parseLine(self,line):
-        print line
         if self.duration==None:
             res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
             if res:
