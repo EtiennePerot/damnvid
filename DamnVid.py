@@ -22,7 +22,7 @@ DV_CONF_FILE='conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
 DV_LINE_PARSING_STEP=2
 DV_IMAGES_PATH='img/'.replace('/',OS_PATH_SEPARATOR)
 DV_BIN_PATH='bin/'.replace('/',OS_PATH_SEPARATOR)
-DV_TMP_PATH='log/'.replace('/',OS_PATH_SEPARATOR)
+DV_TMP_PATH='temp/'.replace('/',OS_PATH_SEPARATOR)
 DV_FILE_EXT={
     'mpeg4':'avi',
     'mpeg1video':'avi',
@@ -211,23 +211,78 @@ REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration: (\\d+):(\\d\\d):([.\\d]
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
 REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;\w]*)?$',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
+REGEX_HTTP_GVIDEO=re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE)
+REGEX_HTTP_VEOH=re.compile('^https?://(?:[-_\w]+\.)*veoh\.com/videos/',re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
 REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
 REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
 REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE_TITLE_EXTRACT=re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE_TICKET_EXTRACT=re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2')
+REGEX_HTTP_GVIDEO_TITLE_EXTRACT=REGEX_HTTP_GENERIC_TITLE_EXTRACT
+REGEX_HTTP_GVIDEO_TICKET_EXTRACT=re.compile('If the download does not start automatically, right-click <a href="([^"]+)"',re.IGNORECASE)
+REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('<title>\s*([^<>]+) : Online Video \| Veoh Video Network</title>',re.IGNORECASE)
+REGEX_HTTP_VEOH_ID_EXTRACT=re.compile('permalinkId=(\\w+)',re.IGNORECASE)
+REGEX_HTTP_VEOH_SUBID_EXTRACT=re.compile('^\\w+?(\\d+).*$')
+REGEX_HTTP_VEOH_TICKET_EXTRACT=re.compile('fullPreviewHashPath="([^"]+)"',re.IGNORECASE)
 # End constants
-class DropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
-    def __init__(self,window):
-        wx.FileDropTarget.__init__(self)
-        self.window=window
-    def OnDropFiles(self,x,y,filenames):
-        self.window.addVid(filenames)
-class TehList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
+class DamnDropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
     def __init__(self,parent):
+        wx.FileDropTarget.__init__(self)
+        self.parent=parent
+    def OnDropFiles(self,x,y,filenames):
+        self.parent.addVid(filenames)
+class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the DamnList
+    def __init__(self,parent):
+        wx.Menu.__init__(self)
+        self.parent=parent
+        self.items=self.parent.getAllSelectedItems()
+        moveup=wx.MenuItem(self,-1,'Move up')
+        self.AppendItem(moveup)
+        moveup.Enable(self.items[0]>0)
+        self.Bind(wx.EVT_MENU,self.parent.parent.onMoveUp,moveup)
+        movedown=wx.MenuItem(self,-1,'Move down')
+        self.AppendItem(movedown)
+        movedown.Enable(self.items[-1]<self.parent.GetItemCount()-1)
+        self.Bind(wx.EVT_MENU,self.parent.parent.onMoveDown,movedown)
+        stop=wx.MenuItem(self,-1,'Stop')
+        self.AppendItem(stop)
+        stop.Enable(self.parent.parent.converting in self.items)
+        self.Bind(wx.EVT_MENU,self.parent.parent.onStop,stop)
+        remove=wx.MenuItem(self,-1,'Remove from list')
+        self.AppendItem(remove)
+        remove.Enable(self.parent.parent.converting not in self.items)
+        self.Bind(wx.EVT_MENU,self.parent.parent.onDelSelection,remove)
+class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
+    def __init__(self,parent,window):
         wx.ListCtrl.__init__(self,parent,-1,style=wx.LC_REPORT)
         ListCtrlAutoWidthMixin.__init__(self)
+        self.parent=window # "parent" is the panel
+    def onRightClick(self,event):
+        p=self.HitTest(event.GetPosition())
+        if p[0]!=-1:
+            if not self.IsSelected(p[0]):
+                self.clearAllSelectedItems()
+                self.Select(p[0],on=1) # Select pointed item
+        else:
+            self.clearAllSelectedItems()
+        if self.GetSelectedItemCount():
+            self.PopupMenu(DamnListContextMenu(self),event.GetPosition())
+    def getAllSelectedItems(self):
+        items=[]
+        i=self.GetFirstSelected()
+        while i!=-1:
+            items.append(i)
+            i=self.GetNextSelected(i)
+        return items
+    def clearAllSelectedItems(self):
+        for i in self.getAllSelectedItems():
+            self.Select(i,on=0)
+    def invertItems(self,i1,i2):
+        for i in range(self.GetColumnCount()):
+            tmp=[self.GetItem(i1,i).GetText(),self.GetItem(i1,i).GetImage()]
+            self.SetStringItem(i1,i,self.GetItem(i2,i).GetText(),self.GetItem(i2,i).GetImage())
+            self.SetStringItem(i2,i,tmp[0],tmp[1])
 class DamnVidPrefs: # Preference manager... Should have used wx.Config
     def __init__(self):
         self.conf={}
@@ -478,6 +533,18 @@ class DamnConverter(thr.Thread): # The actual converter
                 res=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
                 if res:
                     return 'http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)+'&fmt=18' # If there's no match, ffmpeg will error by itself.
+        elif uri[0:3]=='gv:':
+            html=urllib.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
+            for i in html:
+                res=REGEX_HTTP_GVIDEO_TICKET_EXTRACT.search(i)
+                if res:
+                    return res.group(1)
+        elif uri[0:3]=='vh:':
+            html=urllib.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findById&videoId='+REGEX_HTTP_VEOH_SUBID_EXTRACT.sub('\\1',uri[3:])+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
+            for i in html:
+                res=REGEX_HTTP_VEOH_TICKET_EXTRACT.search(i)
+                if res:
+                    return res.group(1)
         return uri
     def cmd2str(self,cmd):
         s=''
@@ -488,6 +555,9 @@ class DamnConverter(thr.Thread): # The actual converter
                 s+=i+' '
         return s[0:len(s)-1]
     def run(self):
+        self.parent.gauge1.SetValue(0.0)
+        self.parent.gauge2.SetValue(100.0*float(self.parent.thisbatch-1)/len(self.parent.videos))
+        self.parent.thisvideo.append(self.parent.videos[self.i])
         cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',self.uri,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
         for i in DV_PREFERENCE_ORDER:
             if i[0:9]=='Encoding_':
@@ -495,7 +565,7 @@ class DamnConverter(thr.Thread): # The actual converter
                 if pref:
                     if type(DV_PREFERENCE_TYPE[i]['kind']) is types.StringType:
                         if DV_PREFERENCE_TYPE[i]['kind'][0]=='%':
-                            pref=str(int(pref)) # Round
+                            pref=str(round(float(pref),0)) # Round
                     cmd.extend(['-'+i[9:],pref])
         self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.i]]['name'])
         vcodec=self.parent.prefs.get('Encoding_vcodec')
@@ -512,9 +582,6 @@ class DamnConverter(thr.Thread): # The actual converter
         cmd.append(DV_TMP_PATH+self.filename)
         self.duration=None
         self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.i]]['fromfile']+' to '+self.filename+'...')
-        self.parent.wait.progress.SetLabel(str(self.i+1)+'/'+str(len(self.parent.videos)))
-        self.parent.wait.vbox.Layout()
-        self.parent.wait.hbox.Layout()
         self.process=subprocess.Popen(self.cmd2str(cmd),shell=False,stderr=subprocess.PIPE)
         self.abort=False
         curline=''
@@ -525,18 +592,27 @@ class DamnConverter(thr.Thread): # The actual converter
             if c=="\r" or c=="\n":
                 self.parseLine(curline)
                 curline=''
+        self.parent.gauge1.SetValue(100.0)
+        self.parent.gauge2.SetValue(100.0*float(self.parent.thisbatch)/len(self.parent.videos))
         result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
-        time.sleep(.5) # Wait a bit
+        time.sleep(.25) # Wait a bit
         self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
-        if self.abort and result and os.path.lexists(self.parent.prefs.get('Outdir')+self.filename):
+        if result and os.path.lexists(self.parent.prefs.get('Outdir')+self.filename):
             os.remove(self.parent.prefs.get('Outdir')+self.filename) # Delete the output file if ffmpeg has been aborted and exitted with a bad return code
         for i in os.listdir(DV_TMP_PATH):
             if i[-4:].lower()=='.log':
                 os.remove(DV_TMP_PATH+i)
             if i==self.filename:
                 os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
-        self.parent.go(self.i,result,self.abort)
+        if not result:
+            self.parent.meta[self.parent.videos[self.i]]['status']='Success!'
+            self.parent.list.SetStringItem(self.i,ID_COL_VIDSTAT,'Success!')
+        else:
+            self.parent.meta[self.parent.videos[self.i]]['status']='Failure.'
+            self.parent.list.SetStringItem(self.i,ID_COL_VIDSTAT,'Failure.')
+        self.parent.go(self.abort)
     def parseLine(self,line):
+        print line
         if self.duration==None:
             res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
             if res:
@@ -547,10 +623,10 @@ class DamnConverter(thr.Thread): # The actual converter
                 self.curstep=0
                 res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
                 if res:
-                    self.parent.wait.gauge.SetValue(float(self.i+float(res.group(1))/self.duration)/float(len(self.parent.videos))*100)
+                    self.parent.gauge1.SetValue(float(res.group(1))/self.duration*100.0)
+                    self.parent.gauge2.SetValue(float(self.parent.thisbatch+float(res.group(1))/self.duration)/float(len(self.parent.videos))*100.0)
     def abortProcess(self): # FIXME, I tried stdin.write('q') but seems not to be working?
         self.abort=True # This prevents the converter from going to the next file
-        self.parent.wait.close.Disable() # Disable the Stop button
         if os.name=='nt':
             subprocess.Popen('TASKKILL /PID '+str(self.process.pid)+' /F').wait()
         elif os.name=='mac':
@@ -593,12 +669,14 @@ class MainFrame(wx.Frame): # The main window
         self.menubar.Append(vidmenu,'&DamnVid')
         self.menubar.Append(halpmenu,'&Help')
         self.SetMenuBar(self.menubar)
+        vbox=wx.BoxSizer(wx.VERTICAL)
         hbox=wx.BoxSizer(wx.HORIZONTAL)
-        self.SetSizer(hbox)
+        self.SetSizer(vbox)
+        vbox.Add(hbox,1,wx.EXPAND)
         panel1=wx.Panel(self,-1)
         hbox2=wx.BoxSizer(wx.HORIZONTAL)
         panel1.SetSizer(hbox2)
-        self.list=TehList(panel1)
+        self.list=DamnList(panel1,window=self)
         self.list.InsertColumn(ID_COL_VIDNAME,'Name')
         self.list.SetColumnWidth(ID_COL_VIDNAME,width=120)
         self.list.InsertColumn(ID_COL_VIDPATH,'Path')
@@ -610,8 +688,11 @@ class MainFrame(wx.Frame): # The main window
         self.ID_ICON_LOCAL=il.Add(wx.Bitmap(DV_IMAGES_PATH+'video.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_ONLINE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'online.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_YOUTUBE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtube.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_GVIDEO=il.Add(wx.Bitmap(DV_IMAGES_PATH+'googlevideo.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_VEOH=il.Add(wx.Bitmap(DV_IMAGES_PATH+'veoh.png',wx.BITMAP_TYPE_PNG))
         self.list.AssignImageList(il,wx.IMAGE_LIST_SMALL)
-        self.list.SetDropTarget(DropHandler(self))
+        self.list.SetDropTarget(DamnDropHandler(self))
+        self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
         tmppanel=wx.Panel(self,-1)
         tmpsizer=wx.BoxSizer(wx.HORIZONTAL)
         tmppanel.SetSizer(tmpsizer)
@@ -635,14 +716,37 @@ class MainFrame(wx.Frame): # The main window
         self.delAll=wx.Button(panel2,-1,'Remove all')
         sizer2.Add(self.delAll,0)
         self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
-        self.letsgo=wx.Button(panel2,-1,'Let\'s go!')
-        sizer2.Add(self.letsgo,0)
-        self.Bind(wx.EVT_BUTTON,self.onGo,self.letsgo)
+        self.gobutton1=wx.Button(panel2,-1,'Let\'s go!')
+        sizer2.Add(self.gobutton1,0)
+        self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton1)
         hbox.Add(panel2,0,wx.EXPAND)
+        grid=wx.FlexGridSizer(2,4)
+        bottompanel=wx.Panel(self,-1)
+        bottompanel.SetSizer(grid)
+        vbox.Add((5,0))
+        vbox.Add(bottompanel,0,wx.EXPAND)
+        grid.Add(wx.StaticText(bottompanel,-1,'Current video:'),0)
+        self.gauge1=wx.Gauge(bottompanel,-1)
+        grid.Add(self.gauge1,1,wx.EXPAND)
+        self.gobutton2=wx.Button(bottompanel,-1,'Let\'s go!')
+        self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton2)
+        grid.Add(wx.StaticText(bottompanel,-1,''),0)
+        grid.Add(self.gobutton2,0)
+        grid.Add(wx.StaticText(bottompanel,-1,'Total progress:'),0)
+        self.gauge2=wx.Gauge(bottompanel,-1)
+        grid.Add(self.gauge2,1,wx.EXPAND)
+        self.stopbutton=wx.Button(bottompanel,-1,'Stop')
+        self.stopbutton.Disable()
+        self.Bind(wx.EVT_BUTTON,self.onStop,self.stopbutton)
+        grid.Add(wx.StaticText(bottompanel,-1,''),0)
+        grid.Add(self.stopbutton,0)
+        grid.AddGrowableCol(1,1) # Make the second column (progress bars) growable
         self.videos=[]
+        self.thisbatch=0
+        self.thisvideo=[]
         self.meta={}
         self.prefs=DamnVidPrefs()
-        self.converting=False
+        self.converting=-1
         self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
     def onExit(self,event):
         self.Close(True)
@@ -701,6 +805,22 @@ class MainFrame(wx.Frame): # The main window
                 
             except:
                 pass # Can't grab this? Return Unknown title
+        elif uri[0:3]=='gv:':
+            try:
+                html=urllib.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
+                for i in html:
+                    res=REGEX_HTTP_GVIDEO_TITLE_EXTRACT.search(i)
+                    if res:
+                        return self.noHtmlEnt(res.group(1))
+                    else:
+                        res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
+                        if res:
+                            return self.noHtmlEnt(res.group(1))
+                        else:
+                            pass # Return Unknown title
+                
+            except:
+                pass # Can't grab this? Return Unknown title
         return 'Unknown title'
     def noHtmlEnt(self,html): # Replaces HTML entities from html
         for i in htmlentitydefs.entitydefs.iterkeys():
@@ -716,6 +836,28 @@ class MainFrame(wx.Frame): # The main window
                         uri='yt:'+match.group(1)
                         name=self.getVidName(uri)
                         self.addValid({'name':name,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
+                    #elif REGEX_HTTP_GVIDEO.search(uri):
+                        #match=REGEX_HTTP_GVIDEO.search(uri)
+                        #uri='gv:'+match.group(1)
+                        #name=self.getVidName(uri)
+                        #self.addValid({'name':name,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_GVIDEO})
+                    elif REGEX_HTTP_VEOH.search(uri):
+                        html=urllib.urlopen(uri) # Gotta download it right there instead of downloading it twice with the getVidName function
+                        name='Unknown title'
+                        Id=''
+                        for i in html:
+                            match=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
+                            if match:
+                                name=self.noHtmlEnt(match.group(1))
+                            else:
+                                match=REGEX_HTTP_VEOH_ID_EXTRACT.search(i)
+                                if match:
+                                    Id=match.group(1)
+                        if Id:
+                            uri='vh:'+Id
+                            self.addValid({'name':name,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.ID_ICON_VEOH})
+                        else:
+                            self.SetStatusText('Couldn\'t detect Veoh video.')
                     else:
                         name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
                         self.addValid({'name':name,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
@@ -757,53 +899,40 @@ class MainFrame(wx.Frame): # The main window
         self.videos.append(meta['uri'])
         self.meta[meta['uri']]=meta
         self.SetStatusText('Added '+meta['name']+'.')
-    def go(self,i,result,aborted=False):
-        if result is not None:
-            if not result:
-                self.meta[self.videos[i]]['status']='Success!'
-                self.list.SetStringItem(i,ID_COL_VIDSTAT,'Success!')
-            else:
-                self.meta[self.videos[i]]['status']='Failure.'
-                self.list.SetStringItem(i,ID_COL_VIDSTAT,'Failure.')
-        i=i+1 # Next~
-        if len(self.videos)>i and not aborted:
+    def go(self,result,aborted=False):
+        self.converting=-1
+        for i in range(len(self.videos)):
+            if self.videos[i] not in self.thisvideo:
+                self.converting=i
+                break
+        if self.converting!=-1 and not aborted:
             # Let's go for the actual conversion...
-            if self.meta[self.videos[i]]['status']=='Success!':
-                self.go(i,0) # Skip current video and go to the next one
-            else:
-                self.meta[self.videos[i]]['status']='Converting...'
-                self.list.SetStringItem(i,ID_COL_VIDSTAT,'Converting...')
-                self.thisbatch.append(i)
-                self.thread=DamnConverter(i=i,parent=self)
-                self.thread.start()
+            self.meta[self.videos[self.converting]]['status']='Converting...'
+            self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,'Converting...')
+            self.thisbatch=self.thisbatch+1
+            self.thread=DamnConverter(i=self.converting,parent=self)
+            self.thread.start()
         else:
             self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
-            success=0
-            failure=0
-            for i in self.thisbatch:
-                if self.meta[self.videos[i]]['status']=='Success!':
-                    success=success+1
-                elif self.meta[self.videos[i]]['status']=='Failure.':
-                    failure=failure+1
-            if aborted:
-                if result:
-                    failure=failure-1
-                else:
-                    success=succes-1
-            total=success+failure # Note: CANNOT use len(self.videos) for the total, because it's not true if the user aborted the process.
-            if total:
-                dlg=wx.MessageDialog(None,str(total)+' video(s) was/were processed.\r\nResults:\r\nSuccess: '+str(success)+' file(s)\r\nFailure: '+str(failure)+' file(s)\r\nDamnVid '+DV_VERSION+' is '+str(round(float(success)/float(total)*100,0))+'% successful.\r\n\r\nWant to open the output directory?','Done!',wx.YES_NO|wx.ICON_INFORMATION)
+            if self.thisbatch:
+                dlg=wx.MessageDialog(None,str(self.thisbatch)+' video(s) was/were processed.\r\nWant to open the output directory?','Done!',wx.YES_NO|wx.ICON_INFORMATION)
             else:
                 dlg=wx.MessageDialog(None,'No videos were processed.','Aborted',wx.OK|wx.ICON_INFORMATION)
             if dlg.ShowModal()==wx.ID_YES:
                 self.onOpenOutDir(None)
-            try:
-                self.wait.Close(True)
-            except:
-                pass # If all videos were successful and the user presses Go again, DamnWait doesn't show, and the Close() method raises a PyDeadObjectError
+            self.converting=-1
+            self.stopbutton.Disable()
+            self.gobutton1.Enable()
+            self.gobutton2.Enable()
+            self.gauge1.SetValue(0.0)
+            self.gauge2.SetValue(0.0)
     def onGo(self,event):
         if not len(self.videos):
             dlg=wx.MessageDialog(None,'Put some videos in the list first!','No videos!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.ShowModal()
+            dlg.Destroy()
+        elif self.converting!=-1:
+            dlg=wx.MessageDialog(None,'DamnVid '+DV_VERSION+' is already converting!','Already converting!',wx.ICON_EXCLAMATION|wx.OK)
             dlg.ShowModal()
             dlg.Destroy()
         else:
@@ -816,18 +945,41 @@ class MainFrame(wx.Frame): # The main window
                 dlg.ShowModal()
                 dlg.Destroy()
             else:
-                self.thisbatch=[]
-                self.go(-1,None)
-                self.wait=DamnWait(None,-1,'Converting, please wait...',main=self)
-                self.wait.ShowModal()
-                self.wait.Destroy()
+                self.thisbatch=0
+                self.thisvideo=[]
+                self.stopbutton.Enable()
+                self.gobutton1.Disable()
+                self.gobutton2.Disable()
+                self.go(None)
+    def onStop(self,event):
+        self.thread.abortProcess()
+    def invertVids(self,i1,i2):
+        tmp=self.videos[i1]
+        self.videos[i1]=self.videos[i2]
+        self.videos[i2]=tmp
+        tmp=self.list.IsSelected(i2)
+        self.list.Select(i2,on=self.list.IsSelected(i1))
+        self.list.Select(i1,on=tmp)
+        self.list.invertItems(i1,i2)
+        if i1==self.converting:
+            self.thread.i=i2
+            self.converting=i2
+        elif i2==self.converting:
+            self.thread.i=i1
+            self.converting=i1
+    def onMoveUp(self,event):
+        for i in self.list.getAllSelectedItems():
+            self.invertVids(i,i-1)
+    def onMoveDown(self,event):
+        for i in reversed(self.list.getAllSelectedItems()):
+            self.invertVids(i,i+1)
     def onPrefs(self,event):
         prefs=DamnVidPrefEditor(None,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
         prefs.ShowModal()
         prefs.Destroy()
     def onOpenOutDir(self,event):
         if os.name=='nt':
-            os.system('explorer.exe "'+self.prefs.get('Outdir').replace('/',OS_PATH_SEPARATOR)+'"')
+            os.system('explorer.exe "'+self.prefs.get('Outdir').replace('%CWD%',os.getcwd()).replace('/',OS_PATH_SEPARATOR)+'"')
         else:
             pass # Halp here?
     def onHalp(self,event):
@@ -851,6 +1003,9 @@ class MainFrame(wx.Frame): # The main window
             for i in reversed(items): # Sequence MUST be reversed, otherwise the first items get deleted first, which changes the indexes of the following items
                 self.list.DeleteItem(i)
                 self.videos.pop(i)
+                if i<self.converting:
+                    self.converting=self.converting-1
+                    self.thread.i=self.thread.i-1
         else:
             dlg=wx.MessageDialog(None,'You must select some videos from the list first!','Select some videos!',wx.ICON_EXCLAMATION|wx.OK)
             dlg.ShowModal()
@@ -858,6 +1013,8 @@ class MainFrame(wx.Frame): # The main window
     def onDelAll(self,event):
         dlg=wx.MessageDialog(None,'Are you sure? (This will not delete any files, it will just remove them from the list.)','Confirmation',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
         if dlg.ShowModal()==wx.ID_YES:
+            if self.converting!=-1:
+                self.onStop(None) # Stop conversion if it's in progress
             self.list.DeleteAllItems()
             del self.videos
             self.videos=[]
@@ -868,6 +1025,5 @@ class DamnVid(wx.App):
         frame.Show(True)
         frame.Centre()
         return True
-
 app=DamnVid(0)
 app.MainLoop()
