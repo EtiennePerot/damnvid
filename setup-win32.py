@@ -5,10 +5,11 @@ import shutil
 
 images=[]
 version='0.1'
+path2src='../../DamnVid/'
 description='Converts any damn video to any format. Also supports online video downloading and converting.'
-for i in os.listdir('img/'):
+for i in os.listdir(path2src+'img/'):
     if i[-4:].lower()=='.png' or i[-4:].lower()=='.jpg' or i[-4:].lower()=='.gif':
-        images.append('img/'+i)
+        images.append(path2src+'img/'+i)
 class Target:
     def __init__(self,**kw):
         self.__dict__.update(kw)
@@ -55,14 +56,14 @@ setup(
     author='WindPower',
     author_email='windypower@gmail.com',
     url='http://code.google.com/p/damnvid/',
-    windows=['DamnVid.py'],
+    windows=[path2src+'DamnVid.py'],
     data_files=[
-        ('output',['output/!readme.txt']),
-        ('temp',['temp/!readme.txt']),
-        ('bin',['bin/ffmpeg.exe','bin/SDL.dll']),
+        ('output',[path2src+'output/!readme.txt']),
+        ('temp',[path2src+'temp/!readme.txt']),
+        ('bin',[path2src+'bin/ffmpeg.exe',path2src+'bin/SDL.dll']),
         ('img',images),
-        ('conf',['conf/!readme.txt','conf/conf.ini','conf/default.ini'])
+        ('conf',[path2src+'conf/!readme.txt',path2src+'conf/conf.ini',path2src+'conf/default.ini'])
     ]
 )
-shutil.copyfile('DamnVid.exe.manifest','dist/DamnVid.exe.manifest')
+shutil.copyfile(path2src+'DamnVid.exe.manifest','dist/DamnVid.exe.manifest')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\gdiplus.dll','dist/gdiplus.dll')
