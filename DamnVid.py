@@ -9,6 +9,7 @@ import urllib # Fetch data from the tubes
 import htmlentitydefs # HTML entities dictionaries
 import signal # Process signals
 import types # Names of built-in types
+import webbrowser # Open a page in default browser
 if os.name=='nt':
     import win32process
 try:
@@ -22,6 +23,10 @@ else:
     OS_PATH_SEPARATOR='/'
 DV_VERSION='0.1'
 DV_URL='http://code.google.com/p/damnvid/'
+DV_URL_HALP='http://code.google.com/p/damnvid/wiki/Help'
+DV_URL_UPDATE='http://code.google.com/p/damnvid/wiki/CurrentVersion'
+DV_URL_DOWNLOAD='http://code.google.com/p/damnvid/downloads/'
+DV_ICON=None # This will be defined when DamnMainFrame is initialized
 DV_CONF_FILE='conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
 DV_IMAGES_PATH='img/'.replace('/',OS_PATH_SEPARATOR)
 DV_BIN_PATH='bin/'.replace('/',OS_PATH_SEPARATOR)
@@ -205,11 +210,13 @@ ID_MENU_GO=104
 ID_MENU_PREFERENCES=105
 ID_MENU_OUTDIR=106
 ID_MENU_HALP=107
+ID_MENU_UPDATE=108
 ID_MENU_ABOUT=109
 ID_COL_VIDNAME=0
 ID_COL_VIDSTAT=1
 ID_COL_VIDPATH=2
 # Begin regex constants
+REGEX_DAMNVID_VERSION_CHECK=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
 REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration: (\\d+):(\\d\\d):([.\\d]+),',re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
 REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;\w]*)?$',re.IGNORECASE)
@@ -309,10 +316,12 @@ class DamnEEgg(wx.Dialog):
         self.vbox=wx.BoxSizer(wx.VERTICAL)
         self.panel.SetSizer(self.vbox)
         self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'stoat.jpg')),0,wx.ALIGN_CENTER)
+        self.AddText('DamnVid '+DV_VERSION+' is 100% stoat-powered, and proud of it.')
+        self.AddText('No stoats were harmed (much) during DamnVid\'s development. Ya rly.',True)
         self.AddText('Praise the *Secret Stoat* and all it stands for: WIN.',True)
-        self.vbox.Add((0,10))
+        self.vbox.Add((0,5))
         self.AddText('Definitions of *WIN* on the Web:',True)
-        self.vbox.Add((0,10))
+        self.vbox.Add((0,5))
         self.AddText('- be the winner in a contest or competition; be victorious; "He won the Gold Medal in skating"; "Our home team won"; "Win the game"')
         self.AddText('- acquire: win something through one\'s efforts; "I acquired a passing knowledge of Chinese"; "Gain an understanding of international finance"')
         self.AddText('- gain: obtain advantages, such as points, etc.; "The home team was gaining ground"')
@@ -333,8 +342,8 @@ class DamnEEgg(wx.Dialog):
                 strings[-1]+=i
         hbox=wx.BoxSizer(wx.HORIZONTAL)
         bold=False
-        normfont=wx.Font(10,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL)
-        boldfont=wx.Font(10,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD)
+        normfont=wx.Font(8,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL)
+        boldfont=wx.Font(8,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD)
         for i in strings:
             t=wx.StaticText(self.panel,-1,i)
             t.Wrap(500)
@@ -351,7 +360,8 @@ class DamnEEgg(wx.Dialog):
     def onBtn(self,event):
         self.Close(True)
 class DamnAboutDamnVid(wx.Dialog):
-    def __init__(self,parent,id):
+    def __init__(self,parent,id,main):
+        self.parent=main
         wx.Dialog.__init__(self,parent,id,'About DamnVid '+DV_VERSION)
         topvbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(topvbox)
@@ -363,7 +373,7 @@ class DamnAboutDamnVid(wx.Dialog):
         hbox.Add(vbox1,0,wx.EXPAND)
         vbox2=wx.BoxSizer(wx.VERTICAL)
         hbox.Add(vbox2,1,wx.EXPAND)
-        icon=wx.StaticBitmap(panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'icon.png'))
+        icon=wx.StaticBitmap(panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'icon256.png'))
         icon.Bind(wx.EVT_LEFT_DCLICK,self.eEgg)
         vbox1.Add(icon,1,wx.ALIGN_CENTER)
         title=wx.StaticText(panel,-1,'DamnVid '+DV_VERSION)
@@ -378,23 +388,22 @@ class DamnAboutDamnVid(wx.Dialog):
         link.SetToolTipString('Click here to go to DamnVid '+DV_VERSION+'\'s homepage.')
         vbox2.Add(link)
         vbox2.Add(wx.StaticText(panel,-1,'Contributors:'))
-        vbox2.Add(wx.StaticText(panel,-1,'- Tatara (Linux compatibility)'))
+        vbox2.Add(wx.StaticText(panel,-1,'- Tatara (Linux compatibility/packaging)'))
         vbox2.Add(wx.StaticText(panel,-1,'- Palmer (Graphics)'))
         vbox2.Add(wx.StaticText(panel,-1,'Special thanks to:'))
         vbox2.Add(wx.StaticText(panel,-1,'- The FFmpeg team'))
         vbox2.Add(wx.StaticText(panel,-1,'- Every stoat on the planet'))
         vbox2.Add(wx.StaticText(panel,-1,'- You!'))
-        panel2=wx.Panel(self,-1)
-        topvbox.Add(panel2)
         hbox2=wx.BoxSizer(wx.HORIZONTAL)
-        panel2.SetSizer(hbox2)
-        okButton=wx.Button(panel2,-1,'OK')
+        vbox2.Add(hbox2,0,wx.ALIGN_RIGHT)
+        okButton=wx.Button(panel,-1,'OK')
         self.Bind(wx.EVT_BUTTON,self.onOK,okButton)
-        hbox2.Add(okButton,0,wx.ALIGN_RIGHT)
+        hbox2.Add(okButton)
         self.SetClientSize(panel.GetBestSize())
         self.Center()
     def eEgg(self,event):
         dlg=DamnEEgg(None,-1)
+        dlg.SetIcon(DV_ICON)
         dlg.ShowModal()
         dlg.Destroy()
     def onOK(self,event):
@@ -428,6 +437,7 @@ class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
         wx.Button.__init__(self,parent,id,label)
     def onBrowse(self,event):
         dlg=wx.DirDialog(self,'Select DamnVid '+DV_VERSION+'\'s output directory.',self.filefield.GetValue(),style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
+        dlg.SetIcon(DV_ICON)
         if dlg.ShowModal()==wx.ID_OK:
             self.filefield.SetValue(dlg.GetPath())
         dlg.Destroy()
@@ -726,6 +736,7 @@ class DamnConverter(thr.Thread): # The actual converter
             pass # Maybe the file wasn't created yet
 class DamnMainFrame(wx.Frame): # The main window
     def __init__(self,parent,id,title):
+        global DV_ICON
         wx.Frame.__init__(self,parent,wx.ID_ANY,title,size=(780,580),style=wx.DEFAULT_FRAME_STYLE)
         self.CreateStatusBar()
         filemenu=wx.Menu()
@@ -747,6 +758,8 @@ class DamnMainFrame(wx.Frame): # The main window
         halpmenu=wx.Menu()
         halpmenu.Append(ID_MENU_HALP,'DamnVid &Help','Opens DamnVid\'s help.')
         self.Bind(wx.EVT_MENU,self.onHalp,id=ID_MENU_HALP)
+        halpmenu.Append(ID_MENU_UPDATE,'Check for updates...','Checks if a new version of DamnVid is available.')
+        self.Bind(wx.EVT_MENU,self.onCheckUpdates,id=ID_MENU_UPDATE)
         halpmenu.AppendSeparator()
         halpmenu.Append(ID_MENU_ABOUT,'&About DamnVid '+DV_VERSION+'...','Displays information about DamnVid.')
         self.Bind(wx.EVT_MENU,self.onAboutDV,id=ID_MENU_ABOUT)
@@ -827,6 +840,8 @@ class DamnMainFrame(wx.Frame): # The main window
         grid.AddGrowableRow(0,1)
         grid.AddGrowableCol(0,1)
         self.Bind(wx.EVT_CLOSE,self.onClose,self)
+        DV_ICON=wx.Icon(DV_IMAGES_PATH+'icon.ico',wx.BITMAP_TYPE_ICO)
+        self.SetIcon(DV_ICON)
         self.videos=[]
         self.thisbatch=0
         self.thisvideo=[]
@@ -842,6 +857,7 @@ class DamnMainFrame(wx.Frame): # The main window
             self.onDelSelection(None)
     def onAddFile(self,event):
         dlg=wx.FileDialog(self,'Choose a damn video.',os.getcwd(),'','All files|*.*|AVI files (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',wx.OPEN|wx.FD_MULTIPLE)
+        dlg.SetIcon(DV_ICON)
         if dlg.ShowModal()==wx.ID_OK:
             self.addVid(dlg.GetPaths())
         dlg.Destroy()
@@ -862,6 +878,7 @@ class DamnMainFrame(wx.Frame): # The main window
         except:
             pass # There's probably wasn't any error, just pass
         dlg=wx.TextEntryDialog(self,'Enter the URL of the video you wish to download.','Enter URL.',default)
+        dlg.SetIcon(DV_ICON)
         if dlg.ShowModal()==wx.ID_OK:
             self.addVid([dlg.GetValue()])
         dlg.Destroy()
@@ -876,10 +893,10 @@ class DamnMainFrame(wx.Frame): # The main window
             return 'Local file'
         return None
     def getVidName(self,uri):
+        # There's no Veoh here because it's taken directly from the addVid function in order to prevent redownloading the page
         if uri[0:3]=='yt:':
             try:
-                html=urllib.urlopen('http://www.youtube.com/watch?v='+uri[3:])
-                for i in html:
+                
                     res=REGEX_HTTP_YOUTUBE_TITLE_EXTRACT.search(i)
                     if res:
                         return self.noHtmlEnt(res.group(1))
@@ -957,6 +974,7 @@ class DamnMainFrame(wx.Frame): # The main window
                         else:
                             if len(uris)==1: # Only one dir, so an alert here is tolerable
                                 dlg=wx.MessageDialog(None,'This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.','Recursion is disabled.',wx.OK|wx.ICON_EXCLAMATION)
+                                dlg.SetIcon(DV_ICON)
                                 dlg.ShowModal()
                                 dlg.Destroy()
                             else:
@@ -967,6 +985,7 @@ class DamnMainFrame(wx.Frame): # The main window
                             self.SetStatusText('Skipped '+filename+' (already in list).')
                             if len(uris)==1: # There's only one file, so an alert here is tolerable
                                 dlg=wx.MessageDialog(None,'This video is already in the list!','Duplicate found',wx.ICON_EXCLAMATION|wx.OK)
+                                dlg.SetIcon(DV_ICON)
                                 dlg.ShowModal()
                                 dlg.Destroy()
                         else:
@@ -974,6 +993,7 @@ class DamnMainFrame(wx.Frame): # The main window
             else:
                 if len(uris)==1: # There's only one URI, so an alert here is tolerable
                     dlg=wx.MessageDialog(None,'This is not a valid video!','Invalid video',wx.ICON_EXCLAMATION|wx.OK)
+                    dlg.SetIcon(DV_ICON)
                     dlg.ShowModal()
                     dlg.Destroy()
                 self.SetStatusText('Skipped '+uri+' (invalid video).')
@@ -1009,6 +1029,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     dlg=wx.MessageDialog(None,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
                 #if dlg.ShowModal()==wx.ID_YES:
                     #self.onOpenOutDir(None)
+                dlg.SetIcon(DV_ICON)
                 dlg.ShowModal()
                 self.converting=-1
                 self.stopbutton.Disable()
@@ -1017,10 +1038,12 @@ class DamnMainFrame(wx.Frame): # The main window
     def onGo(self,event):
         if not len(self.videos):
             dlg=wx.MessageDialog(None,'Put some videos in the list first!','No videos!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             dlg.Destroy()
         elif self.converting!=-1:
             dlg=wx.MessageDialog(None,'DamnVid '+DV_VERSION+' is already converting!','Already converting!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             dlg.Destroy()
         else:
@@ -1030,6 +1053,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     success=success+1
             if success==len(self.videos):
                 dlg=wx.MessageDialog(None,'All videos in the list have already been processed!','Already done',wx.OK|wx.ICON_INFORMATION)
+                dlg.SetIcon(DV_ICON)
                 dlg.ShowModal()
                 dlg.Destroy()
             else:
@@ -1045,15 +1069,18 @@ class DamnMainFrame(wx.Frame): # The main window
         item=self.list.getAllSelectedItems()
         if len(item)>1:
             dlg=wx.MessageDialog(None,'You can only rename one video at a time.','Multiple videos selected.',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             dlg.Destroy()
         elif not len(item):
             dlg=wx.MessageDialog(None,'Select a video in order to rename it.','No videos selected',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             dlg.Destroy()
         else:
             item=item[0]
             dlg=wx.TextEntryDialog(None,'Enter the new name for "'+self.meta[self.videos[item]]['name']+'".','Rename',self.meta[self.videos[item]]['name'])
+            dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             self.meta[self.videos[item]]['name']=dlg.GetValue()
             self.list.SetStringItem(item,ID_COL_VIDNAME,dlg.GetValue())
@@ -1086,9 +1113,37 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             pass # Halp here?
     def onHalp(self,event):
-        pass
+        webbrowser.open(DV_URL_HALP,2)
+    def onCheckUpdates(self,event):
+        msg=False
+        try:
+            html=urllib.urlopen(DV_URL_UPDATE)
+            for i in html:
+                if REGEX_DAMNVID_VERSION_CHECK.search(i):
+                    v=REGEX_DAMNVID_VERSION_CHECK.search(i).group(1)
+                    if v==DV_VERSION:
+                        msg='No new version available. You are running the latest version of DamnVid ('+DV_VERSION+').'
+                        dlg=wx.MessageDialog(None,msg,'Already running latest version.',wx.ICON_INFORMATION|wx.OK)
+                        dlg.SetIcon(DV_ICON)
+                        dlg.ShowModal()
+                    else:
+                        msg='A new version ('+v+') is available! You are running DamnVid '+DV_VERSION+'.\nDo you want want to go to the download page?'
+                        dlg=wx.MessageDialog(None,msg,'New version available!',wx.ICON_QUESTION|wx.YES_NO|wx.YES_DEFAULT)
+                        dlg.SetIcon(DV_ICON)
+                        if dlg.ShowModal()==wx.ID_YES:
+                            webbrowser.open(DV_URL_DOWNLOAD,2)
+                    raise IOError # Raise dummy error just to skip to the rest of the loop
+        except:
+            pass
+        if not msg:
+            print 'nomsg'
+            dlg=wx.MessageDialog(None,'Could not retrieve latest version.','Error',wx.ICON_ERROR|wx.OK)
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+        dlg.Destroy()
     def onAboutDV(self,event):
-        dlg=DamnAboutDamnVid(None,-1)
+        dlg=DamnAboutDamnVid(None,-1,main=self)
+        dlg.SetIcon(DV_ICON)
         dlg.ShowModal()
         dlg.Destroy()
     def delVid(self,i):
@@ -1107,21 +1162,28 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.delVid(i)
         else:
             dlg=wx.MessageDialog(None,'You must select some videos from the list first!','Select some videos!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             dlg.Destroy()
     def onDelAll(self,event):
-        dlg=wx.MessageDialog(None,'Are you sure? (This will not delete any files, it will just remove them from the list.)','Confirmation',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
-        if dlg.ShowModal()==wx.ID_YES:
-            if self.converting!=-1:
-                self.onStop(None) # Stop conversion if it's in progress
-            self.list.DeleteAllItems()
-            self.videos=[]
-            self.thisvideo=[]
-            self.thisbatch=0
+        if len(self.videos):
+            dlg=wx.MessageDialog(None,'Are you sure? (This will not delete any files, it will just remove them from the list.)','Confirmation',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
+            dlg.SetIcon(DV_ICON)
+            if dlg.ShowModal()==wx.ID_YES:
+                if self.converting!=-1:
+                    self.onStop(None) # Stop conversion if it's in progress
+                self.list.DeleteAllItems()
+                self.videos=[]
+                self.thisvideo=[]
+                self.thisbatch=0
+        else:
+            dlg=wx.MessageDialog(None,'Add some videos in the list first.','No videos!',wx.OK|wx.ICON_EXCLAMATION)
+            dlg.SetIcon(DV_ICON)
         dlg.Destroy()
     def onClose(self,event):
         if self.converting!=-1:
             dlg=wx.MessageDialog(None,'DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.\r\nContinue?','Conversion in progress',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_EXCLAMATION)
+            dlg.SetIcon(DV_ICON)
             if dlg.ShowModal()==wx.ID_YES:
                 self.isclosing=True
                 self.onStop(None)
