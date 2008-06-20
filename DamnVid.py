@@ -1,5 +1,6 @@
 import wx # Oh my, it's wx.
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
+import wx.lib.hyperlink # Fancy hyperlinks instead of hacked StaticText's
 import os # Filesystem functions.
 import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg)
@@ -20,6 +21,7 @@ if os.name=='nt':
 else:
     OS_PATH_SEPARATOR='/'
 DV_VERSION='0.1'
+DV_URL='http://code.google.com/p/damnvid/'
 DV_CONF_FILE='conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
 DV_IMAGES_PATH='img/'.replace('/',OS_PATH_SEPARATOR)
 DV_BIN_PATH='bin/'.replace('/',OS_PATH_SEPARATOR)
@@ -156,7 +158,7 @@ DV_PREFERENCE_TYPE={
         },
         'order':['libmp3lame','mp2','ac3','flac','libfaac','vorbis','wmav2','wmav1'],
         'strict':True,
-        'default':''
+        'default':'libmp3lame'
     },
     'Encoding_g':{
         'name':'Group of pictures size',
@@ -297,6 +299,106 @@ class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inheri
             tmp=[self.GetItem(i1,i).GetText(),self.GetItem(i1,i).GetImage()]
             self.SetStringItem(i1,i,self.GetItem(i2,i).GetText(),self.GetItem(i2,i).GetImage())
             self.SetStringItem(i2,i,tmp[0],tmp[1])
+class DamnEEgg(wx.Dialog):
+    def __init__(self,parent,id):
+        wx.Dialog.__init__(self,parent,id,'Salute the Secret Stoat!')
+        topvbox=wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(topvbox)
+        self.panel=wx.Panel(self,-1)
+        topvbox.Add(self.panel,1,wx.EXPAND)
+        self.vbox=wx.BoxSizer(wx.VERTICAL)
+        self.panel.SetSizer(self.vbox)
+        self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'stoat.jpg')),0,wx.ALIGN_CENTER)
+        self.AddText('Praise the *Secret Stoat* and all it stands for: WIN.',True)
+        self.vbox.Add((0,10))
+        self.AddText('Definitions of *WIN* on the Web:',True)
+        self.vbox.Add((0,10))
+        self.AddText('- be the winner in a contest or competition; be victorious; "He won the Gold Medal in skating"; "Our home team won"; "Win the game"')
+        self.AddText('- acquire: win something through one\'s efforts; "I acquired a passing knowledge of Chinese"; "Gain an understanding of international finance"')
+        self.AddText('- gain: obtain advantages, such as points, etc.; "The home team was gaining ground"')
+        self.AddText('- a victory (as in a race or other competition); "he was happy to get the win"')
+        self.AddText('- winnings: something won (especially money)')
+        self.AddText('- succeed: attain success or reach a desired goal; "The enterprise succeeded"; "We succeeded in getting tickets to the show"; "she struggled to overcome her handicap and won"')
+        btn=wx.Button(self.panel,-1,'Secret Stoat!')
+        self.vbox.Add(btn,0,wx.ALIGN_CENTER)
+        self.Bind(wx.EVT_BUTTON,self.onBtn,btn)
+        self.SetClientSize(self.panel.GetBestSize())
+        self.Center()
+    def AddText(self,s,center=False):
+        strings=['']
+        for i in s:
+            if i=='*':
+                strings.append('')
+            else:
+                strings[-1]+=i
+        hbox=wx.BoxSizer(wx.HORIZONTAL)
+        bold=False
+        normfont=wx.Font(10,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL)
+        boldfont=wx.Font(10,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD)
+        for i in strings:
+            t=wx.StaticText(self.panel,-1,i)
+            t.Wrap(500)
+            if bold:
+                t.SetFont(boldfont)
+            else:
+                t.SetFont(normfont)
+            bold=not bold
+            hbox.Add(t)
+        if center:
+            self.vbox.Add(hbox,0,wx.ALIGN_CENTER)
+        else:
+            self.vbox.Add(hbox,0)
+    def onBtn(self,event):
+        self.Close(True)
+class DamnAboutDamnVid(wx.Dialog):
+    def __init__(self,parent,id):
+        wx.Dialog.__init__(self,parent,id,'About DamnVid '+DV_VERSION)
+        topvbox=wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(topvbox)
+        panel=wx.Panel(self,-1)
+        topvbox.Add(panel,1,wx.EXPAND)
+        hbox=wx.BoxSizer(wx.HORIZONTAL)
+        panel.SetSizer(hbox)
+        vbox1=wx.BoxSizer(wx.VERTICAL)
+        hbox.Add(vbox1,0,wx.EXPAND)
+        vbox2=wx.BoxSizer(wx.VERTICAL)
+        hbox.Add(vbox2,1,wx.EXPAND)
+        icon=wx.StaticBitmap(panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'icon.png'))
+        icon.Bind(wx.EVT_LEFT_DCLICK,self.eEgg)
+        vbox1.Add(icon,1,wx.ALIGN_CENTER)
+        title=wx.StaticText(panel,-1,'DamnVid '+DV_VERSION)
+        title.SetFont(wx.Font(24,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
+        vbox2.Add(title,1)
+        author=wx.StaticText(panel,-1,'By WindPower')
+        author.SetFont(wx.Font(16,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL))
+        vbox2.Add(author,1)
+        link=wx.lib.hyperlink.HyperLinkCtrl(panel)
+        link.SetURL(DV_URL)
+        link.SetLabel(DV_URL)
+        link.SetToolTipString('Click here to go to DamnVid '+DV_VERSION+'\'s homepage.')
+        vbox2.Add(link)
+        vbox2.Add(wx.StaticText(panel,-1,'Contributors:'))
+        vbox2.Add(wx.StaticText(panel,-1,'- Tatara (Linux compatibility)'))
+        vbox2.Add(wx.StaticText(panel,-1,'- Palmer (Graphics)'))
+        vbox2.Add(wx.StaticText(panel,-1,'Special thanks to:'))
+        vbox2.Add(wx.StaticText(panel,-1,'- The FFmpeg team'))
+        vbox2.Add(wx.StaticText(panel,-1,'- Every stoat on the planet'))
+        vbox2.Add(wx.StaticText(panel,-1,'- You!'))
+        panel2=wx.Panel(self,-1)
+        topvbox.Add(panel2)
+        hbox2=wx.BoxSizer(wx.HORIZONTAL)
+        panel2.SetSizer(hbox2)
+        okButton=wx.Button(panel2,-1,'OK')
+        self.Bind(wx.EVT_BUTTON,self.onOK,okButton)
+        hbox2.Add(okButton,0,wx.ALIGN_RIGHT)
+        self.SetClientSize(panel.GetBestSize())
+        self.Center()
+    def eEgg(self,event):
+        dlg=DamnEEgg(None,-1)
+        dlg.ShowModal()
+        dlg.Destroy()
+    def onOK(self,event):
+        self.Close(True)
 class DamnVidPrefs: # Preference manager... Should have used wx.Config
     def __init__(self):
         self.conf={}
@@ -420,7 +522,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         tophbox.Add(self.okButton,0,wx.ALIGN_RIGHT)
         tophbox.Add(self.closeButton,0,wx.ALIGN_RIGHT)
         self.SetClientSize(self.toppanel.GetBestSize())
-        self.Centre()
+        self.Center()
     def makeList(self,strict,choices,panel,value):
         if strict:
             cont=wx.Choice(panel,-1,choices=choices)
@@ -521,7 +623,7 @@ class DamnConverter(thr.Thread): # The actual converter
             for i in html:
                 res=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
                 if res:
-                    return 'http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)+'&fmt=18' # If there's no match, ffmpeg will error by itself.
+                    return 'http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3) # If there's no match, ffmpeg will error by itself.
         elif uri[0:3]=='gv:':
             html=urllib.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
             for i in html:
@@ -654,12 +756,21 @@ class DamnMainFrame(wx.Frame): # The main window
         self.menubar.Append(halpmenu,'&Help')
         self.SetMenuBar(self.menubar)
         vbox=wx.BoxSizer(wx.VERTICAL)
-        hbox=wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(vbox)
-        vbox.Add(hbox,1,wx.EXPAND)
-        panel1=wx.Panel(self,-1)
-        hbox2=wx.BoxSizer(wx.HORIZONTAL)
-        panel1.SetSizer(hbox2)
+        panel=wx.Panel(self,-1)
+        vbox.Add(panel,1,wx.EXPAND)
+        grid=wx.FlexGridSizer(2,2,7,7)
+        panel1=wx.Panel(panel,-1)
+        grid.Add(panel1,1,wx.EXPAND)
+        panel2=wx.Panel(panel,-1)
+        grid.Add(panel2,0)
+        panel3=wx.Panel(panel,-1)
+        grid.Add(panel3,0,wx.EXPAND)
+        panel4=wx.Panel(panel,-1)
+        grid.Add(panel4,0)
+        panel.SetSizer(grid)
+        hbox1=wx.BoxSizer(wx.HORIZONTAL)
+        panel1.SetSizer(hbox1)
         self.list=DamnList(panel1,window=self)
         self.list.InsertColumn(ID_COL_VIDNAME,'Name')
         self.list.SetColumnWidth(ID_COL_VIDNAME,width=120)
@@ -677,15 +788,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.list.AssignImageList(il,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
-        tmppanel=wx.Panel(self,-1)
-        tmpsizer=wx.BoxSizer(wx.HORIZONTAL)
-        tmppanel.SetSizer(tmpsizer)
-        tmptxt=wx.StaticText(tmppanel,-1,' ')
-        tmpsizer.Add(tmptxt,1,wx.EXPAND|wx.ALL)
-        hbox2.Add(self.list,1,wx.EXPAND|wx.ALL)
-        hbox.Add(panel1,1,wx.EXPAND)
-        hbox.Add(tmppanel,0,wx.EXPAND)
-        panel2=wx.Panel(self,-1)
+        hbox1.Add(self.list,1,wx.EXPAND)
         sizer2=wx.BoxSizer(wx.VERTICAL)
         panel2.SetSizer(sizer2)
         self.addByFile=wx.Button(panel2,-1,'Add Files')
@@ -703,15 +806,11 @@ class DamnMainFrame(wx.Frame): # The main window
         self.gobutton1=wx.Button(panel2,-1,'Let\'s go!')
         sizer2.Add(self.gobutton1,0)
         self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton1)
-        hbox.Add(panel2,0,wx.EXPAND)
-        grid=wx.FlexGridSizer(1,4)#grid=wx.FlexGridSizer(2,4)
-        bottompanel=wx.Panel(self,-1)
-        bottompanel.SetSizer(grid)
-        vbox.Add((5,0))
-        vbox.Add(bottompanel,0,wx.EXPAND)
-        grid.Add(wx.StaticText(bottompanel,-1,'Current video:'),0)
-        self.gauge1=wx.Gauge(bottompanel,-1)
-        grid.Add(self.gauge1,1,wx.EXPAND)
+        hbox3=wx.BoxSizer(wx.HORIZONTAL)
+        panel3.SetSizer(hbox3)
+        hbox3.Add(wx.StaticText(panel3,-1,'Current video: '),0,wx.ALIGN_CENTER_VERTICAL)
+        self.gauge1=wx.Gauge(panel3,-1)
+        hbox3.Add(self.gauge1,1,wx.EXPAND)
         #self.gobutton2=wx.Button(bottompanel,-1,'Let\'s go!')
         #self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton2)
         #grid.Add(wx.StaticText(bottompanel,-1,''),0)
@@ -719,12 +818,14 @@ class DamnMainFrame(wx.Frame): # The main window
         #grid.Add(wx.StaticText(bottompanel,-1,'Total progress:'),0)
         #self.gauge2=wx.Gauge(bottompanel,-1)
         #grid.Add(self.gauge2,1,wx.EXPAND)
-        self.stopbutton=wx.Button(bottompanel,-1,'Stop')
+        hbox4=wx.BoxSizer(wx.VERTICAL)
+        panel4.SetSizer(hbox4)
+        self.stopbutton=wx.Button(panel4,-1,'Stop')
+        hbox4.Add(self.stopbutton)
         self.stopbutton.Disable()
         self.Bind(wx.EVT_BUTTON,self.onStop,self.stopbutton)
-        grid.Add(wx.StaticText(bottompanel,-1,''),0)
-        grid.Add(self.stopbutton,0)
-        grid.AddGrowableCol(1,1) # Make the second column (progress bars) growable
+        grid.AddGrowableRow(0,1)
+        grid.AddGrowableCol(0,1)
         self.Bind(wx.EVT_CLOSE,self.onClose,self)
         self.videos=[]
         self.thisbatch=0
@@ -987,7 +1088,9 @@ class DamnMainFrame(wx.Frame): # The main window
     def onHalp(self,event):
         pass
     def onAboutDV(self,event):
-        pass
+        dlg=DamnAboutDamnVid(None,-1)
+        dlg.ShowModal()
+        dlg.Destroy()
     def delVid(self,i):
         self.list.DeleteItem(i)
         for vid in range(len(self.thisvideo)):
@@ -1030,7 +1133,7 @@ class DamnVid(wx.App):
     def OnInit(self):
         frame=DamnMainFrame(None,-1,'DamnVid '+DV_VERSION+' by WindPower')
         frame.Show(True)
-        frame.Centre()
+        frame.Center()
         return True
 app=DamnVid(0)
 app.MainLoop()
