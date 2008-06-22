@@ -8,7 +8,6 @@
 @cd package
 @echo Compyling DamnVid.
 @python ..\py2exe-win32.py py2exe --package encodings
-@pause
 @echo Running UPX --brute on compyled executable.
 @upx --brute dist\DamnVid.exe
 @echo Switching to /package/dist/ directory.
