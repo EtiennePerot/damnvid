@@ -5,11 +5,12 @@ import os # Filesystem functions.
 import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg)
 import time # Sleepin'
-import urllib # Fetch data from the tubes
+import urllib # Fetch data from the tubes, encode/decode URLs
 import htmlentitydefs # HTML entities dictionaries
 import signal # Process signals
 import types # Names of built-in types
 import webbrowser # Open a page in default browser
+import sys
 if os.name=='nt':
     import win32process
 try:
@@ -27,10 +28,11 @@ DV_URL_HALP='http://code.google.com/p/damnvid/wiki/Help'
 DV_URL_UPDATE='http://code.google.com/p/damnvid/wiki/CurrentVersion'
 DV_URL_DOWNLOAD='http://code.google.com/p/damnvid/downloads/'
 DV_ICON=None # This will be defined when DamnMainFrame is initialized
-DV_CONF_FILE='conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
-DV_IMAGES_PATH='img/'.replace('/',OS_PATH_SEPARATOR)
-DV_BIN_PATH='bin/'.replace('/',OS_PATH_SEPARATOR)
-DV_TMP_PATH='temp/'.replace('/',OS_PATH_SEPARATOR)
+DV_CURDIR=os.path.dirname(os.path.abspath(sys.argv[0]))+OS_PATH_SEPARATOR
+DV_CONF_FILE=DV_CURDIR+'conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
+DV_IMAGES_PATH=DV_CURDIR+'img/'.replace('/',OS_PATH_SEPARATOR)
+DV_BIN_PATH=DV_CURDIR+'bin/'.replace('/',OS_PATH_SEPARATOR)
+DV_TMP_PATH=DV_CURDIR+'temp/'.replace('/',OS_PATH_SEPARATOR)
 DV_FILE_EXT={
     'mpeg4':'avi',
     'mpeg1video':'avi',
@@ -219,10 +221,11 @@ ID_COL_VIDPATH=2
 REGEX_DAMNVID_VERSION_CHECK=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
 REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration: (\\d+):(\\d\\d):([.\\d]+),',re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
-REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;\w]*)?$',re.IGNORECASE)
+REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;{}\w]*)?$',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
 REGEX_HTTP_GVIDEO=re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE)
 REGEX_HTTP_VEOH=re.compile('^https?://(?:[-_\w]+\.)*veoh\.com/videos/',re.IGNORECASE)
+REGEX_HTTP_DAILYMOTION=re.compile('^https?://(?:[-_\w]+\.)*dailymotion\.com/',re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
 REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
 REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
@@ -231,10 +234,13 @@ REGEX_HTTP_YOUTUBE_TITLE_EXTRACT=re.compile('<title>YouTube - ([^<>]+)</title>',
 REGEX_HTTP_YOUTUBE_TICKET_EXTRACT=re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2')
 REGEX_HTTP_GVIDEO_TITLE_EXTRACT=REGEX_HTTP_GENERIC_TITLE_EXTRACT
 REGEX_HTTP_GVIDEO_TICKET_EXTRACT=re.compile('If the download does not start automatically, right-click <a href="([^"]+)"',re.IGNORECASE)
-REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('<title>\s*([^<>]+) : Online Video \| Veoh Video Network</title>',re.IGNORECASE)
+REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('<title>\\s*([^<>]+)(?: : Online Video)? \\| Veoh Video Network</title>',re.IGNORECASE)
 REGEX_HTTP_VEOH_ID_EXTRACT=re.compile('permalinkId=(\\w+)',re.IGNORECASE)
 REGEX_HTTP_VEOH_SUBID_EXTRACT=re.compile('^\\w+?(\\d+).*$')
 REGEX_HTTP_VEOH_TICKET_EXTRACT=re.compile('fullPreviewHashPath="([^"]+)"',re.IGNORECASE)
+REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT=re.compile('<title>(?:Video\\s*)?([^<>]+?)\\s*-[^-<>]+-[^-<>]+</title>',re.IGNORECASE)
+REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT=re.compile('\\.addVariable\\s*\\(\\s*([\'"])video\\1\\s*,\\s*([\'"])((?:(?!\\2).)+)\\2\\s*\\)',re.IGNORECASE)
+REGEX_HTTP_DAILYMOTION_QUALITY=re.compile('(\d+)x(\d+)')
 # End constants
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None):
     if os.name=='nt':
@@ -252,30 +258,38 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
         wx.Menu.__init__(self)
         self.parent=parent
         self.items=self.parent.getAllSelectedItems()
-        rename=wx.MenuItem(self,-1,'Rename')
-        self.AppendItem(rename)
-        if len(self.items)!=1:
-            rename.Enable(False)
-        else:
-            if self.items[0]==self.parent.parent.converting:
+        if len(self.items): # If there's at least one item selected
+            rename=wx.MenuItem(self,-1,'Rename')
+            self.AppendItem(rename)
+            if len(self.items)!=1:
                 rename.Enable(False)
-        self.Bind(wx.EVT_MENU,self.parent.parent.onRename,rename)
-        moveup=wx.MenuItem(self,-1,'Move up')
-        self.AppendItem(moveup)
-        moveup.Enable(self.items[0]>0)
-        self.Bind(wx.EVT_MENU,self.parent.parent.onMoveUp,moveup)
-        movedown=wx.MenuItem(self,-1,'Move down')
-        self.AppendItem(movedown)
-        movedown.Enable(self.items[-1]<self.parent.GetItemCount()-1)
-        self.Bind(wx.EVT_MENU,self.parent.parent.onMoveDown,movedown)
-        stop=wx.MenuItem(self,-1,'Stop')
-        self.AppendItem(stop)
-        stop.Enable(self.parent.parent.converting in self.items)
-        self.Bind(wx.EVT_MENU,self.parent.parent.onStop,stop)
-        remove=wx.MenuItem(self,-1,'Remove from list')
-        self.AppendItem(remove)
-        remove.Enable(self.parent.parent.converting not in self.items)
-        self.Bind(wx.EVT_MENU,self.parent.parent.onDelSelection,remove)
+            else:
+                if self.items[0]==self.parent.parent.converting:
+                    rename.Enable(False)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onRename,rename)
+            moveup=wx.MenuItem(self,-1,'Move up')
+            self.AppendItem(moveup)
+            moveup.Enable(self.items[0]>0)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onMoveUp,moveup)
+            movedown=wx.MenuItem(self,-1,'Move down')
+            self.AppendItem(movedown)
+            movedown.Enable(self.items[-1]<self.parent.GetItemCount()-1)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onMoveDown,movedown)
+            stop=wx.MenuItem(self,-1,'Stop')
+            self.AppendItem(stop)
+            stop.Enable(self.parent.parent.converting in self.items)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onStop,stop)
+            remove=wx.MenuItem(self,-1,'Remove from list')
+            self.AppendItem(remove)
+            remove.Enable(self.parent.parent.converting not in self.items)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onDelSelection,remove)
+        else: # Otherwise, display a different context menu
+            addfile=wx.MenuItem(self,-1,'Add Files')
+            self.AppendItem(addfile)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onAddFile,addfile)
+            addurl=wx.MenuItem(self,-1,'Add URL')
+            self.AppendItem(addurl)
+            self.Bind(wx.EVT_MENU,self.parent.parent.onAddURL,addurl)
 class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
     def __init__(self,parent,window):
         wx.ListCtrl.__init__(self,parent,-1,style=wx.LC_REPORT)
@@ -289,8 +303,7 @@ class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inheri
                 self.Select(p[0],on=1) # Select pointed item
         else:
             self.clearAllSelectedItems()
-        if self.GetSelectedItemCount():
-            self.PopupMenu(DamnListContextMenu(self),event.GetPosition())
+        self.PopupMenu(DamnListContextMenu(self),event.GetPosition())
     def getAllSelectedItems(self):
         items=[]
         i=self.GetFirstSelected()
@@ -315,10 +328,11 @@ class DamnEEgg(wx.Dialog):
         topvbox.Add(self.panel,1,wx.EXPAND)
         self.vbox=wx.BoxSizer(wx.VERTICAL)
         self.panel.SetSizer(self.vbox)
-        self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'stoat.jpg')),0,wx.ALIGN_CENTER)
-        self.AddText('DamnVid '+DV_VERSION+' is 100% stoat-powered, and proud of it.')
-        self.AddText('No stoats were harmed (much) during DamnVid\'s development. Ya rly.',True)
-        self.AddText('Praise the *Secret Stoat* and all it stands for: WIN.',True)
+        self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap(DV_IMAGES_PATH+'stoat.jpg')),0,wx.ALIGN_CENTER)
+        self.AddText('DamnVid '+DV_VERSION+' is *100% stoat-powered*, and *proud* of it.',True)
+        self.AddText('*No stoats were harmed* (much) during DamnVid\'s development. Ya rly.',True)
+        self.vbox.Add((0,5))
+        self.AddText('Praise the *Secret Stoat* and all it stands for: *WIN*.',True)
         self.vbox.Add((0,5))
         self.AddText('Definitions of *WIN* on the Web:',True)
         self.vbox.Add((0,5))
@@ -373,7 +387,7 @@ class DamnAboutDamnVid(wx.Dialog):
         hbox.Add(vbox1,0,wx.EXPAND)
         vbox2=wx.BoxSizer(wx.VERTICAL)
         hbox.Add(vbox2,1,wx.EXPAND)
-        icon=wx.StaticBitmap(panel,-1,wx.Bitmap('img'+OS_PATH_SEPARATOR+'icon256.png'))
+        icon=wx.StaticBitmap(panel,-1,wx.Bitmap(DV_IMAGES_PATH+'icon256.png'))
         icon.Bind(wx.EVT_LEFT_DCLICK,self.eEgg)
         vbox1.Add(icon,1,wx.ALIGN_CENTER)
         title=wx.StaticText(panel,-1,'DamnVid '+DV_VERSION)
@@ -413,7 +427,7 @@ class DamnVidPrefs: # Preference manager... Should have used wx.Config
         self.conf={}
         f=open(DV_CONF_FILE)
         for i in re.finditer('(?m)^([_\\w]+)=(.*)$',f.read()):
-            self.conf[i.group(1)]=i.group(2).replace('%CWD%',os.getcwd()).replace('/',OS_PATH_SEPARATOR).strip()
+            self.conf[i.group(1)]=i.group(2).replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_PATH_SEPARATOR).strip()
         f.close()
     def get(self,name):
         try:
@@ -604,7 +618,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                 elif i['kind'][0:3]=='int':
                     self.setListValue(name,i['strict'],i['default'])
                 elif i['kind']=='dir':
-                    self.controls[name].SetValue(i['default'].replace('%CWD%',os.getcwd()).replace('/',OS_PATH_SEPARATOR))
+                    self.controls[name].SetValue(i['default'].replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_PATH_SEPARATOR))
                 elif i['kind'][0]=='%':
                     self.controls[name].SetValue(int(100.0*float(i['default'])/float(i['kind'][1:])))
                 elif i['kind']=='bool':
@@ -646,6 +660,27 @@ class DamnConverter(thr.Thread): # The actual converter
                 res=REGEX_HTTP_VEOH_TICKET_EXTRACT.search(i)
                 if res:
                     return res.group(1)
+        elif uri[0:3]=='dm:':
+            html=urllib.urlopen(uri[3:])
+            for i in html:
+                res=REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT.search(i)
+                if res:
+                    urls=urllib.unquote(res.group(3)).split('||')
+                    qualitys={}
+                    for j in urls:
+                        res2=REGEX_HTTP_DAILYMOTION_QUALITY.search(j)
+                        if res2:
+                            qualitys[j]=int(res2.group(1))*int(res2.group(2))
+                    if len(qualitys):
+                        # This is quite ugly but it works
+                        keys=qualitys.values()
+                        keys.sort()
+                        for j in qualitys.iterkeys():
+                            if qualitys[j]==keys[-1]:
+                                url=j
+                        if url.find('@@')!=-1:
+                            url=url[0:url.find('@@')]
+                        return 'http://www.dailymotion.com'+url
         return uri
     def cmd2str(self,cmd):
         s=''
@@ -659,7 +694,11 @@ class DamnConverter(thr.Thread): # The actual converter
         self.parent.gauge1.SetValue(0.0)
         #self.parent.gauge2.SetValue(100.0*float(self.parent.thisbatch-1)/len(self.parent.videos))
         self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
-        cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',self.uri,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
+        if os.path.lexists(self.uri):
+            stream=self.uri # It's a file stream, ffmpeg will take care of it
+        else:
+            stream='-' # It's another stream, spawn a downloader thread to take care of it and feed the content to ffmpeg via stdin
+        cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',stream,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
         for i in DV_PREFERENCE_ORDER:
             if i[0:9]=='Encoding_':
                 pref=self.parent.prefs.get(i)
@@ -682,10 +721,13 @@ class DamnConverter(thr.Thread): # The actual converter
         self.filename=self.filename+ext
         cmd.append(DV_TMP_PATH+self.filename)
         self.duration=None
-        self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['fromfile']+' to '+self.filename+'...')
-        self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE)
+        self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
+        self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE)
         self.abort=False
         curline=''
+        if stream=='-': # It's not a file stream, so spawn a downloader
+            self.feeder=DamnDownloader(self.uri,self.process)
+            self.feeder.start()
         while self.process.poll()==None:
             c=self.process.stderr.read(1)
             curline+=c
@@ -703,7 +745,17 @@ class DamnConverter(thr.Thread): # The actual converter
             if i[-4:].lower()=='.log':
                 os.remove(DV_TMP_PATH+i)
             if i==self.filename and not result:
-                os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
+                try:
+                    os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
+                except: # Maybe the file still isn't unlocked, it happens... Wait moar and retry
+                    try:
+                        time.sleep(2)
+                        os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
+                    except: # Now this is really bad, alert the user
+                        dlg=wx.MessageDialog(None,'DamnVid successfully converted the file but something prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV_TMP_PATH+i,'Cannot move file!',wx.OK|wx.ICON_EXCLAMATION)
+                        dlg.SetIcon(DV_ICON)
+                        dlg.ShowModal()
+                        dlg.Destroy()
         if not result:
             self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
             self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Success!')
@@ -734,6 +786,23 @@ class DamnConverter(thr.Thread): # The actual converter
             os.remove(self.parent.prefs.get('Outdir')+self.filename)
         except:
             pass # Maybe the file wasn't created yet
+class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
+    def __init__(self,uri,process):
+        self.uri=uri
+        self.process=process
+        thr.Thread.__init__(self)
+    def run(self):
+        http=urllib.urlopen(self.uri)
+        for i in http:
+            if self.process.poll()==None:
+                self.process.stdin.write(i)
+            else:
+                try:
+                    self.process.stdin.close()
+                except:
+                    pass
+                return 0
+        self.process.stdin.close() # This tells ffmpeg that it's the end of the stream
 class DamnMainFrame(wx.Frame): # The main window
     def __init__(self,parent,id,title):
         global DV_ICON
@@ -798,6 +867,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.ID_ICON_YOUTUBE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtube.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_GVIDEO=il.Add(wx.Bitmap(DV_IMAGES_PATH+'googlevideo.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_VEOH=il.Add(wx.Bitmap(DV_IMAGES_PATH+'veoh.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_DAILYMOTION=il.Add(wx.Bitmap(DV_IMAGES_PATH+'dailymotion.png',wx.BITMAP_TYPE_PNG))
         self.list.AssignImageList(il,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
@@ -810,6 +880,15 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addByURL=wx.Button(panel2,-1,'Add URL')
         sizer2.Add(self.addByURL,0)
         self.Bind(wx.EVT_BUTTON,self.onAddURL,self.addByURL)
+        self.btnRename=wx.Button(panel2,-1,'Rename')
+        sizer2.Add(self.btnRename,0)
+        self.Bind(wx.EVT_BUTTON,self.onRename,self.btnRename)
+        self.btnMoveUp=wx.Button(panel2,-1,'Move up')
+        sizer2.Add(self.btnMoveUp,0)
+        self.Bind(wx.EVT_BUTTON,self.onMoveUp,self.btnMoveUp)
+        self.btnMoveDown=wx.Button(panel2,-1,'Move down')
+        sizer2.Add(self.btnMoveDown,0)
+        self.Bind(wx.EVT_BUTTON,self.onMoveDown,self.btnMoveDown)
         self.delSelection=wx.Button(panel2,-1,'Remove')
         sizer2.Add(self.delSelection,0)
         self.Bind(wx.EVT_BUTTON,self.onDelSelection,self.delSelection)
@@ -887,7 +966,7 @@ class DamnMainFrame(wx.Frame): # The main window
             if REGEX_HTTP_YOUTUBE.match(uri):
                 return 'YouTube Video'
             else:
-                # Add elif's
+                # Add elif's?
                 return 'Online video' # Not necessarily true, but ffmpeg will tell
         elif os.path.lexists(uri):
             return 'Local file'
@@ -896,7 +975,8 @@ class DamnMainFrame(wx.Frame): # The main window
         # There's no Veoh here because it's taken directly from the addVid function in order to prevent redownloading the page
         if uri[0:3]=='yt:':
             try:
-                
+                html=urllib.urlopen('http://www.youtube.com/watch?v='+uri[3:])
+                for i in html:
                     res=REGEX_HTTP_YOUTUBE_TITLE_EXTRACT.search(i)
                     if res:
                         return self.noHtmlEnt(res.group(1))
@@ -922,7 +1002,30 @@ class DamnMainFrame(wx.Frame): # The main window
                             return self.noHtmlEnt(res.group(1))
                         else:
                             pass # Return Unknown title
-                
+            except:
+                pass # Can't grab this? Return Unknown title
+        elif uri[0:3]=='dm:':
+            try:
+                html=urllib.urlopen(uri[3:])
+                for i in html:
+                    res=REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT.search(i)
+                    if res:
+                        return self.noHtmlEnt(res.group(1))
+                    else:
+                        res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
+                        if res:
+                            return self.noHtmlEnt(res.group(1))
+                        else:
+                            pass # Return Unknown title
+            except:
+                pass # Can't grab this? Return Unknown title
+        else:
+            try:
+                html=urllib.urlopen(uri[3:])
+                for i in html:
+                    res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
+                    if res:
+                        return self.noHtmlEnt(res.group(1))
             except:
                 pass # Can't grab this? Return Unknown title
         return 'Unknown title'
@@ -962,8 +1065,14 @@ class DamnMainFrame(wx.Frame): # The main window
                             self.addValid({'name':name,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.ID_ICON_VEOH})
                         else:
                             self.SetStatusText('Couldn\'t detect Veoh video.')
+                    elif REGEX_HTTP_DAILYMOTION.search(uri):
+                        uri='dm:'+uri
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.ID_ICON_DAILYMOTION})
                     else:
-                        name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
+                        name=self.getVidName(uri)
+                        if name=='Unknown title':
+                            name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
                         self.addValid({'name':name,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
                 else:
                     # It's a file
@@ -1009,7 +1118,7 @@ class DamnMainFrame(wx.Frame): # The main window
     def go(self,aborted=False):
         self.converting=-1
         for i in range(len(self.videos)):
-            if self.videos[i] not in self.thisvideo:
+            if self.videos[i] not in self.thisvideo and self.meta[self.videos[i]]['status']!='Success!':
                 self.converting=i
                 break
         if self.converting!=-1 and not aborted:
@@ -1098,18 +1207,44 @@ class DamnMainFrame(wx.Frame): # The main window
         elif i2==self.converting:
             self.converting=i1
     def onMoveUp(self,event):
-        for i in self.list.getAllSelectedItems():
-            self.invertVids(i,i-1)
+        items=self.list.getAllSelectedItems()
+        if len(items):
+            if items[0]:
+                for i in items:
+                    self.invertVids(i,i-1)
+            else:
+                dlg=wx.MessageDialog(None,'You\'ve selected the first item in the list, which cannot be moved further up!','Invalid selection',wx.OK|wx.ICON_EXCLAMATION)
+                dlg.SetIcon(DV_ICON)
+                dlg.ShowModal()
+                dlg.Destroy()
+        else:
+            dlg=wx.MessageDialog(None,'Select some videos in the list first.','No videos selected!',wx.OK|wx.ICON_EXCLAMATION)
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+            dlg.Destroy()
     def onMoveDown(self,event):
-        for i in reversed(self.list.getAllSelectedItems()):
-            self.invertVids(i,i+1)
+        items=self.list.getAllSelectedItems()
+        if len(items):
+            if items[-1]<self.list.GetItemCount()-1:
+                for i in reversed(self.list.getAllSelectedItems()):
+                    self.invertVids(i,i+1)
+            else:
+                dlg=wx.MessageDialog(None,'You\'ve selected the last item in the list, which cannot be moved further down!','Invalid selection',wx.OK|wx.ICON_EXCLAMATION)
+                dlg.SetIcon(DV_ICON)
+                dlg.ShowModal()
+                dlg.Destroy()
+        else:
+            dlg=wx.MessageDialog(None,'Select some videos in the list first.','No videos selected!',wx.OK|wx.ICON_EXCLAMATION)
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+            dlg.Destroy()
     def onPrefs(self,event):
         prefs=DamnVidPrefEditor(None,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
         prefs.ShowModal()
         prefs.Destroy()
     def onOpenOutDir(self,event):
         if os.name=='nt':
-            os.system('explorer.exe "'+self.prefs.get('Outdir').replace('%CWD%',os.getcwd()).replace('/',OS_+_SEPARATOR)+'"')
+            os.system('explorer.exe "'+self.prefs.get('Outdir').replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_+_SEPARATOR)+'"')
         else:
             pass # Halp here?
     def onHalp(self,event):
@@ -1136,7 +1271,6 @@ class DamnMainFrame(wx.Frame): # The main window
         except:
             pass
         if not msg:
-            print 'nomsg'
             dlg=wx.MessageDialog(None,'Could not retrieve latest version.','Error',wx.ICON_ERROR|wx.OK)
             dlg.SetIcon(DV_ICON)
             dlg.ShowModal()

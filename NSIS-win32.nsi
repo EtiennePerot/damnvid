@@ -17,6 +17,7 @@ RequestExecutionLevel user
 !define MUI_HEADERIMAGE_BITMAP_NOSTRETCH
 !define MUI_FINISHPAGE
 !define MUI_FINISHPAGE_TEXT "Thank you for installing ${APP}. No more of these damn unreadable videos."
+!define MUI_FINISHPAGE_RUN "$INSTDIR\DamnVid.exe"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
 # Begin Start menu config
@@ -42,7 +43,9 @@ createShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk" "$INSTDIR\uninstall.
 file "DamnVid.exe"
 file "DamnVid.exe.manifest"
 file "gdiplus.dll"
+file "unicows.dll"
 file "MSVCR71.dll"
+file "MSVCP71.dll"
 file "w9xpopen.exe"
 setOutPath "$INSTDIR\bin"
 file "bin\ffmpeg.exe"
@@ -60,6 +63,7 @@ file "img\stoat.jpg"
 file "img\veoh.png"
 file "img\video.png"
 file "img\youtube.png"
+file "img\dailymotion.png"
 setOutPath "$INSTDIR\output"
 file "output\!readme.txt"
 setOutPath "$INSTDIR\temp"
@@ -78,7 +82,9 @@ delete "$INSTDIR\uninstall.exe"
 delete "$INSTDIR\DamnVid.exe"
 delete "$INSTDIR\DamnVid.exe.manifest"
 delete "$INSTDIR\gdiplus.dll"
+delete "$INSTDIR\unicows.dll"
 delete "$INSTDIR\MSVCR71.dll"
+delete "$INSTDIR\MSVCP71.dll"
 delete "$INSTDIR\w9xpopen.exe"
 delete "$INSTDIR\bin\ffmpeg.exe"
 delete "$INSTDIR\bin\SDL.dll"
@@ -93,6 +99,7 @@ delete "$INSTDIR\img\stoat.jpg"
 delete "$INSTDIR\img\veoh.png"
 delete "$INSTDIR\img\video.png"
 delete "$INSTDIR\img\youtube.png"
+delete "$INSTDIR\img\dailymotion.png"
 delete "$INSTDIR\output\!readme.txt"
 delete "$INSTDIR\temp\!readme.txt"
 rmDir "$INSTDIR\output" ; If it still contains files, it won't be deleted.
