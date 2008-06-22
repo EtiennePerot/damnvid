@@ -6,7 +6,7 @@ name "${APP}"
 caption "${APP} installation"
 outFile "..\..\${APP}-setup.exe"
 installDir "$PROGRAMFILES\${APP}\"
-RequestExecutionLevel user
+RequestExecutionLevel admin
 !define MUI_ICON "img\installer.ico"
 !define MUI_UNICON "img\uninstaller.ico"
 !define MUI_HEADERIMAGE

@@ -178,8 +178,8 @@ DV_PREFERENCE_TYPE={
         'name':'Sampling frequency',
         'type':DV_PREFERENCE_TYPE_AUDIO,
         'kind':{
-            '11250':'11250 Hz',
-            '22500':'11250 Hz',
+            '11025':'11025 Hz',
+            '22050':'22050 Hz',
             '44100':'44100 Hz',
             '48000':'48000 Hz',
             '96000':'96000 Hz'
