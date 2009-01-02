@@ -1,3 +1,5 @@
+# This is just a building script for py2exe.
+
 from distutils.core import setup
 import py2exe
 import os
@@ -43,14 +45,13 @@ setup(
         }
     ],
     data_files=[
-        ('output',[path2src+'output/!readme.txt']),
-        ('temp',[path2src+'temp/!readme.txt']),
         ('bin',[path2src+'bin/ffmpeg.exe',path2src+'bin/SDL.dll']),
         ('img',images),
-        ('conf',[path2src+'conf/!readme.txt',path2src+'conf/conf.ini',path2src+'conf/default.ini'])
+        ('conf',[path2src+'conf/!readme.txt',path2src+'conf/conf.ini',path2src+'conf/preferences.damnvid'])
     ]
 )
 shutil.copyfile(path2src+'DamnVid.exe.manifest','dist/DamnVid.exe.manifest')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\gdiplus.dll','dist/gdiplus.dll')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\msvcp71.dll','dist/MSVCP71.dll')
 shutil.copyfile('C:\\Python25\\unicows.dll','dist/unicows.dll')
+shutil.copyfile(path2src+'COPYING','dist/COPYING')

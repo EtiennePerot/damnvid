@@ -1,3 +1,22 @@
+# Copyright 2008 Etienne Perot
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Uhm, yeah. I'm not really sure if I'm proud of this source code or not.
+# I mean, some parts are awesome, some parts are not. I'm undecided.
+
+
 import wx # Oh my, it's wx.
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import wx.lib.hyperlink # Fancy hyperlinks instead of hacked StaticText's
@@ -10,200 +29,91 @@ import htmlentitydefs # HTML entities dictionaries
 import signal # Process signals
 import types # Names of built-in types
 import webbrowser # Open a page in default browser
-import sys
-if os.name=='nt':
-    import win32process
-try:
-    import threading as thr # Threads
-except ImportError:
-    import dummy_threading as thr # Moar threads
+import tempfile,random # Generate temporary files
+import shutil # Shell utilities (copyfile)
+import sys # System stuff
+import ConfigParser # INI file parsing and writing
+
 # Begin constants
-if os.name=='nt':
-    OS_PATH_SEPARATOR='\\'
-else:
-    OS_PATH_SEPARATOR='/'
-DV_VERSION='0.1'
+DV_VERSION='0.2'
+class DamnVidURLOpener(urllib.FancyURLopener):
+    version='DamnVid/'+DV_VERSION
+urllib._urlopener=DamnVidURLOpener() # All urllib.urlopen() call will have the DamnVid user-agent
 DV_URL='http://code.google.com/p/damnvid/'
 DV_URL_HALP='http://code.google.com/p/damnvid/wiki/Help'
 DV_URL_UPDATE='http://code.google.com/p/damnvid/wiki/CurrentVersion'
 DV_URL_DOWNLOAD='http://code.google.com/p/damnvid/downloads/'
 DV_ICON=None # This will be defined when DamnMainFrame is initialized
-DV_CURDIR=os.path.dirname(os.path.abspath(sys.argv[0]))+OS_PATH_SEPARATOR
-DV_CONF_FILE=DV_CURDIR+'conf/conf.ini'.replace('/',OS_PATH_SEPARATOR)
-DV_IMAGES_PATH=DV_CURDIR+'img/'.replace('/',OS_PATH_SEPARATOR)
-DV_BIN_PATH=DV_CURDIR+'bin/'.replace('/',OS_PATH_SEPARATOR)
-DV_TMP_PATH=DV_CURDIR+'temp/'.replace('/',OS_PATH_SEPARATOR)
+DV_MY_VIDEOS_PATH=''
+DV_APPDATA_PATH=''
+if os.name=='nt':
+    import win32process
+    # Need to determine the location of the "My Videos" and "Application Data" folder.
+    import ctypes
+    from ctypes import wintypes
+    DV_MY_VIDEOS_PATH=ctypes.create_string_buffer(wintypes.MAX_PATH)
+    DV_APPDATA_PATH=ctypes.create_string_buffer(wintypes.MAX_PATH)
+    ctypes.windll.shell32.SHGetFolderPathA(None,0xE,None,0,DV_MY_VIDEOS_PATH)
+    ctypes.windll.shell32.SHGetFolderPathA(None,0x1A,None,0,DV_APPDATA_PATH)
+    DV_MY_VIDEOS_PATH=str(DV_MY_VIDEOS_PATH.value)
+    DV_APPDATA_PATH=str(DV_APPDATA_PATH.value)
+    del ctypes
+    del wintypes
+else:
+    DV_MY_VIDEOS_PATH='~'+os.sep+'Videos'
+try:
+    import threading as thr # Threads
+except ImportError:
+    import dummy_threading as thr # Moar threads
+DV_CURDIR=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
+DV_CONF_FILE_LOCATION={
+    'nt':DV_APPDATA_PATH+os.sep+'DamnVid',
+    'posix':'~'+os.sep+'.damnvid',
+    'mac':'~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid'
+}
+DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION[os.name]+os.sep
+DV_CONF_FILE=DV_CONF_FILE_DIRECTORY+'damnvid.ini'
+DV_FIRST_RUN=False
+if not os.path.lexists(DV_CONF_FILE):
+    if not os.path.lexists(os.path.dirname(DV_CONF_FILE)):
+        os.makedirs(os.path.dirname(DV_CONF_FILE))
+    shutil.copyfile(DV_CURDIR+'conf'+os.sep+'conf.ini',DV_CONF_FILE)
+    DV_FIRST_RUN=True
+DV_IMAGES_PATH=DV_CURDIR+'img/'.replace('/',os.sep)
+DV_BIN_PATH=DV_CURDIR+'bin/'.replace('/',os.sep)
+DV_TMP_PATH=tempfile.gettempdir()
+if DV_TMP_PATH[-1]!=os.sep:
+    DV_TMP_PATH+=os.sep
+DV_TMP_PATH+='damnvid-'
 DV_FILE_EXT={
-    'mpeg4':'avi',
-    'mpeg1video':'avi',
-    'mpeg2video':'avi',
+    'avi':'avi',
     'flv':'flv',
-    'h261':'avi',
-    'h263':'avi',
-    'h263p':'avi',
-    'msmpeg4':'avi',
-    'msmpeg4v1':'avi',
-    'msmpeg4v2':'avi',
+    'mpeg1video':'mpg',
+    'mpeg2video':'mpg',
+    'mpegts':'mpg',
+    'mp4':'mp4',
+    'ipod':'mp4',
+    'psp':'mp4',
+    'rm':'rm',
+    'matroska':'mkv',
+    'ogg':'ogg',
+    'vob':'vob',
+    '3gp':'3gp',
+    '3g2':'3g2'
+}
+DV_FILE_EXT_BY_CODEC={
+    'rv10':'rm',
+    'rv20':'rm',
+    'flv':'flv',
+    'theora':'ogg',
     'wmv1':'wmv',
     'wmv2':'wmv'
-} # This needs to be completed, or just fixed, since the video codec doesn't really define the file extension
-DV_PREFERENCE_TYPE_VIDEO=1
-DV_PREFERENCE_TYPE_AUDIO=2
-DV_PREFERENCE_TYPE_OTHER=3
-DV_PREFERENCE_TYPE={
-    'Encoding_vcodec':{
-        'name':'Codec',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':{
-            'mpeg4':'MPEG-4',
-            'mpeg1video':'MPEG-1',
-            'mpeg2video':'MPEG-2',
-            'flv':'Flash Video',
-            'h263p':'H.263+',
-            'h263':'H.263',
-            'h261':'H.261',
-            'msmpeg4':'Microsoft MPEG-4 v3',
-            'msmpeg4v2':'Microsoft MPEG-4 v2',
-            'msmpeg4v1':'Microsoft MPEG-4 v1',
-            'wmv2':'Windows Media Video v2',
-            'wmv1':'Windows Media Video v1'
-        },
-        'order':['mpeg4','mpeg1video','mpeg2video','flv','h263p','h263','h261','msmpeg4','msmpeg4v2','msmpeg4v1','wmv2', 'wmv1'], # Because Python can't fucking remember the order of dictionaries, it seems.
-        'strict':True,
-        'default':'mpeg4'
-    },
-    'Encoding_pass':{
-        'name':'Number of passes',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':{
-            '1':'1 pass',
-            '2':'2 passes'
-        },
-        'order':['1','2'],
-        'strict':True,
-        'default':'1'
-    },
-    'Encoding_b':{
-        'name':'Bitrate',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk:7-13', # Int in kilobytes
-        'strict':None,
-        'default':'768k'
-    },
-    'Encoding_bufsize':{
-        'name':'Buffer size',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'int',
-        'strict':False,
-        'default':''
-    },
-    'DirRecursion':{
-        'name':'Enable directory Recursion',
-        'type':DV_PREFERENCE_TYPE_OTHER,
-        'kind':'bool',
-        'strict':True,
-        'default':'True'
-    },
-    'Encoding_ab':{
-        'name':'Bitrate',
-        'type':DV_PREFERENCE_TYPE_AUDIO,
-        'kind':'intk:5-10',
-        'strict':True,
-        'default':'128k'
-    },
-    'Encoding_ac':{
-        'name':'Channels',
-        'type':DV_PREFERENCE_TYPE_AUDIO,
-        'kind':{
-            '1':'1 (Mono)',
-            '2':'2 (Stereo)'
-        },
-        'order':['1','2'],
-        'strict':True,
-        'default':'1'
-    },
-    'Encoding_r':{
-        'name':'Frames per second',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'int',
-        'strict':False,
-        'default':'30'
-    },
-    'Encoding_vol':{
-        'name':'Volume (%)',
-        'type':DV_PREFERENCE_TYPE_AUDIO,
-        'kind':'%256',
-        'strict':False,
-        'default':'256.0'
-    },
-    'Encoding_minrate':{
-        'name':'Minimum bitrate',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk:7-13',
-        'strict':False,
-        'default':''
-    },
-    'Encoding_maxrate':{
-        'name':'Maximum bitrate',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk:7-13',
-        'strict':False,
-        'default':''
-    },
-    'Encoding_acodec':{
-        'name':'Codec',
-        'type':DV_PREFERENCE_TYPE_AUDIO,
-        'kind':{
-            'libmp3lame':'MP3',
-            'mp2':'MP2',
-            'ac3':'AC-3',
-            'flac':'FLAC',
-            'libfaac':'libfaac AAC',
-            'vorbis':'Vorbis',
-            'wmav2':'Windows Media Audio v2',
-            'wmav1':'Windows Media Audio v1'
-        },
-        'order':['libmp3lame','mp2','ac3','flac','libfaac','vorbis','wmav2','wmav1'],
-        'strict':True,
-        'default':'libmp3lame'
-    },
-    'Encoding_g':{
-        'name':'Group of pictures size',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'int',
-        'strict':False,
-        'default':''
-    },
-    'Encoding_ar':{
-        'name':'Sampling frequency',
-        'type':DV_PREFERENCE_TYPE_AUDIO,
-        'kind':{
-            '11025':'11025 Hz',
-            '22050':'22050 Hz',
-            '44100':'44100 Hz',
-            '48000':'48000 Hz',
-            '96000':'96000 Hz'
-        },
-        'order':['11250','22500','44100','48000','96000'],
-        'strict':True,
-        'default':'44100'
-    },
-    'Encoding_bt':{
-        'name':'Bitrate tolerance',
-        'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk:3-10',
-        'strict':False,
-        'default':''
-    },
-    'Outdir':{
-        'name':'Output directory',
-        'type':DV_PREFERENCE_TYPE_OTHER,
-        'kind':'dir',
-        'strict':True,
-        'default':'%CWD%/output/'
-    }
-}
-DV_PREFERENCE_ORDER=['Encoding_vcodec','Encoding_r','Encoding_b','Encoding_minrate','Encoding_maxrate','Encoding_bt','Encoding_bufsize','Encoding_pass','Encoding_g','Encoding_acodec','Encoding_vol','Encoding_ab','Encoding_ar','Encoding_ac','DirRecursion','Outdir']
+} # Just in case the format isn't defined, fall back to DV_FILE_EXT_BY_CODEC. Otherwise, fall back to .avi.
+DV_PREFERENCES=None
+try:
+    execfile(DV_CURDIR+'conf'+os.sep+'preferences.damnvid') # Load preferences
+except:
+    pass # Someone's been messing around with the conf.py file?
 # Begin ID constants
 ID_MENU_EXIT=101
 ID_MENU_ADD_FILE=102
@@ -215,10 +125,12 @@ ID_MENU_HALP=107
 ID_MENU_UPDATE=108
 ID_MENU_ABOUT=109
 ID_COL_VIDNAME=0
-ID_COL_VIDSTAT=1
-ID_COL_VIDPATH=2
+ID_COL_VIDPROFILE=1
+ID_COL_VIDSTAT=2
+ID_COL_VIDPATH=3
 # Begin regex constants
 REGEX_DAMNVID_VERSION_CHECK=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
+REGEX_PATH_MULTI_SEPARATOR_CHECK=re.compile('/+')
 REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration: (\\d+):(\\d\\d):([.\\d]+),',re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
 REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;{}\w]*)?$',re.IGNORECASE)
@@ -229,6 +141,7 @@ REGEX_HTTP_DAILYMOTION=re.compile('^https?://(?:[-_\w]+\.)*dailymotion\.com/',re
 REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
 REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
 REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
+REGEX_URI_EXTENSION_EXTRACT=re.compile('^(?:[^?|<>]+[/\\\\])?[^/\\\\|?<>#]+\\.(\\w{1,3})(?:$|[^/\\\\\\w].*?$)')
 REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE_TITLE_EXTRACT=re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE_TICKET_EXTRACT=re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2')
@@ -238,21 +151,36 @@ REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('<title>\\s*([^<>]+)(?: : Online Video)
 REGEX_HTTP_VEOH_ID_EXTRACT=re.compile('permalinkId=(\\w+)',re.IGNORECASE)
 REGEX_HTTP_VEOH_SUBID_EXTRACT=re.compile('^\\w+?(\\d+).*$')
 REGEX_HTTP_VEOH_TICKET_EXTRACT=re.compile('fullPreviewHashPath="([^"]+)"',re.IGNORECASE)
-REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT=re.compile('<title>(?:Video\\s*)?([^<>]+?)\\s*-[^-<>]+-[^-<>]+</title>',re.IGNORECASE)
+"""To redo!"""REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT=re.compile('<title>(?:Video\\s*)?([^<>]+?)\\s*-[^-<>]+-[^-<>]+</title>',re.IGNORECASE)
 REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT=re.compile('\\.addVariable\\s*\\(\\s*([\'"])video\\1\\s*,\\s*([\'"])((?:(?!\\2).)+)\\2\\s*\\)',re.IGNORECASE)
 REGEX_HTTP_DAILYMOTION_QUALITY=re.compile('(\d+)x(\d+)')
 # End constants
-def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None):
+def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
+    if cwd==None:
+        cwd=os.getcwd()
     if os.name=='nt':
-        return subprocess.Popen(cmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+        return subprocess.Popen(cmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
     else:
-        return subprocess.Popen(cmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin)
+        return subprocess.Popen(cmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd)
 class DamnDropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
     def __init__(self,parent):
         wx.FileDropTarget.__init__(self)
         self.parent=parent
     def OnDropFiles(self,x,y,filenames):
         self.parent.addVid(filenames)
+class DamnCurry:
+    # From http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/52549
+    def __init__(self,func,*args,**kwargs):
+        self.func=func
+        self.pending=args[:]
+        self.kwargs=kwargs
+    def __call__(self,*args,**kwargs):
+        if kwargs and self.kwargs:
+            kw=self.kwargs.copy()
+            kw.update(kwargs)
+        else:
+            kw=kwargs or self.kwargs
+        return self.func(*(self.pending+args),**kw)
 class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the DamnList
     def __init__(self,parent):
         wx.Menu.__init__(self)
@@ -283,6 +211,26 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
             self.AppendItem(remove)
             remove.Enable(self.parent.parent.converting not in self.items)
             self.Bind(wx.EVT_MENU,self.parent.parent.onDelSelection,remove)
+            if self.parent.parent.converting not in self.items:
+                profile=wx.Menu()
+                uniprofile=int(self.parent.parent.meta[self.parent.parent.videos[self.items[0]]]['profile'])
+                for i in self.items:
+                    if int(self.parent.parent.meta[self.parent.parent.videos[i]]['profile'])!=uniprofile:
+                        uniprofile=-2
+                for i in range(-1,self.parent.parent.prefs.profiles):
+                    if uniprofile!=-2:
+                        prof=wx.MenuItem(self,-1,self.parent.parent.prefs.getp(i,'name'),kind=wx.ITEM_RADIO)
+                        profile.AppendItem(prof) # Item has to be appended before being checked, otherwise error. Annoying code duplication.
+                        prof.Check(i==uniprofile)
+                    else:
+                        prof=wx.MenuItem(self,-1,self.parent.parent.prefs.getp(i,'name'))
+                        profile.AppendItem(prof)
+                    self.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof)
+                self.AppendMenu(-1,'Encoding profile',profile)
+            else:
+                profile=wx.MenuItem(self,-1,'Encoding profile')
+                self.AppendItem(profile)
+                profile.Enable(False)
         else: # Otherwise, display a different context menu
             addfile=wx.MenuItem(self,-1,'Add Files')
             self.AppendItem(addfile)
@@ -422,131 +370,439 @@ class DamnAboutDamnVid(wx.Dialog):
         dlg.Destroy()
     def onOK(self,event):
         self.Close(True)
-class DamnVidPrefs: # Preference manager... Should have used wx.Config
+class DamnVidPrefs: # Preference manager
     def __init__(self):
         self.conf={}
-        f=open(DV_CONF_FILE)
-        for i in re.finditer('(?m)^([_\\w]+)=(.*)$',f.read()):
-            self.conf[i.group(1)]=i.group(2).replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_PATH_SEPARATOR).strip()
+        f=open(DV_CONF_FILE,'r')
+        #for i in re.finditer('(?m)^([_\\w]+)=(.*)$',f.read()):
+            #self.conf[i.group(1)]=i.group(2).replace('%CWD%',DV_CURDIR[0:-1]).replace('/',os.sep).strip()
+        self.ini=ConfigParser.SafeConfigParser()
+        self.ini.readfp(f)
         f.close()
-    def get(self,name):
-        try:
-            return self.conf[name]
-        except:
-            self.conf[name]=''
-            self.save()
-            return ''
-    def set(self,name,value):
-        self.conf[name]=value
+        self.profiles=0
+        self.pathprefs=['outdir','lastfiledir','defaultoutdir']
+        for i in self.ini.sections():
+            if i[0:16]=='damnvid-profile-':
+                self.profiles=self.profiles+1
+    def expandPath(self,value):
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace('?DAMNVID_MY_VIDEOS?',DV_MY_VIDEOS_PATH.replace(os.sep,'/'))).replace('/',os.sep)
+        if value[-1:]!=os.sep:
+            value+=os.sep
         return value
+    def reducePath(self,value):
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace(DV_MY_VIDEOS_PATH.replace(os.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace('/',os.sep)
+        if value[-1:]!=os.sep:
+            value+=os.sep
+        return value
+    def get(self,name):
+        name=name.lower()
+        if not self.ini.has_option('damnvid',name):
+            self.ini.set('damnvid',name,'')
+        value=self.ini.get('damnvid',name)
+        if name in self.pathprefs:
+            value=self.expandPath(value)
+        return value
+    def set(self,name,value):
+        name=name.lower()
+        if name in self.pathprefs:
+            value=self.reducePath(value)
+        self.ini.set('damnvid',name,value)
+        return value
+    def gets(self,section,name):
+        name=name.lower()
+        if self.ini.has_section(section):
+            value=self.ini.get(section,name)
+            if name in self.pathprefs:
+                value=self.expandPath(value)
+            return value
+        else:
+            print 'No such section:',section
+    def sets(self,section,name,value):
+        name=name.lower()
+        if self.ini.has_section(section):
+            if name in self.pathprefs:
+                value=self.reducePath(value)
+            return self.ini.set(section,name,value)
+        else:
+            print 'No such section:',section
+    def lists(self,section):
+        if self.ini.has_section(section):
+            return self.ini.options(section)
+        else:
+            print 'No such section.'
+    def getp(self,profile,name):
+        if int(profile)==-1:
+            if name.lower()=='name':
+                return '(Do not encode)'
+            if name.lower()=='outdir':
+                return self.get('defaultoutdir')
+        return self.gets('damnvid-profile-'+str(profile),name)
+    def setp(self,profile,name,value):
+        return self.sets('damnvid-profile-'+str(profile),name,value)
+    def listp(self,profile):
+        return self.lists('damnvid-profile-'+str(profile))
+    def getd(self,name):
+        return self.gets('damnvid-default-profiles',name)
+    def setd(self,name,value):
+        return self.sets('damnvid-default-profiles',name,value)
+    def listd(self):
+        return self.lists('damnvid-default-profiles')
+    def addp(self):
+        self.ini.add_section('damnvid-profile-'+str(self.profiles))
+        for i in self.ini.options('damnvid-typical-profile'):
+            self.ini.set('damnvid-profile-'+str(self.profiles),i,self.ini.get('damnvid-typical-profile',i))
+        self.profiles=self.profiles+1
+    def remp(self,profile):
+        if self.profiles>1:
+            for i in self.ini.options('damnvid-default-profiles'):
+                if str(self.ini.get('damnvid-default-profiles',i))==str(profile):
+                    self.ini.set('damnvid-default-profiles',i,'0')
+                elif int(self.ini.get('damnvid-default-profiles',i))>int(profile):
+                    self.ini.set('damnvid-default-profiles',i,str(int(self.ini.get('damnvid-default-profiles',i))-1))
+            for i in range(profile,self.profiles-1):
+                for j in self.ini.options('damnvid-profile-'+str(i)):
+                    self.ini.remove_option('damnvid-profile-'+str(i),j)
+                for j in self.ini.options('damnvid-profile-'+str(i+1)):
+                    self.ini.set('damnvid-profile-'+str(i),j,self.ini.get('damnvid-profile-'+str(i+1),j))
+            self.profiles=self.profiles-1
+            self.ini.remove_section('damnvid-profile-'+str(self.profiles))
+            return self.profiles
+        else:
+            print 'Denied~'
+            return None
     def save(self):
         f=open(DV_CONF_FILE,'w')
-        f.write('[DamnVid]')
-        for i in self.conf:
-            f.write("\r\n"+i+'='+str(self.conf[i]).replace(OS_PATH_SEPARATOR,'/'))
+        self.ini.write(f)
         f.close()
 class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
-    def __init__(self,parent,id,label,filefield):
-        self.filefield=filefield
+    def __init__(self,parent,id,label,control,title,callback):
+        self.filefield=control
+        self.title=title
+        self.callback=callback
         wx.Button.__init__(self,parent,id,label)
     def onBrowse(self,event):
-        dlg=wx.DirDialog(self,'Select DamnVid '+DV_VERSION+'\'s output directory.',self.filefield.GetValue(),style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
+        dlg=wx.DirDialog(self,self.title,self.filefield.GetValue(),style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
         dlg.SetIcon(DV_ICON)
+        path=None
         if dlg.ShowModal()==wx.ID_OK:
-            self.filefield.SetValue(dlg.GetPath())
+            path=dlg.GetPath()
+            self.filefield.SetValue(path)
         dlg.Destroy()
+        if path!=None:
+            self.callback(self,path)
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
     def __init__(self,parent,id,title,main):
+        # Dialog init
         wx.Dialog.__init__(self,parent,id,title)
         self.parent=main
-        self.controls={}
-        self.listvalues={}
+        self.prefs=self.parent.prefs
         self.toppanel=wx.Panel(self,-1)
-        self.topvbox=wx.BoxSizer(wx.VERTICAL)
-        self.toppanel.SetSizer(self.topvbox)
-        self.hbox=wx.BoxSizer(wx.HORIZONTAL)
-        self.audiovideopanel=wx.Panel(self.toppanel,-1)
-        self.topvbox.Add(self.audiovideopanel,1,wx.EXPAND)
-        self.audiovideopanel.SetSizer(self.hbox)
-        self.toppanel.SetSizer(self.topvbox)
-        panel1=wx.Panel(self.audiovideopanel,-1)
-        panel2=wx.Panel(self.audiovideopanel,-1)
-        vbox1=wx.StaticBoxSizer(wx.StaticBox(panel1,-1,'Video encoding options'),wx.VERTICAL)
-        vbox2=wx.StaticBoxSizer(wx.StaticBox(panel2,-1,'Audio encoding options'),wx.VERTICAL)
-        self.hbox.Add(panel1,1,wx.EXPAND)
-        self.hbox.Add(panel2,1,wx.EXPAND)
-        panel1.SetSizer(vbox1)
-        panel2.SetSizer(vbox2)
-        self.grid1=wx.GridSizer(0,2)
-        self.grid2=wx.GridSizer(0,2)
-        vbox1.Add(self.grid1,0)
-        vbox2.Add(self.grid2,0)
-        self.topvbox.Add((0,5))
-        for name in DV_PREFERENCE_ORDER:
-            i=DV_PREFERENCE_TYPE[name]
-            add=False
-            val=''
-            if i['type']==DV_PREFERENCE_TYPE_VIDEO:
-                panel=panel1
-                sizer=self.grid1
-            elif i['type']==DV_PREFERENCE_TYPE_AUDIO:
-                panel=panel2
-                sizer=self.grid2
-            else:
-                panel=self.toppanel
-                sizer=wx.BoxSizer(wx.HORIZONTAL)
-                self.topvbox.Add(sizer,0,wx.EXPAND)
-            if i['kind']!='bool': # Otherwise it's a checkbox, the label goes with it
-                sizer.Add(wx.StaticText(panel,-1,i['name']+': '))
-            if not self.parent.prefs.get(name):
-                val='(default)'
-            if type(i['kind']) is types.DictType:
-                choices=['(default)']
-                for f in i['order']:
-                    choices.append(i['kind'][f])
-                if not val:
-                    val=i['kind'][self.parent.prefs.get(name)]
-                self.controls[name]=self.makeList(i['strict'],choices,panel,val)
-                self.listvalues[name]=choices
-                sizer.Add(self.controls[name])
-            elif i['kind'][0:3]=='int':
-                choices=['(default)']
-                if len(i['kind'])>3:
-                    for f in range(int(i['kind'][i['kind'].find(':')+1:i['kind'].find('-')]),int(i['kind'][i['kind'].find('-')+1:])):
-                        choices.append(str(pow(2,f))+'k')
-                if not val:
-                    val=self.parent.prefs.get(name)
-                self.controls[name]=self.makeList(i['strict'],choices,panel,val)
-                self.listvalues[name]=choices
-                sizer.Add(self.controls[name])
-            elif i['kind'][0]=='%':
-                self.controls[name]=wx.SpinCtrl(panel,-1,initial=int(100.0*float(self.parent.prefs.get(name))/float(i['kind'][1:])),min=0,max=200)
-                sizer.Add(self.controls[name])
-            elif i['kind']=='dir':
-                self.controls[name]=wx.TextCtrl(panel,-1,self.parent.prefs.get(name))
-                sizer.Add(self.controls[name],1,wx.EXPAND)
-                button=DamnBrowseDirButton(panel,-1,'Browse...',self.controls[name])
-                sizer.Add(button,0)
-                self.Bind(wx.EVT_BUTTON,button.onBrowse,button)
-            elif i['kind']=='bool':
-                self.controls[name]=wx.CheckBox(panel,-1,i['name'])
-                self.controls[name].SetValue(self.parent.prefs.get(name)=='True')
-                sizer.Add(self.controls[name])
-        tophbox=wx.BoxSizer(wx.HORIZONTAL)
-        self.topvbox.Add(tophbox,0,wx.EXPAND)
+        self.bestsize=[0,0]
+        # Top part of the toppanel
+        self.topsizer=wx.BoxSizer(wx.VERTICAL)
+        self.uppersizer=wx.BoxSizer(wx.HORIZONTAL)
+        self.topsizer.Add(self.uppersizer,1,wx.EXPAND)
+        # - Left part of the upperpanel
+        self.upperleftpanel=wx.Panel(self.toppanel,-1)
+        self.uppersizer.Add(self.upperleftpanel,0)
+        self.upperleftsizer=wx.BoxSizer(wx.VERTICAL)
+        self.tree=wx.TreeCtrl(self.upperleftpanel,-1,size=(180,280),style=wx.TR_LINES_AT_ROOT|wx.TR_HAS_BUTTONS|wx.TR_FULL_ROW_HIGHLIGHT)
+        self.upperleftsizer.Add(self.tree,1,wx.EXPAND)
+        # - - Tree construction
+        self.treeroot=self.tree.AddRoot('DamnVid Preferences')
+        self.defaultprofiles=self.tree.AppendItem(self.treeroot,'Default profiles')
+        self.profileroot=self.tree.AppendItem(self.treeroot,'Encoding profiles')
+        self.profiles=[]
+        for i in range(0,self.prefs.profiles):
+            self.profiles.append(self.tree.AppendItem(self.profileroot,self.prefs.getp(i,'name')))
+        self.tree.ExpandAll()
+        # - - End tree construction
+        self.addProfileButton=wx.Button(self.upperleftpanel,-1,'Add profile')
+        self.upperleftsizer.Add(self.addProfileButton,0,wx.EXPAND)
+        self.deleteProfileButton=wx.Button(self.upperleftpanel,-1,'Delete profile')
+        self.upperleftsizer.Add(self.deleteProfileButton,0,wx.EXPAND)
+        self.importButton=wx.Button(self.upperleftpanel,-1,'Import preferences')
+        self.upperleftsizer.Add(self.importButton,0,wx.EXPAND)
+        self.exportButton=wx.Button(self.upperleftpanel,-1,'Export preferences')
+        self.upperleftsizer.Add(self.exportButton,0,wx.EXPAND)
+        self.resetButton=wx.Button(self.upperleftpanel,-1,'Reset all')
+        self.upperleftsizer.Add(self.resetButton,0,wx.EXPAND)
+        self.upperleftpanel.SetSizer(self.upperleftsizer)
+        # - Right part of the upperpanel
+        self.upperrightpanel=wx.Panel(self.toppanel,-1)
+        self.uppersizer.Add(self.upperrightpanel,1,wx.EXPAND)
+        self.prefpanelabel=wx.StaticBox(self.upperrightpanel,-1,'')
+        self.upperrightsizer=wx.StaticBoxSizer(self.prefpanelabel,wx.VERTICAL)
+        # - - Preference pane creation
+        self.prefpane=wx.Panel(self.upperrightpanel,-1)
+        self.prefpanesizer=wx.GridBagSizer(2,2)
+        self.prefpane.SetSizer(self.prefpanesizer)
+        # - - End preference pane creation
+        self.upperrightsizer.Add(self.prefpane,1,wx.EXPAND)
+        self.upperrightpanel.SetSizer(self.upperrightsizer)
+        # Bottom part of the toppanel
+        self.lowersizer=wx.BoxSizer(wx.HORIZONTAL)
+        self.topsizer.Add(self.lowersizer,0,wx.EXPAND)
+        self.lowersizer.AddStretchSpacer(1)
         self.okButton=wx.Button(self.toppanel,wx.ID_OK,'OK')
-        self.Bind(wx.EVT_BUTTON,self.onOK,self.okButton)
+        self.lowersizer.Add(self.okButton,0,wx.ALIGN_RIGHT)
         self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,'Cancel')
+        self.lowersizer.Add(self.closeButton,0,wx.ALIGN_RIGHT)
+        # Final touches, binds, etc.
+        self.toppanel.SetSizer(self.topsizer)
+        self.Bind(wx.EVT_BUTTON,self.onAddProfile,self.addProfileButton)
+        self.Bind(wx.EVT_BUTTON,self.onDeleteProfile,self.deleteProfileButton)
+        self.Bind(wx.EVT_BUTTON,self.onOK,self.okButton)
+        self.Bind(wx.EVT_BUTTON,self.onImport,self.importButton)
+        self.Bind(wx.EVT_BUTTON,self.onExport,self.exportButton)
+        self.Bind(wx.EVT_BUTTON,self.onReset,self.resetButton)
         self.Bind(wx.EVT_BUTTON,self.onClose,self.closeButton)
-        reset=wx.Choice(self.toppanel,-1,choices=['Reset to default config...','DamnVid '+DV_VERSION+' default','FFmpeg default'])
-        reset.SetSelection(0)
-        self.Bind(wx.EVT_CHOICE,self.onReset,reset)
-        tophbox.Add(reset,0,wx.ALIGN_LEFT)
-        tophbox.Add(wx.StaticText(self.toppanel,-1,''),1,wx.ALIGN_LEFT)
-        tophbox.Add(self.okButton,0,wx.ALIGN_RIGHT)
-        tophbox.Add(self.closeButton,0,wx.ALIGN_RIGHT)
-        self.SetClientSize(self.toppanel.GetBestSize())
+        self.Bind(wx.EVT_TREE_SEL_CHANGED,self.onTreeSelectionChanged,self.tree)
+        self.Bind(wx.EVT_KEY_DOWN,self.onKeyDown,self.toppanel)
+        self.toppanel.SetFocus()
+        self.tree.SelectItem(self.treeroot,True) # Will also resize the window
         self.Center()
+    def onTreeSelectionChanged(self,event):
+        item=event.GetItem()
+        self.prefpanelabel.SetLabel(self.tree.GetItemText(item))
+        if item==self.treeroot:
+            self.updatePrefPane('damnvid')
+        elif item==self.defaultprofiles:
+            self.updatePrefPane('damnvid-default-profiles')
+        elif item==self.profileroot:
+            self.updatePrefPane('special:profileroot')
+        elif item in self.profiles:
+            count=0
+            profile=None
+            for i in self.profiles:
+                if i!=item:
+                    count=count+1
+                else:
+                    profile=str(count)
+            self.updatePrefPane('damnvid-profile-'+profile)
+        else:
+            self.updatePrefPane('special:error')
+    def updatePrefPane(self,pane):
+        self.prefpanesizer.Clear(True) # Delete all controls in prefpane
+        self.pane=pane
+        if pane[0:8].lower()=='special:':
+            pane=pane[8:]
+            if pane=='profileroot':
+                txt=wx.StaticText(self.prefpane,-1,"""DamnVid lets you create multiple so-called "Encoding profiles". An encoding profile is a set of encoding preferences used to encode videos.
+
+Being able to create multiple instances of these profiles allow you to easily convert a set of videos to the same format, while converting others to another format. For instance, you might want to convert some videos with low-quality settings so that they can be played on your iPod, while converting a few other videos with higher quality settings before burning them on a DVD.
+
+Additionally, one of your encoding profiles may be set as the default one for new videos added in the video list from a specific source. This way, you can, for instance, convert all YouTube videos to iPod format, while converting all local files to DVD format. Use the "Default profiles" configuration panel to customize which profiles are used as default for a certain video source.""")
+                txt.Wrap(max(self.prefpane.GetSize()[0],300))
+                self.prefpanesizer.Add(txt,(0,0),(1,1))
+            elif pane=='error':
+                txt=wx.StaticText(self.prefpane,-1,'Error!')
+                txt.Wrap(max(self.prefpane.GetSize()[0],300))
+                self.prefpanesizer.Add(txt,(0,0),(1,1))
+        else:
+            prefprefix=pane
+            profile=None
+            if prefprefix[0:16].lower()=='damnvid-profile-':
+                prefprefix=prefprefix[0:15]
+                profile=int(pane[16:])
+            prefprefix+=':'
+            self.controls={}
+            currentprefs=[]
+            maxheight={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
+            maxwidth={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
+            count=0
+            for i in self.prefs.lists(pane):
+                if prefprefix+i in DV_PREFERENCES.keys():
+                    desc=DV_PREFERENCES[prefprefix+i]
+                    width=1
+                    if i in DV_PREFERENCE_ORDER[prefprefix[0:-1]]:
+                        currentprefs.insert(DV_PREFERENCE_ORDER[prefprefix[0:-1]].index(i),prefprefix+i)
+                    else:
+                        currentprefs.append(prefprefix+i)
+                    maxheight[str(desc['type'])]+=1
+                    maxwidth[str(desc['type'])]=max((maxwidth[str(desc['type'])],self.getPrefWidth(prefprefix+i)))
+            maxwidth[str(DV_PREFERENCE_TYPE_PROFILE)]=max((maxwidth[str(DV_PREFERENCE_TYPE_MISC)],maxwidth[str(DV_PREFERENCE_TYPE_PROFILE)],maxwidth[str(DV_PREFERENCE_TYPE_VIDEO)]+maxwidth[str(DV_PREFERENCE_TYPE_AUDIO)]))
+            maxwidth[str(DV_PREFERENCE_TYPE_MISC)]=maxwidth[str(DV_PREFERENCE_TYPE_PROFILE)]
+            count=0
+            currentprefsinsection={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
+            for i in currentprefs:
+                shortprefname=i[i.find(':')+1:]
+                if profile==None:
+                    val=self.prefs.gets(pane,shortprefname)
+                else:
+                    val=self.prefs.getp(profile,shortprefname)
+                position=[0,0]
+                maxspan=[1,maxwidth[str(DV_PREFERENCES[i]['type'])]]
+                if DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_AUDIO:
+                    position[1]+=maxwidth[str(DV_PREFERENCE_TYPE_VIDEO)]
+                elif DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_PROFILE:
+                    position[0]+=max((maxheight[str(DV_PREFERENCE_TYPE_VIDEO)],maxheight[str(DV_PREFERENCE_TYPE_AUDIO)]))
+                elif DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_MISC:
+                    position[0]+=maxheight[str(DV_PREFERENCE_TYPE_PROFILE)]+max((maxheight[str(DV_PREFERENCE_TYPE_VIDEO)],maxheight[str(DV_PREFERENCE_TYPE_AUDIO)]))
+                position[0]+=currentprefsinsection[str(DV_PREFERENCES[i]['type'])]
+                currentprefsinsection[str(DV_PREFERENCES[i]['type'])]+=1
+                if DV_PREFERENCES[i]['kind']!='bool':
+                    label=wx.StaticText(self.prefpane,-1,DV_PREFERENCES[i]['name']+':')
+                    self.prefpanesizer.Add(label,(position[0],position[1]),(1,1),wx.ALIGN_RIGHT)
+                if type(DV_PREFERENCES[i]['kind']) is types.DictType:
+                    choices=['(default)']
+                    for f in DV_PREFERENCES[i]['order']:
+                        choices.append(DV_PREFERENCES[i]['kind'][f])
+                    if not val:
+                        val='(default)'
+                    else:
+                        val=DV_PREFERENCES[i]['kind'][val]
+                    self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
+                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                elif DV_PREFERENCES[i]['kind'][0]=='%':
+                    self.controls[i]=wx.SpinCtrl(self.prefpane,-1,initial=int(100.0*float(val)/float(str(DV_PREFERENCES[i]['kind'][1:]))),min=0,max=200)
+                    self.Bind(wx.EVT_SPINCTRL,self.onPrefChange,self.controls[i])
+                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                elif DV_PREFERENCES[i]['kind']=='bool':
+                    self.controls[i]=wx.CheckBox(self.prefpane,-1,DV_PREFERENCES[i]['name'])
+                    self.controls[i].SetValue(val=='True')
+                    self.Bind(wx.EVT_CHECKBOX,self.onPrefChange,self.controls[i])
+                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]),wx.EXPAND)
+                elif DV_PREFERENCES[i]['kind'][0:3]=='int':
+                    choices=['(default)']
+                    if len(DV_PREFERENCES[i]['kind'])>3:
+                        for f in range(int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find(':')+1:DV_PREFERENCES[i]['kind'].find('-')]),int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find('-')+1:])):
+                            choices.append(str(pow(2,f))+'k')
+                    if not val:
+                        val='(default)'
+                    self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
+                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                elif DV_PREFERENCES[i]['kind']=='dir':
+                    pathpanel=wx.Panel(self.prefpane,-1)
+                    pathsizer=wx.BoxSizer(wx.HORIZONTAL)
+                    pathpanel.SetSizer(pathsizer)
+                    self.prefpanesizer.Add(pathpanel,(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                    self.controls[i]=wx.TextCtrl(pathpanel,-1,val)
+                    self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
+                    pathsizer.Add(self.controls[i],1,wx.EXPAND)
+                    browseButton=DamnBrowseDirButton(pathpanel,-1,'Browse...',control=self.controls[i],title='Select DamnVid '+DV_VERSION+'\'s output directory.',callback=self.onBrowseDir)
+                    self.Bind(wx.EVT_BUTTON,browseButton.onBrowse,browseButton)
+                    pathsizer.Add(browseButton,0)
+                elif DV_PREFERENCES[i]['kind']=='text':
+                    self.controls[i]=wx.TextCtrl(self.prefpane,-1,val)
+                    self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
+                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                elif DV_PREFERENCES[i]['kind']=='profile':
+                    if self.prefs.profiles:
+                        choices=[]
+                        for p in range(-1,self.prefs.profiles):
+                            choices.append(self.prefs.getp(p,'name'))
+                        self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,None) # makeList takes care of the event binding
+                        self.controls[i].SetSelection(int(val)+1)
+                    else:
+                        self.controls[i]=wx.StaticText(self.prefpane,-1,'No encoding profiles found!')
+                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                count=count+1
+        self.prefpanesizer.Layout() # Mandatory
+        newsize=self.toppanel.GetBestSize()
+        if newsize[0]>self.bestsize[0]:
+            self.bestsize[0]=newsize[0]
+        if newsize[1]>self.bestsize[1]:
+            self.bestsize[1]=newsize[1]
+        self.SetClientSize(self.bestsize)
+        self.Center()
+    def getPrefWidth(self,pref):
+        if type(DV_PREFERENCES[pref]['kind']) is types.DictType:
+            return 2
+        if DV_PREFERENCES[pref]['kind'][0:3]=='int':
+            return 2
+        if DV_PREFERENCES[pref]['kind']=='profile':
+            return 2
+        if DV_PREFERENCES[pref]['kind'][0]=='%':
+            return 2
+        if DV_PREFERENCES[pref]['kind']=='text':
+            return 2
+        if DV_PREFERENCES[pref]['kind']=='dir':
+            return 2 # Label + Panel{TextCtrl + Button} = 2
+        if DV_PREFERENCES[pref]['kind']=='bool':
+            return 1
+        return 0
+    def splitLongPref(self,pref):
+        if pref.find(':')==-1:
+            return pref
+        return (pref[0:pref.find(':')],pref[pref.find(':')+1:])
+    def onPrefChange(self,event):
+        name=None
+        for i in self.controls.iterkeys():
+            pref=self.splitLongPref(i)
+            prefname=pref[1]
+            if pref[0][0:16]=='damnvid-profile-':
+                genericpref=pref[0][0:15]
+            else:
+                genericpref=pref[0]
+            genericpref+=':'+pref[1]
+            val=None
+            if type(DV_PREFERENCES[genericpref]['kind']) is types.DictType or DV_PREFERENCES[genericpref]['kind'][0:3]=='int':
+                if DV_PREFERENCES[genericpref]['strict']:
+                    val=self.controls[i].GetSelection()
+                    if val:
+                        val=DV_PREFERENCES[genericpref]['order'][val-1]
+                    else:
+                        val=''
+                else:
+                    val=self.controls[i].GetValue()
+                    if val=='(default)':
+                        val=''
+                    elif type(DV_PREFERENCES[genericpref]['kind']) is types.DictType and val in DV_PREFERENCES[genericpref]['kind'].values():
+                        for j in DV_PREFERENCES[genericpref]['kind'].iterkeys():
+                            if val==DV_PREFERENCES[genericpref]['kind'][j]:
+                                val=j
+            elif DV_PREFERENCES[genericpref]['kind']=='profile':
+                val=self.controls[i].GetSelection()-1
+            elif DV_PREFERENCES[genericpref]['kind'][0]=='%':
+                val=float(float(self.controls[i].GetValue())*256.0/100.0)
+            elif DV_PREFERENCES[genericpref]['kind']=='dir' or DV_PREFERENCES[genericpref]['kind']=='text':
+                val=self.controls[i].GetValue()
+                if genericpref=='damnvid-profile:name':
+                    name=val
+            elif DV_PREFERENCES[genericpref]['kind']=='bool':
+                val=self.controls[i].IsChecked() # The str() representation takes care of True/False
+            if val!=None:
+                self.prefs.sets(self.pane,prefname,str(val))
+        if name!=None and self.tree.GetSelection()!=self.treeroot and self.tree.GetItemParent(self.tree.GetSelection())==self.profileroot:
+            self.tree.SetItemText(self.tree.GetSelection(),name)
+            self.prefpanelabel.SetLabel(name)
+    def onBrowseDir(self,button,path):
+        for i in self.controls.iterkeys():
+            if self.controls[i]==button.filefield:
+                self.prefs.sets(self.pane,self.splitLongPref(i)[1],path)
+    def onAddProfile(self,event):
+        self.prefs.addp()
+        self.profiles.append(self.tree.AppendItem(self.profileroot,self.prefs.getp(self.prefs.profiles-1,'name')))
+        self.tree.SelectItem(self.profiles[-1],True)
+    def onDeleteProfile(self,event):
+        if self.tree.GetSelection()!=self.treeroot and self.tree.GetItemParent(self.tree.GetSelection())==self.profileroot:
+            if len(self.profiles)>1:
+                profile=int(self.pane[16:])
+                self.prefs.remp(profile)
+                curprofile=self.tree.GetSelection()
+                if not profile:
+                    # User is deleting first profile
+                    newprofile=self.tree.GetNextSibling(curprofile)
+                else:
+                    # User is not deleting first profile, all right
+                    newprofile=self.tree.GetPrevSibling(curprofile)
+                self.profiles.remove(curprofile)
+                try:
+                    self.tree.SelectItem(newprofile)
+                except:
+                    self.tree.SelectItem(self.profileroot)
+                self.tree.Delete(curprofile)
+            else:
+                dlg=wx.MessageDialog(None,'Cannot delete all encoding profiles!','Cannot delete all profiles',wx.OK|wx.ICON_EXCLAMATION)
+                dlg.SetIcon(DV_ICON)
+                dlg.ShowModal()
+                dlg.Destroy()
+        else:
+            dlg=wx.MessageDialog(None,'Please choose a profile to delete from the profile list.','No profile selected',wx.OK|wx.ICON_EXCLAMATION)
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+            dlg.Destroy()
     def makeList(self,strict,choices,panel,value):
         if strict:
             cont=wx.Choice(panel,-1,choices=choices)
@@ -556,8 +812,10 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                 for f in range(len(choices)):
                     if choices[f]==value:
                         cont.SetSelection(f)
+            self.Bind(wx.EVT_CHOICE,self.onPrefChange,cont)
         else:
             cont=wx.ComboBox(panel,-1,choices=choices,value=value)
+            self.Bind(wx.EVT_TEXT,self.onPrefChange,cont)
         return cont
     def getListValue(self,name,strict):
         if strict:
@@ -589,77 +847,120 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             else:
                 self.controls[name].SetValue(value)
     def onOK(self,event):
-        prefs={}
-        for name,i in DV_PREFERENCE_TYPE.iteritems():
-            if type(i['kind']) is types.DictType:
-                prefs[name]=self.getListValue(name,i['strict'])
-            elif i['kind'][0:3]=='int':
-                prefs[name]=self.getListValue(name,i['strict'])
-            elif i['kind']=='bool':
-                if self.controls[name].GetValue():
-                    prefs[name]='True'
-                else:
-                    prefs[name]='False'
-            elif i['kind']=='dir':
-                if os.path.lexists(self.controls[name].GetValue()):
-                    if os.path.isdir(self.controls[name].GetValue()):
-                        prefs[name]=self.controls[name].GetValue()
-            elif i['kind'][0]=='%':
-                prefs[name]=str(round(float(self.controls[name].GetValue())*float(i['kind'][1:])/100.0,5)) # This may be a float, but DamnConverter will ensure it's an int when converting
-            self.parent.prefs.set(name,prefs[name])
-        self.parent.prefs.save()
+        self.prefs.save()
+        del self.prefs,self.parent.prefs
+        self.parent.prefs=DamnVidPrefs()
         self.Close(True)
     def onReset(self,event):
-        l=event.GetEventObject()
-        if l.GetSelection()==1: # DamnVid default
-            for name,i in DV_PREFERENCE_TYPE.iteritems():
-                if type(i['kind']) is types.DictType:
-                    self.setListValue(name,i['strict'],i['default'])
-                elif i['kind'][0:3]=='int':
-                    self.setListValue(name,i['strict'],i['default'])
-                elif i['kind']=='dir':
-                    self.controls[name].SetValue(i['default'].replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_PATH_SEPARATOR))
-                elif i['kind'][0]=='%':
-                    self.controls[name].SetValue(int(100.0*float(i['default'])/float(i['kind'][1:])))
-                elif i['kind']=='bool':
-                    self.controls[name].SetValue(i['default']=='True')
-        elif l.GetSelection()==2: # FFmpeg default
-            for name,i in DV_PREFERENCE_TYPE.iteritems():
-                if name[0:9]=='Encoding_':
-                    if type(i['kind']) is types.DictType:
-                        self.setListValue(name,i['strict'],'')
-                    elif i['kind'][0:3]=='int':
-                        self.setListValue(name,i['strict'],'')
-                    elif i['kind'][0]=='%':
-                        self.controls[name].SetValue(int(100.0))
-        l.SetSelection(0)
+        dlg=wx.MessageDialog(None,'All changes to DamnVid\'s configuration will be lost. Continue?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg.SetIcon(DV_ICON)
+        if dlg.ShowModal()==wx.ID_YES:
+            dlg.Destroy()
+            checkupdates=self.prefs.get('checkforupdates')
+            del self.prefs,self.parent.prefs
+            os.remove(DV_CONF_FILE)
+            shutil.copyfile(DV_CURDIR+'conf'+os.sep+'conf.ini',DV_CONF_FILE)
+            self.parent.prefs=DamnVidPrefs()
+            self.parent.prefs.set('checkforupdates',checkupdates)
+            self.parent.prefs.save()
+            self.prefs=self.parent.prefs
+            self.tree.SelectItem(self.treeroot,True)
+            self.tree.DeleteChildren(self.profileroot)
+            self.profiles=[]
+            for i in range(0,self.prefs.profiles):
+                self.profiles.append(self.tree.AppendItem(self.profileroot,self.prefs.getp(i,'name')))
+            self.tree.ExpandAll()
+            dlg=wx.MessageDialog(None,'DamnVid\'s configuration has been successfully reset.','Configuration reset',wx.OK|wx.ICON_INFORMATION)
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+            dlg.Destroy()
+        else:
+            dlg.Destroy()
+    def onImport(self,event):
+        dlg=wx.FileDialog(None,'Where is located the configuration file to import?',self.prefs.get('lastprefdir'),'DamnVid-'+DV_VERSION+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_OPEN)
+        dlg.SetIcon(DV_ICON)
+        if dlg.ShowModal()==wx.ID_OK:
+            self.tree.SelectItem(self.treeroot,True)
+            path=dlg.GetPath()
+            dlg.Destroy()
+            self.prefs.set('lastprefdir',path)
+            f=open(path,'r')
+            testprefs=ConfigParser.SafeConfigParser()
+            allOK=False
+            try:
+                testprefs.readfp(f)
+                f.close()
+                allOK=True
+            except:
+                try:
+                    f.close()
+                except:
+                    pass
+                dlg=wx.MessageDialog(None,'Invalid configuration file.','Invalid file',wx.OK|wx.ICON_ERROR)
+                dlg.SetIcon(DV_ICON)
+                dlg.ShowModal()
+                dlg.Destroy()
+            if allOK:
+                keepgoing=True
+                while keepgoing:
+                    keepgoing=(self.prefs.remp(0)!=None)
+                for i in testprefs.sections():
+                    try:
+                        self.prefs.ini.add_section(i)
+                    except:
+                        pass
+                    for j in testprefs.options(i):
+                        self.prefs.sets(i,j,testprefs.get(i,j))
+                self.parent.reopenprefs=True
+                self.onOK(None)
+        else:
+            dlg.Destroy()
+    def onExport(self,event):
+        dlg=wx.FileDialog(None,'Where do you want to export DamnVid '+DV_VERSION+'\'s configuration?',self.prefs.get('lastprefdir'),'DamnVid-'+DV_VERSION+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        dlg.SetIcon(DV_ICON)
+        if dlg.ShowModal()==wx.ID_OK:
+            path=dlg.GetPath()
+            self.prefs.set('lastprefdir',path)
+            f=open(path,'w')
+            self.prefs.ini.write(f)
+            f.close()
+        dlg.Destroy()
+    def onKeyDown(self,event):
+        if event.GetKeyCode() in (wx.WXK_ESCAPE,wx.WXK_CANCEL):
+            self.onClose(event)
+        elif event.GetKeyCode() in (wx.WXK_NUMPAD_ENTER,wx.WXK_RETURN,wx.WXK_EXECUTE):
+            self.onOK(event)
     def onClose(self,event):
+        del self.prefs,self.parent.prefs # Delete modified object
+        self.parent.prefs=DamnVidPrefs() # Reload from ini
         self.Close(True)
 class DamnConverter(thr.Thread): # The actual converter
     def __init__(self,parent):
         self.parent=parent
-        self.uri=self.getURI(parent.videos[self.parent.converting])
+        self.uris=self.getURI(parent.videos[self.parent.converting])
         thr.Thread.__init__(self)
     def getURI(self,uri):
+        urllib.urlcleanup()
         if uri[0:3]=='yt:':
             # YouTube video, must grab download ticket before continuing.
             html=urllib.urlopen('http://www.youtube.com/watch?v='+uri[3:])
             for i in html:
                 res=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
                 if res:
-                    return 'http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3) # If there's no match, ffmpeg will error by itself.
+                    return ['http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)] # If there's no match, ffmpeg will error by itself.
         elif uri[0:3]=='gv:':
             html=urllib.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
             for i in html:
                 res=REGEX_HTTP_GVIDEO_TICKET_EXTRACT.search(i)
                 if res:
-                    return res.group(1)
+                    return [res.group(1)]
         elif uri[0:3]=='vh:':
+            print uri
             html=urllib.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findById&videoId='+REGEX_HTTP_VEOH_SUBID_EXTRACT.sub('\\1',uri[3:])+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
             for i in html:
                 res=REGEX_HTTP_VEOH_TICKET_EXTRACT.search(i)
                 if res:
-                    return res.group(1)
+                    return [res.group(1)]
         elif uri[0:3]=='dm:':
             html=urllib.urlopen(uri[3:])
             for i in html:
@@ -675,94 +976,198 @@ class DamnConverter(thr.Thread): # The actual converter
                         # This is quite ugly but it works
                         keys=qualitys.values()
                         keys.sort()
-                        for j in qualitys.iterkeys():
-                            if qualitys[j]==keys[-1]:
-                                url=j
-                        if url.find('@@')!=-1:
-                            url=url[0:url.find('@@')]
-                        return 'http://www.dailymotion.com'+url
-        return uri
+                        finalurls=[]
+                        for j in keys:
+                            for l in qualitys.keys():
+                                if qualitys[l]==j:
+                                    if l.find('@@')!=-1:
+                                        l=l[0:l.find('@@')]
+                                    finalurls.append('http://www.dailymotion.com'+l)
+                        finalurls.reverse() # From best to worst quality. Note: this doesn't return a new reverse'd, array, it actually modifies the array itself
+                        return finalurls
+        return [uri]
     def cmd2str(self,cmd):
         s=''
         for i in cmd:
-            if i.find(' ')!=-1 or i.find('&')!=-1 or i.find('|')!=-1:
-                s+='"'+i+'" '
+            i=i.replace('?DAMNVID_VIDEO_STREAM?',self.stream).replace('?DAMNVID_VIDEO_PASS?',str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?',DV_TMP_PATH+self.tmpfilename)
+            if i.find(' ')!=-1 or i.find('&')!=-1 or i.find('|')!=-1 or i.find('<')!=-1 or i.find('>')!=-1:
+                s+='"'+i.replace('"','\'\'')+'" '
             else:
                 s+=i+' '
+        tmpf=open('cmd.txt','a')
+        tmpf.write(s[0:len(s)-1]+'\n')
+        tmpf.close()
         return s[0:len(s)-1]
+    def gettmpfilename(self,path,prefix,ext):
+        tmpfilename=prefix+'-0'+ext
+        tmpcount=0
+        while os.path.lexists(path+tmpfilename):
+            tmpcount+=1
+            tmpfilename=prefix+'-'+str(tmpcount)+ext
+        return tmpfilename
+    def getfinalfilename(self,path,prefix,ext):
+        if not os.path.lexists(path+prefix+ext):
+            return prefix
+        c=2
+        while os.path.lexists(path+prefix+' ('+str(c)+')'+ext):
+            c=c+1
+        return prefix+' ('+str(c)+')'
     def run(self):
-        self.parent.gauge1.SetValue(0.0)
-        #self.parent.gauge2.SetValue(100.0*float(self.parent.thisbatch-1)/len(self.parent.videos))
-        self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
-        if os.path.lexists(self.uri):
-            stream=self.uri # It's a file stream, ffmpeg will take care of it
-        else:
-            stream='-' # It's another stream, spawn a downloader thread to take care of it and feed the content to ffmpeg via stdin
-        cmd=[DV_BIN_PATH+'ffmpeg.exe','-i',stream,'-y','-comment','Created by DamnVid '+DV_VERSION,'-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
-        for i in DV_PREFERENCE_ORDER:
-            if i[0:9]=='Encoding_':
-                pref=self.parent.prefs.get(i)
-                if pref:
-                    if type(DV_PREFERENCE_TYPE[i]['kind']) is types.StringType:
-                        if DV_PREFERENCE_TYPE[i]['kind'][0]=='%':
-                            pref=str(round(float(pref),0)) # Round
-                    cmd.extend(['-'+i[9:],pref])
-        self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name'])
-        vcodec=self.parent.prefs.get('Encoding_vcodec')
-        if DV_FILE_EXT.has_key(vcodec):
-            ext='.'+DV_FILE_EXT[vcodec]
-        else:
-            ext='.avi'
-        if os.path.lexists(self.parent.prefs.get('Outdir')+self.filename+ext):
-            c=2
-            while os.path.lexists(self.parent.prefs.get('Outdir')+self.filename+' ('+str(c)+')'+ext):
-                c=c+1
-            self.filename=self.filename+' ('+str(c)+')'
-        self.filename=self.filename+ext
-        cmd.append(DV_TMP_PATH+self.filename)
-        self.duration=None
-        self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
-        self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE)
         self.abort=False
-        curline=''
-        if stream=='-': # It's not a file stream, so spawn a downloader
-            self.feeder=DamnDownloader(self.uri,self.process)
-            self.feeder.start()
-        while self.process.poll()==None:
-            c=self.process.stderr.read(1)
-            curline+=c
-            if c=="\r" or c=="\n":
-                self.parseLine(curline)
-                curline=''
-        self.parent.gauge1.SetValue(100.0)
-        #self.parent.gauge2.SetValue(100.0*float(self.parent.thisbatch)/len(self.parent.videos))
-        result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
-        time.sleep(.25) # Wait a bit
-        self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
-        if result and os.path.lexists(self.parent.prefs.get('Outdir')+self.filename):
-            os.remove(self.parent.prefs.get('Outdir')+self.filename) # Delete the output file if ffmpeg has exitted with a bad return code
-        for i in os.listdir(DV_TMP_PATH):
-            if i[-4:].lower()=='.log':
-                os.remove(DV_TMP_PATH+i)
-            if i==self.filename and not result:
-                try:
-                    os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
-                except: # Maybe the file still isn't unlocked, it happens... Wait moar and retry
+        if True:#for self.uri in self.uris:
+            self.uri=self.uris[0]
+            if not self.abort:
+                self.parent.gauge1.SetValue(0.0)
+                self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
+                self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name'])
+                self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
+                self.outdir=self.parent.prefs.getp(self.profile,'Outdir')
+                if self.outdir[-1:]==os.sep:
+                    self.outdir=self.outdir[0:-1]
+                if not os.path.lexists(self.outdir):
+                    os.makedirs(self.outdir)
+                elif not os.path.isdir(self.outdir):
+                    os.remove(self.outdir)
+                    os.makedirs(self.outdir)
+                self.outdir=self.outdir+os.sep
+                if os.path.lexists(self.uri):
+                    self.stream=self.uri # It's a file stream, ffmpeg will take care of it
+                else:
+                    self.stream='-' # It's another stream, spawn a downloader thread to take care of it and feed the content to ffmpeg via stdin
+                if self.profile==-1: # Do not encode, just copy
                     try:
-                        time.sleep(2)
-                        os.rename(DV_TMP_PATH+i,self.parent.prefs.get('Outdir')+i)
-                    except: # Now this is really bad, alert the user
-                        dlg=wx.MessageDialog(None,'DamnVid successfully converted the file but something prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV_TMP_PATH+i,'Cannot move file!',wx.OK|wx.ICON_EXCLAMATION)
-                        dlg.SetIcon(DV_ICON)
-                        dlg.ShowModal()
-                        dlg.Destroy()
-        if not result:
-            self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
-            self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Success!')
-        else:
-            self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
-            self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Failure.')
-        self.parent.go(aborted=self.abort)
+                        failed=False
+                        if self.stream=='-': # Spawn a downloader
+                            src=urllib.urlopen(self.uri)
+                            total=int(src.info()['Content-Length'])
+                            try:
+                                tmpuri=src.info()['Content-Disposition'][src.info()['Content-Disposition'].find('filename=')+9:]
+                            except:
+                                tmpuri='video.avi' # And pray for the best!
+                        else: # Just copy the file, lol
+                            total=int(os.lstat(self.stream).st_size)
+                            src=open(self.stream,'rb')
+                            tmpuri=self.stream
+                        if REGEX_URI_EXTENSION_EXTRACT.search(tmpuri):
+                            ext='.'+REGEX_URI_EXTENSION_EXTRACT.sub('\\1',tmpuri)
+                        else:
+                            ext='.avi' # And pray for the best again!
+                        self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
+                        dst=open(self.outdir+self.filename+ext,'wb')
+                        keepgoing=True
+                        copied=0.0
+                        self.parent.SetStatusText('Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
+                        while keepgoing and not self.abort:
+                            i=src.read(256)
+                            if len(i):
+                                dst.write(i)
+                                copied+=256.0
+                            else:
+                                copied=total
+                                keepgoing=False
+                            self.parent.gauge1.SetValue(min((100.0,copied/total*100.0)))
+                    except:
+                        failed=True
+                    self.grabberrun=False
+                    if self.abort or failed:
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
+                        self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Failure.')
+                    else:
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
+                        self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Success!')
+                    self.parent.go(aborted=self.abort)
+                    return
+                os_exe_ext=''
+                if os.name=='nt':
+                    os_exe_ext='.exe'
+                self.passes=1
+                cmd=[DV_BIN_PATH+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-title',self.parent.meta[self.parent.videos[self.parent.converting]]['name'],'-comment','Converted by DamnVid '+DV_VERSION+'.','-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
+                for i in DV_PREFERENCES.keys():
+                    if i[0:25]=='damnvid-profile:encoding_':
+                        i=i[16:]
+                        pref=self.parent.prefs.getp(self.profile,i)
+                        if pref:
+                            if type(DV_PREFERENCES['damnvid-profile:'+i]['kind']) is types.StringType:
+                                if DV_PREFERENCES['damnvid-profile:'+i]['kind'][0]=='%':
+                                    pref=str(round(float(pref),0)) # Round
+                            if i=='encoding_pass':
+                                pref='?DAMNVID_VIDEO_PASS?'
+                            cmd.extend(['-'+i[9:],pref])
+                vidformat=self.parent.prefs.getp(self.profile,'Encoding_f')
+                self.vcodec=self.parent.prefs.getp(self.profile,'Encoding_vcodec')
+                self.totalpasses=self.parent.prefs.getp(self.profile,'Encoding_pass')
+                if not self.totalpasses:
+                    self.totalpasses=1
+                else:
+                    self.totalpasses=int(self.totalpasses)
+                if vidformat and DV_FILE_EXT.has_key(vidformat):
+                    ext='.'+DV_FILE_EXT[vidformat]
+                else:
+                    if self.vcodec and DV_FILE_EXT_BY_CODEC.has_key(self.vcodec):
+                        ext='.'+DV_FILE_EXT_BY_CODEC[self.vcodec]
+                    else:
+                        ext='.avi'
+                self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
+                self.filenamenoext=self.filename
+                self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
+                cmd.append('?DAMNVID_OUTPUT_FILE?')
+                self.filename=self.filenamenoext+ext
+                self.duration=None
+                self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
+                while int(self.passes)<=int(self.totalpasses) and not self.abort:
+                    if self.passes!=1:
+                        self.stream=DV_TMP_PATH+self.tmpfilename
+                        self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
+                    tmpf=open('stderr.txt','a')
+                    tmpf.write('\n\n--------\n\n')
+                    self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV_TMP_PATH))
+                    if self.stream=='-':
+                        self.feeder=DamnDownloader(self.uri,self.process.stdin)
+                        self.feeder.start()
+                    curline=''
+                    while self.process.poll()==None and not self.abort:
+                        c=self.process.stderr.read(1)
+                        tmpf.write(c)
+                        curline+=c
+                        if c=="\r" or c=="\n":
+                            self.parseLine(curline)
+                            curline=''
+                    self.passes+=1
+                    tmpf.close()
+                self.parent.gauge1.SetValue(100.0)
+                result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
+                time.sleep(.25) # Wait a bit
+                self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
+                if result and os.path.lexists(DV_TMP_PATH+self.tmpfilename):
+                    os.remove(DV_TMP_PATH+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
+                for i in os.listdir(os.path.dirname(DV_TMP_PATH)):
+                    if i[0:8]=='damnvid-':
+                        i=i[8:]
+                        if i==self.tmpfilename and not result:
+                            try:
+                                os.rename(DV_TMP_PATH+i,self.outdir+self.filename)
+                            except: # Maybe the file still isn't unlocked, it happens... Wait moar and retry
+                                try:
+                                    time.sleep(2)
+                                    os.rename(DV_TMP_PATH+i,self.outdir+self.filename)
+                                except: # Now this is really bad, alert the user
+                                    dlg=wx.MessageDialog(None,'DamnVid successfully converted the file but something prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV_TMP_PATH+i,'Cannot move file!',wx.OK|wx.ICON_EXCLAMATION)
+                                    dlg.SetIcon(DV_ICON)
+                                    dlg.ShowModal()
+                                    dlg.Destroy()
+                        else:
+                            try:
+                                os.remove(DV_TMP_PATH+i)
+                            except:
+                                pass
+                if not result:
+                    self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
+                    self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Success!')
+                    self.parent.go(aborted=self.abort)
+                    return
+                self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
+                self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Failure.')
+                self.parent.go(aborted=self.abort)
     def parseLine(self,line):
         if self.duration==None:
             res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
@@ -771,38 +1176,44 @@ class DamnConverter(thr.Thread): # The actual converter
         else:
             res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
             if res:
-                self.parent.gauge1.SetValue(float(res.group(1))/self.duration*100.0)
-                #self.parent.gauge2.SetValue(float(self.parent.thisbatch-1.0+float(res.group(1))/self.duration)/float(len(self.parent.videos))*100.0)
-    def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess
+                self.parent.gauge1.SetValue(float(float(res.group(1))/self.duration/float(self.totalpasses)+float(float(self.passes-1)/float(self.totalpasses)))*100.0) # Uhm, maybe too many float()s in there?
+    def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
         self.abort=True # This prevents the converter from going to the next file
-        if os.name=='nt':
-            DamnSpawner('TASKKILL /PID '+str(self.process.pid)+' /F').wait()
-        elif os.name=='mac':
-            DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # Untested, from http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
-        else:
-            os.kill(self.process.pid,signal.SIGTERM)
-        time.sleep(.5) # Wait a bit, let the files get unlocked
-        try:
-            os.remove(self.parent.prefs.get('Outdir')+self.filename)
-        except:
-            pass # Maybe the file wasn't created yet
+        if self.profile!=-1:
+            if os.name=='nt':
+                DamnSpawner('TASKKILL /PID '+str(self.process.pid)+' /F').wait()
+            elif os.name=='mac':
+                DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # Untested, from http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
+            else:
+                os.kill(self.process.pid,signal.SIGTERM)
+            time.sleep(.5) # Wait a bit, let the files get unlocked
+            try:
+                os.remove(self.outdir+self.tmpfilename)
+            except:
+                pass # Maybe the file wasn't created yet
 class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
-    def __init__(self,uri,process):
+    def __init__(self,uri,pipe):
         self.uri=uri
-        self.process=process
+        self.pipe=pipe
+        tmpf=open('url.txt','a')
+        tmpf.write(self.uri+'\n')
+        tmpf.close()
         thr.Thread.__init__(self)
     def run(self):
-        http=urllib.urlopen(self.uri)
-        for i in http:
-            if self.process.poll()==None:
-                self.process.stdin.write(i)
-            else:
-                try:
-                    self.process.stdin.close()
-                except:
-                    pass
-                return 0
-        self.process.stdin.close() # This tells ffmpeg that it's the end of the stream
+        self.http=urllib.urlopen(self.uri)
+        for i in self.http:
+            try:
+                self.pipe.write(i)
+            except:
+                break
+        try:
+            self.http.close()
+        except:
+            pass
+        try:
+            self.pipe.close() # This tells ffmpeg that it's the end of the stream
+        except:
+            pass
 class DamnMainFrame(wx.Frame): # The main window
     def __init__(self,parent,id,title):
         global DV_ICON
@@ -820,7 +1231,7 @@ class DamnMainFrame(wx.Frame): # The main window
         vidmenu.Append(ID_MENU_GO,'Let\'s &go!','Processes all the videos in the list.')
         self.Bind(wx.EVT_MENU,self.onGo,id=ID_MENU_GO)
         vidmenu.AppendSeparator()
-        vidmenu.Append(ID_MENU_PREFERENCES,'Prerences','Opens DamnVid\'s preferences, allowing you to customize its settings.')
+        self.prefmenuitem=vidmenu.Append(ID_MENU_PREFERENCES,'Preferences','Opens DamnVid\'s preferences, allowing you to customize its settings.')
         self.Bind(wx.EVT_MENU,self.onPrefs,id=ID_MENU_PREFERENCES)
         #vidmenu.Append(ID_MENU_OUTDIR,'Output directory','Opens DamnVid\'s output directory, where all the videos are saved.')
         #self.Bind(wx.EVT_MENU,self.onOpenOutDir,id=ID_MENU_OUTDIR)
@@ -854,12 +1265,14 @@ class DamnMainFrame(wx.Frame): # The main window
         hbox1=wx.BoxSizer(wx.HORIZONTAL)
         panel1.SetSizer(hbox1)
         self.list=DamnList(panel1,window=self)
-        self.list.InsertColumn(ID_COL_VIDNAME,'Name')
-        self.list.SetColumnWidth(ID_COL_VIDNAME,width=120)
-        self.list.InsertColumn(ID_COL_VIDPATH,'Source')
-        self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
+        self.list.InsertColumn(ID_COL_VIDNAME,'Video name')
+        self.list.SetColumnWidth(ID_COL_VIDNAME,width=180)
+        self.list.InsertColumn(ID_COL_VIDPROFILE,'Encoding profile')
+        self.list.SetColumnWidth(ID_COL_VIDPROFILE,width=120)
         self.list.InsertColumn(ID_COL_VIDSTAT,'Status')
         self.list.SetColumnWidth(ID_COL_VIDSTAT,width=80)
+        self.list.InsertColumn(ID_COL_VIDPATH,'Source')
+        self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
         self.list.Bind(wx.EVT_KEY_DOWN,self.onListKeyDown)
         il=wx.ImageList(16,16,True)
         self.ID_ICON_LOCAL=il.Add(wx.Bitmap(DV_IMAGES_PATH+'video.png',wx.BITMAP_TYPE_PNG))
@@ -929,16 +1342,34 @@ class DamnMainFrame(wx.Frame): # The main window
         self.converting=-1
         self.isclosing=False
         self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
+        if DV_FIRST_RUN:
+            dlg=wx.MessageDialog(self,'Welcome to DamnVid '+DV_VERSION+'!\nWould you like DamnVid to check for updates every time it starts?','Welcome to DamnVid '+DV_VERSION+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
+            if dlg.ShowModal()==wx.ID_YES:
+                self.prefs.set('CheckForUpdates','True')
+            else:
+                self.prefs.set('CheckForUpdates','False')
+        if self.prefs.get('CheckForUpdates')=='True':
+            self.onCheckUpdates(None)
     def onExit(self,event):
         self.Close(True)
     def onListKeyDown(self,event):
         if (event.GetKeyCode()==8 or event.GetKeyCode()==127) and self.list.GetSelectedItemCount(): # Backspace or delete, but only when there's at least one selected video
             self.onDelSelection(None)
     def onAddFile(self,event):
-        dlg=wx.FileDialog(self,'Choose a damn video.',os.getcwd(),'','All files|*.*|AVI files (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',wx.OPEN|wx.FD_MULTIPLE)
+        d=os.getcwd()
+        if os.path.lexists(self.prefs.get('LastFileDir')):
+            if os.path.isdir(self.prefs.get('LastFileDir')):
+                d=self.prefs.get('LastFileDir')
+        elif os.path.lexists(self.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
+            if os.path.isdir(self.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
+                d=self.prefs.expandPath('?DAMNVID_MY_VIDEOS?')
+        dlg=wx.FileDialog(self,'Choose a damn video.',d,'','All files|*.*|AVI files (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',wx.OPEN|wx.FD_MULTIPLE)
         dlg.SetIcon(DV_ICON)
         if dlg.ShowModal()==wx.ID_OK:
-            self.addVid(dlg.GetPaths())
+            vids=dlg.GetPaths()
+            self.prefs.set('LastFileDir',os.path.dirname(vids[0]))
+            self.prefs.save()
+            self.addVid(vids)
         dlg.Destroy()
     def onAddURL(self,event):
         default=''
@@ -1042,12 +1473,12 @@ class DamnMainFrame(wx.Frame): # The main window
                     if match:
                         uri='yt:'+match.group(1)
                         name=self.getVidName(uri)
-                        self.addValid({'name':name,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
-                    #elif REGEX_HTTP_GVIDEO.search(uri):
-                        #match=REGEX_HTTP_GVIDEO.search(uri)
-                        #uri='gv:'+match.group(1)
-                        #name=self.getVidName(uri)
-                        #self.addValid({'name':name,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_GVIDEO})
+                        self.addValid({'name':name,'profile':int(self.prefs.getd('youtube')),'profilemodified':False,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
+                    elif REGEX_HTTP_GVIDEO.search(uri):
+                        match=REGEX_HTTP_GVIDEO.search(uri)
+                        uri='gv:'+match.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':int(self.prefs.getd('googlevideo')),'profilemodified':False,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_GVIDEO})
                     elif REGEX_HTTP_VEOH.search(uri):
                         html=urllib.urlopen(uri) # Gotta download it right there instead of downloading it twice with the getVidName function
                         name='Unknown title'
@@ -1062,24 +1493,24 @@ class DamnMainFrame(wx.Frame): # The main window
                                     Id=match.group(1)
                         if Id:
                             uri='vh:'+Id
-                            self.addValid({'name':name,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.ID_ICON_VEOH})
+                            self.addValid({'name':name,'profile':int(self.prefs.getd('veoh')),'profilemodified':False,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.ID_ICON_VEOH})
                         else:
                             self.SetStatusText('Couldn\'t detect Veoh video.')
                     elif REGEX_HTTP_DAILYMOTION.search(uri):
                         uri='dm:'+uri
                         name=self.getVidName(uri)
-                        self.addValid({'name':name,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.ID_ICON_DAILYMOTION})
+                        self.addValid({'name':name,'profile':int(self.prefs.getd('dailymotion')),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.ID_ICON_DAILYMOTION})
                     else:
                         name=self.getVidName(uri)
                         if name=='Unknown title':
                             name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
-                        self.addValid({'name':name,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
+                        self.addValid({'name':name,'profile':int(self.prefs.getd('web')),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
                 else:
-                    # It's a file
+                    # It's a file or a directory
                     if os.path.isdir(uri):
                         if self.prefs.get('DirRecursion')=='True':
                             for i in os.listdir(uri):
-                                self.addVid([uri+OS_PATH_SEPARATOR+i]) # This is recursive; if i is a directory, this block will be executed for it too
+                                self.addVid([uri+os.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
                         else:
                             if len(uris)==1: # Only one dir, so an alert here is tolerable
                                 dlg=wx.MessageDialog(None,'This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.','Recursion is disabled.',wx.OK|wx.ICON_EXCLAMATION)
@@ -1098,7 +1529,7 @@ class DamnMainFrame(wx.Frame): # The main window
                                 dlg.ShowModal()
                                 dlg.Destroy()
                         else:
-                            self.addValid({'name':filename[0:filename.rfind('.')],'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.ID_ICON_LOCAL})
+                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':int(self.prefs.getd('file')),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.ID_ICON_LOCAL})
             else:
                 if len(uris)==1: # There's only one URI, so an alert here is tolerable
                     dlg=wx.MessageDialog(None,'This is not a valid video!','Invalid video',wx.ICON_EXCLAMATION|wx.OK)
@@ -1109,6 +1540,7 @@ class DamnMainFrame(wx.Frame): # The main window
     def addValid(self,meta):
         curvid=len(self.videos)
         self.list.InsertStringItem(curvid,meta['name'])
+        self.list.SetStringItem(curvid,ID_COL_VIDPROFILE,self.prefs.getp(meta['profile'],'name'))
         self.list.SetStringItem(curvid,ID_COL_VIDPATH,meta['dirname'])
         self.list.SetStringItem(curvid,ID_COL_VIDSTAT,meta['status'])
         self.list.SetItemImage(curvid,meta['icon'],meta['icon'])
@@ -1123,8 +1555,8 @@ class DamnMainFrame(wx.Frame): # The main window
                 break
         if self.converting!=-1 and not aborted:
             # Let's go for the actual conversion...
-            self.meta[self.videos[self.converting]]['status']='Converting...'
-            self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,'Converting...')
+            self.meta[self.videos[self.converting]]['status']='In progress...'
+            self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,'In progress...')
             self.thisbatch=self.thisbatch+1
             self.thread=DamnConverter(parent=self)
             self.thread.start()
@@ -1132,17 +1564,15 @@ class DamnMainFrame(wx.Frame): # The main window
             if not self.isclosing:
                 self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
                 if not aborted:
-                    #dlg=wx.MessageDialog(None,'Done!\r\nWant to open the output directory?','Done!',wx.YES_NO|wx.ICON_INFORMATION)
                     dlg=wx.MessageDialog(None,'Done!','Done!',wx.OK|wx.ICON_INFORMATION)
                 else:
                     dlg=wx.MessageDialog(None,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
-                #if dlg.ShowModal()==wx.ID_YES:
-                    #self.onOpenOutDir(None)
                 dlg.SetIcon(DV_ICON)
                 dlg.ShowModal()
                 self.converting=-1
                 self.stopbutton.Disable()
                 self.gobutton1.Enable()
+                self.prefmenuitem.Enable()
                 self.gauge1.SetValue(0.0)
     def onGo(self,event):
         if not len(self.videos):
@@ -1170,7 +1600,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.thisvideo=[]
                 self.stopbutton.Enable()
                 self.gobutton1.Disable()
-                #self.gobutton2.Disable()
+                self.prefmenuitem.Enable(False)
                 self.go()
     def onStop(self,event):
         self.thread.abortProcess()
@@ -1238,10 +1668,41 @@ class DamnMainFrame(wx.Frame): # The main window
             dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
             dlg.Destroy()
+    def onChangeProfile(self,profile,event):
+        items=self.list.getAllSelectedItems()
+        for i in items:
+            if self.meta[self.videos[i]]['profile']!=profile:
+                self.meta[self.videos[i]]['profile']=profile
+                self.meta[self.videos[i]]['profilemodified']=True
+                self.list.SetStringItem(i,ID_COL_VIDPROFILE,self.prefs.getp(profile,'name'))
     def onPrefs(self,event):
+        self.reopenprefs=False
         prefs=DamnVidPrefEditor(None,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
         prefs.ShowModal()
         prefs.Destroy()
+        if self.reopenprefs:
+            self.onPrefs(event)
+        else:
+            for i in range(len(self.videos)):
+                if self.meta[self.videos[i]]['profile']>=self.prefs.profiles or not self.meta[self.videos[i]]['profilemodified']:
+                    # Yes, using icons as source identifiers, why not? Lol
+                    if self.meta[self.videos[i]]['icon']==self.ID_ICON_LOCAL:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('file')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_ONLINE:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('web')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_VEOH:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('veoh')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUTUBE:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('youtube')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_DAILYMOTION:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('dailymotion')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_GVIDEO:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('googlevideo')
+                self.list.SetStringItem(i,ID_COL_VIDPROFILE,self.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
+        try:
+            del self.reopenprefs
+        except:
+            pass
     def onOpenOutDir(self,event):
         if os.name=='nt':
             os.system('explorer.exe "'+self.prefs.get('Outdir').replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_+_SEPARATOR)+'"')
@@ -1258,9 +1719,10 @@ class DamnMainFrame(wx.Frame): # The main window
                     v=REGEX_DAMNVID_VERSION_CHECK.search(i).group(1)
                     if v==DV_VERSION:
                         msg='No new version available. You are running the latest version of DamnVid ('+DV_VERSION+').'
-                        dlg=wx.MessageDialog(None,msg,'Already running latest version.',wx.ICON_INFORMATION|wx.OK)
-                        dlg.SetIcon(DV_ICON)
-                        dlg.ShowModal()
+                        if event!=None: # event = None when checking for updates at startup
+                            dlg=wx.MessageDialog(None,msg,'Already running latest version.',wx.ICON_INFORMATION|wx.OK)
+                            dlg.SetIcon(DV_ICON)
+                            dlg.ShowModal()
                     else:
                         msg='A new version ('+v+') is available! You are running DamnVid '+DV_VERSION+'.\nDo you want want to go to the download page?'
                         dlg=wx.MessageDialog(None,msg,'New version available!',wx.ICON_QUESTION|wx.YES_NO|wx.YES_DEFAULT)
@@ -1271,10 +1733,14 @@ class DamnMainFrame(wx.Frame): # The main window
         except:
             pass
         if not msg:
-            dlg=wx.MessageDialog(None,'Could not retrieve latest version.','Error',wx.ICON_ERROR|wx.OK)
+            dlg=wx.MessageDialog(None,'Could not retrieve latest version. Make sure you are connected to the Internet, and that no firewall is blocking DamnVid from the Internet.','Error',wx.ICON_ERROR|wx.OK)
             dlg.SetIcon(DV_ICON)
             dlg.ShowModal()
-        dlg.Destroy()
+        try:
+            dlg.Destroy()
+        except:
+            pass
+        return None
     def onAboutDV(self,event):
         dlg=DamnAboutDamnVid(None,-1,main=self)
         dlg.SetIcon(DV_ICON)

@@ -1,0 +1,264 @@
+DV_PREFERENCE_TYPE_VIDEO=1
+DV_PREFERENCE_TYPE_AUDIO=2
+DV_PREFERENCE_TYPE_PROFILE=3
+DV_PREFERENCE_TYPE_MISC=4
+# ---
+DV_PREFERENCES={
+    'damnvid-profile:name':{
+        'name':'Profile name',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'text',
+        'strict':False
+    },
+    'damnvid-profile:encoding_vcodec':{
+        'name':'Video codec',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            'mpeg4':'MPEG-4',
+            'mpeg1video':'MPEG-1',
+            'mpeg2video':'MPEG-2',
+            'flv':'Flash Video',
+            'libxvid':'XVID',
+            'libx264':'H.264',
+            'h263p':'H.263+',
+            'h263':'H.263',
+            'h261':'H.261',
+            'msmpeg4':'MS MPEG-4 v3',
+            'msmpeg4v2':'MS MPEG-4 v2',
+            'msmpeg4v1':'MS MPEG-4 v1',
+            'rv20':'RealVideo v2',
+            'rv10':'RealVideo v1',
+            'wmv2':'WMV v8',
+            'wmv1':'WMV v7',
+            'libtheora':'Theora'
+        },
+        'order':['mpeg4','mpeg2video','mpeg1video','flv','libxvid','libx264','h263p','h263','h261','msmpeg4','msmpeg4v2','msmpeg4v1','rv20', 'rv10','wmv2', 'wmv1','libtheora'], # Because Python can't fucking remember the order of dictionaries, it seems.
+        'strict':True
+    },
+    'damnvid-profile:encoding_pass':{
+        'name':'Number of passes',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            '1':'1 pass',
+            '2':'2 passes'
+        },
+        'order':['1','2'],
+        'strict':True
+    },
+    'damnvid-profile:encoding_b':{
+        'name':'Target bitrate',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk:7-13', # Int in kilobytes
+        'strict':None
+    },
+    'damnvid-profile:encoding_s':{
+        'name':'Resolution',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            'qqvga':'qqVGA (160x120)',
+            'qvga':'qVGA (320x240)',
+            'vga':'VGA (640x480)',
+            'xga':'XGA (1024x768)',
+            'hd480':'HD-480 (852x480)',
+            'hd720':'HD-720 (1280x720)',
+            'hd1080':'HD-1080 (1920x1080)'
+        },
+        'order':['qqvga','qvga','vga','xga','hd480','hd720','hd1080'],
+        'strict':False
+    },
+    'damnvid-profile:encoding_f':{
+        'name':'Output format',
+        'type':DV_PREFERENCE_TYPE_MISC,
+        'kind':{
+            'avi':'AVI format (.avi)',
+            'flv':'Flash video format (.flv)',
+            'mpeg1video':'MPEG video format (.mpg)',
+            'mpeg2video':'MPEG-2 video format (.mpg)',
+            'mpegts':'MPEG-2-TS (Transport Stream) format (.mpg)',
+            'vob':'MPEG-2-PS (Program Stream) format (.vob)',
+            'mp4':'MP4 format (.mp4)',
+            'ipod':'iPod H.264 format (.mp4)',
+            'psp':'PSP MP4 format (.mp4)',
+            'rm':'RealMedia format (.rm)',
+            'matroska':'Matroska format (.mkv)',
+            'ogg':'Ogg Media File (.ogg)',
+            '3gp':'3GPP format (.3gp)',
+            '3g2':'3GPP2 format (.3g2)'
+        },
+        'order':['avi','flv','mpeg1video','mpeg2video','mpegts','mp4','ipod','psp','rm','matroska','ogg','vob','3gp','3g2'],
+        'strict':True
+    },
+    'damnvid-profile:encoding_bufsize':{
+        'name':'Buffer size',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int',
+        'strict':False
+    },
+    'damnvid-profile:encoding_ab':{
+        'name':'Audio bitrate',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':'intk:5-10',
+        'strict':False
+    },
+    'damnvid-profile:encoding_ac':{
+        'name':'Channels',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':{
+            '1':'1 (Mono)',
+            '2':'2 (Stereo)'
+        },
+        'order':['1','2'],
+        'strict':True
+    },
+    'damnvid-profile:encoding_r':{
+        'name':'Frames per second',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            '60':'60',
+            '50':'50',
+            '60000/1001':'60000/1001 (~59.94)',
+            '45':'45',
+            '30':'30',
+            '30000/1001':'30000/1001 (~29.97)',
+            '25':'25',
+            '24':'24',
+            '20':'20',
+            '15':'15',
+            '12':'12',
+            '10':'10'
+        },
+        'order':['60','50','60000/1001','45','30000/1001','25','24','20','15','12','10'],
+        'strict':False
+    },
+    'damnvid-profile:encoding_vol':{
+        'name':'Volume (%)',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':'%256',
+        'strict':False
+    },
+    'damnvid-profile:encoding_minrate':{
+        'name':'Minimum bitrate',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk:7-13',
+        'strict':False
+    },
+    'damnvid-profile:encoding_maxrate':{
+        'name':'Maximum bitrate',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk:7-13',
+        'strict':False
+    },
+    'damnvid-profile:encoding_acodec':{
+        'name':'Audio codec',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':{
+            'libmp3lame':'MP3',
+            'mp2':'MP2',
+            'ac3':'AC-3',
+            'flac':'FLAC',
+            'libfaac':'AAC',
+            'wmav2':'WMA v2',
+            'wmav1':'WMA v1',
+            'vorbis':'Vorbis'
+        },
+        'order':['libmp3lame','mp2','ac3','flac','libfaac','wmav2','wmav1','vorbis'],
+        'strict':True
+    },
+    'damnvid-profile:encoding_g':{
+        'name':'Group of pictures size',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int',
+        'strict':False
+    },
+    'damnvid-profile:encoding_ar':{
+        'name':'Sampling',
+        'type':DV_PREFERENCE_TYPE_AUDIO,
+        'kind':{
+            '11025':'11025 Hz',
+            '22050':'22050 Hz',
+            '24000':'24000 Hz',
+            '44100':'44100 Hz',
+            '48000':'48000 Hz',
+            '96000':'96000 Hz'
+        },
+        'order':['11025','22050','24000','44100','48000','96000'],
+        'strict':True
+    },
+    'damnvid-profile:encoding_bt':{
+        'name':'Bitrate tolerance',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'intk:3-10',
+        'strict':False
+    },
+    'damnvid-profile:outdir':{
+        'name':'Output directory',
+        'type':DV_PREFERENCE_TYPE_MISC,
+        'kind':'dir',
+        'strict':True
+    },
+    'damnvid:dirrecursion':{
+        'name':'Enable directory recursion when adding files',
+        'type':DV_PREFERENCE_TYPE_MISC,
+        'kind':'bool',
+        'strict':True
+    },
+    'damnvid:checkforupdates':{
+        'name':'Check for updates when DamnVid starts',
+        'type':DV_PREFERENCE_TYPE_MISC,
+        'kind':'bool',
+        'strict':True
+    },
+    'damnvid:defaultoutdir':{
+        'name':'Default output directory',
+        'type':DV_PREFERENCE_TYPE_MISC,
+        'kind':'dir',
+        'strict':False
+    },
+    #'damnvid-showdailytip':{
+        #'name':'Show Daily Tip when DamnVid starts',
+        #'type':DV_PREFERENCE_TYPE_MISC,
+        #'kind':'bool',
+        #'strict':True
+    #},
+    'damnvid-default-profiles:file':{
+        'name':'Local video file',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    },
+    'damnvid-default-profiles:youtube':{
+        'name':'YouTube video',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    },
+    'damnvid-default-profiles:googlevideo':{
+        'name':'Google Video',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    },
+    'damnvid-default-profiles:dailymotion':{
+        'name':'Dailymotion video',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    },
+    'damnvid-default-profiles:veoh':{
+        'name':'Veoh video',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    },
+    'damnvid-default-profiles:web':{
+        'name':'Other non-local video',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    }
+}
+DV_PREFERENCE_ORDER={
+    'damnvid':['checkforupdates','dirrecursion','defaultoutdir'],
+    'damnvid-profile':['encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_minrate','encoding_maxrate','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
+    'damnvid-default-profiles':['file','youtube','googlevideo','dailymotion','veoh','web']
+}
