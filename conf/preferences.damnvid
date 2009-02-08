@@ -232,6 +232,12 @@ DV_PREFERENCES={
         'kind':'profile',
         'strict':True
     },
+    'damnvid-default-profiles:youtubehd':{
+        'name':'HD YouTube video',
+        'type':DV_PREFERENCE_TYPE_PROFILE,
+        'kind':'profile',
+        'strict':True
+    },
     'damnvid-default-profiles:googlevideo':{
         'name':'Google Video',
         'type':DV_PREFERENCE_TYPE_PROFILE,
@@ -260,5 +266,5 @@ DV_PREFERENCES={
 DV_PREFERENCE_ORDER={
     'damnvid':['checkforupdates','dirrecursion','defaultoutdir'],
     'damnvid-profile':['encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_minrate','encoding_maxrate','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
-    'damnvid-default-profiles':['file','youtube','googlevideo','dailymotion','veoh','web']
+    'damnvid-default-profiles':['file','youtube','youtubehd','googlevideo','dailymotion','veoh','web']
 }
