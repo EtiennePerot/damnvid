@@ -45,7 +45,10 @@ DV_URL_DOWNLOAD='http://code.google.com/p/damnvid/downloads/'
 DV_ICON=None # This will be defined when DamnMainFrame is initialized
 DV_MY_VIDEOS_PATH=''
 DV_APPDATA_PATH=''
-if os.name=='nt':
+DV_OS_NAME=os.name
+if DV_OS_NAME=='posix' and sys.platform=='darwin':
+    DV_OS_NAME='mac'
+if DV_OS_NAME=='nt':
     import win32process
     # Need to determine the location of the "My Videos" and "Application Data" folder.
     import ctypes
@@ -70,7 +73,7 @@ DV_CONF_FILE_LOCATION={
     'posix':'~'+os.sep+'.damnvid',
     'mac':'~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid'
 }
-DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION[os.name]+os.sep
+DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION[DV_OS_NAME]+os.sep
 DV_CONF_FILE=DV_CONF_FILE_DIRECTORY+'damnvid.ini'
 DV_FIRST_RUN=False
 if not os.path.lexists(DV_CONF_FILE):
@@ -164,7 +167,7 @@ REGEX_HTTP_DAILYMOTION_QUALITY=re.compile('(\d+)x(\d+)')
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     if cwd==None:
         cwd=os.getcwd()
-    if os.name=='nt':
+    if DV_OS_NAME=='nt':
         return subprocess.Popen(cmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
     else:
         return subprocess.Popen(cmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd)
@@ -1096,8 +1099,10 @@ class DamnConverter(thr.Thread): # The actual converter
                 self.parent.go(aborted=self.abort)
                 return
             os_exe_ext=''
-            if os.name=='nt':
+            if DV_OS_NAME=='nt':
                 os_exe_ext='.exe'
+            elif DV_OS_NAME=='mac':
+                os_exe_ext='osx'
             self.passes=1
             cmd=[DV_BIN_PATH+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-title',self.parent.meta[self.parent.videos[self.parent.converting]]['name'],'-comment','Converted by DamnVid '+DV_VERSION+'.','-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
             for i in DV_PREFERENCES.keys():
@@ -1209,9 +1214,9 @@ class DamnConverter(thr.Thread): # The actual converter
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
-            if os.name=='nt':
+            if DV_OS_NAME=='nt':
                 DamnSpawner('TASKKILL /PID '+str(self.process.pid)+' /F').wait()
-            elif os.name=='mac':
+            elif DV_OS_NAME=='mac':
                 DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # Untested, from http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
             else:
                 os.kill(self.process.pid,signal.SIGTERM)
@@ -1799,7 +1804,7 @@ class DamnMainFrame(wx.Frame): # The main window
         except:
             pass
     def onOpenOutDir(self,event):
-        if os.name=='nt':
+        if DV_OS_NAME=='nt':
             os.system('explorer.exe "'+self.prefs.get('Outdir').replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_+_SEPARATOR)+'"')
         else:
             pass # Halp here?
