@@ -77,7 +77,7 @@ DV_PREFERENCES={
             'mpegts':'MPEG-2-TS (Transport Stream) format (.mpg)',
             'vob':'MPEG-2-PS (Program Stream) format (.vob)',
             'mp4':'MP4 format (.mp4)',
-            'ipod':'iPod H.264 format (.mp4)',
+            'ipod':'iPod MP4 format (.mp4)',
             'psp':'PSP MP4 format (.mp4)',
             'rm':'RealMedia format (.rm)',
             'matroska':'Matroska format (.mkv)',
