@@ -34,7 +34,7 @@ import sys # System stuff
 import ConfigParser # INI file parsing and writing
 
 # Begin constants
-DV_VERSION='0.2.1'
+DV_VERSION='0.2.2'
 DV_URLLIB2_OPENER=urllib2.build_opener()
 DV_URLLIB2_OPENER.addheaders=[('User-agent','DamnVid/'+DV_VERSION)]
 urllib2.install_opener(DV_URLLIB2_OPENER) # All urllib2.urlopen() calls will have the DamnVid user-agent
@@ -1144,6 +1144,9 @@ class DamnConverter(thr.Thread): # The actual converter
             self.duration=None
             self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
             while int(self.passes)<=int(self.totalpasses) and not self.abort:
+                if self.totalpasses!=1:
+                    self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
+                    self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
                 if self.passes!=1:
                     self.stream=DV_TMP_PATH+self.tmpfilename
                     self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
@@ -1202,6 +1205,7 @@ class DamnConverter(thr.Thread): # The actual converter
             res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
             if res:
                 self.parent.gauge1.SetValue(float(float(res.group(1))/self.duration/float(self.totalpasses)+float(float(self.passes-1)/float(self.totalpasses)))*100.0) # Uhm, maybe too many float()s in there?
+                self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(100.0*float(res.group(1))/self.duration))+'%]') # This one doesn't care about the number of passes
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
@@ -1347,7 +1351,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.list.InsertColumn(ID_COL_VIDPROFILE,'Encoding profile')
         self.list.SetColumnWidth(ID_COL_VIDPROFILE,width=120)
         self.list.InsertColumn(ID_COL_VIDSTAT,'Status')
-        self.list.SetColumnWidth(ID_COL_VIDSTAT,width=80)
+        self.list.SetColumnWidth(ID_COL_VIDSTAT,width=120)
         self.list.InsertColumn(ID_COL_VIDPATH,'Source')
         self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
         self.list.Bind(wx.EVT_KEY_DOWN,self.onListKeyDown)
@@ -1355,6 +1359,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.ID_ICON_LOCAL=il.Add(wx.Bitmap(DV_IMAGES_PATH+'video.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_ONLINE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'online.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_YOUTUBE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtube.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_YOUTUBEHD=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtubehd.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_GVIDEO=il.Add(wx.Bitmap(DV_IMAGES_PATH+'googlevideo.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_VEOH=il.Add(wx.Bitmap(DV_IMAGES_PATH+'veoh.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_DAILYMOTION=il.Add(wx.Bitmap(DV_IMAGES_PATH+'dailymotion.png',wx.BITMAP_TYPE_PNG))
@@ -1555,11 +1560,13 @@ class DamnMainFrame(wx.Frame): # The main window
                         uri='yt:'+match.group(1)
                         name=self.getVidName(uri)
                         profile='youtube'
+                        icon=self.ID_ICON_YOUTUBE
                         if type(name) is not type(''):
                             if len(name)>1 and name[1]=='HD':
                                 profile='youtubehd'
+                                icon=self.ID_ICON_YOUTUBEHD
                             name=name[0]
-                        self.addValid({'name':name,'profile':int(self.prefs.getd(profile)),'profilemodified':False,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_YOUTUBE})
+                        self.addValid({'name':name,'profile':int(self.prefs.getd(profile)),'profilemodified':False,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':icon})
                     elif REGEX_HTTP_GVIDEO.search(uri):
                         match=REGEX_HTTP_GVIDEO.search(uri)
                         uri='gv:'+match.group(1)
@@ -1780,6 +1787,8 @@ class DamnMainFrame(wx.Frame): # The main window
                         self.meta[self.videos[i]]['profile']=self.prefs.getd('veoh')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUTUBE:
                         self.meta[self.videos[i]]['profile']=self.prefs.getd('youtube')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUTUBEHD:
+                        self.meta[self.videos[i]]['profile']=self.prefs.getd('youtubehd')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_DAILYMOTION:
                         self.meta[self.videos[i]]['profile']=self.prefs.getd('dailymotion')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_GVIDEO:
