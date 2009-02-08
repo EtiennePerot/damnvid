@@ -40,7 +40,7 @@ setup(
         {
             'script':path2src+'DamnVid.py',
             'icon_resources':[
-                (1,path2src+'img/icon.ico')
+                (0,path2src+'img/icon.ico'),
             ]
         }
     ],
