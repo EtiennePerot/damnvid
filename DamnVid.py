@@ -1026,6 +1026,8 @@ class DamnConverter(thr.Thread): # The actual converter
         while os.path.lexists(path+tmpfilename):
             tmpcount+=1
             tmpfilename=prefix+'-'+str(tmpcount)+ext
+        f=open(path+tmpfilename,'wb')   # Just create the file
+        f.close()
         return tmpfilename
     def getfinalfilename(self,path,prefix,ext):
         if not os.path.lexists(path+prefix+ext):
@@ -1086,7 +1088,9 @@ class DamnConverter(thr.Thread): # The actual converter
                         else:
                             copied=total
                             keepgoing=False
-                        self.parent.gauge1.SetValue(min((100.0,copied/total*100.0)))
+                        progress=min((100.0,copied/total*100.0))
+                        self.parent.gauge1.SetValue(progress)
+                        self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
                 except:
                     failed=True
                 self.grabberrun=False
@@ -1152,12 +1156,19 @@ class DamnConverter(thr.Thread): # The actual converter
                 if self.totalpasses!=1:
                     self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
                     self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
-                if self.passes!=1:
-                    self.stream=DV_TMP_PATH+self.tmpfilename
-                    self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
+                    if self.stream=='-':
+                        if self.passes==1:
+                            self.tmppassfile=DV_TMP_PATH+self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
+                        else:
+                            self.stream=self.tmppassfile
+                    if self.passes!=1:
+                        self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
                 self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV_TMP_PATH))
                 if self.stream=='-':
-                    self.feeder=DamnDownloader(self.uris,self.process.stdin)
+                    if self.totalpasses!=1:
+                        self.feeder=DamnDownloader(self.uris,self.process.stdin,self.tmppassfile)
+                    else:
+                        self.feeder=DamnDownloader(self.uris,self.process.stdin)
                     self.feeder.start()
                 curline=''
                 while self.process.poll()==None and not self.abort:
@@ -1226,14 +1237,14 @@ class DamnConverter(thr.Thread): # The actual converter
             except:
                 pass # Maybe the file wasn't created yet
 class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
-    def __init__(self,uri,pipe):
+    def __init__(self,uri,pipe,copy=None):
         self.uri=uri
         self.pipe=pipe
+        self.copy=copy
         thr.Thread.__init__(self)
     def run(self):
         self.http=DamnURLPicker(self.uri)
         if self.http==None:
-            print 'HTTP error'
             try:
                 self.pipe.close() # This tells ffmpeg that it's the end of the stream
             except:
@@ -1241,14 +1252,20 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
             return None
         writing=''
         direct=False
+        if self.copy!=None:
+            copystream=open(self.copy,'wb')
         for i in self.http:
             try:
                 if direct:
                     self.pipe.write(i)
+                    if self.copy!=None:
+                        copystream.write(i)
                 else:
                     writing+=i
                     if len(writing)>102400: # Cache the first 100 KB and write them all at once (solves ffmpeg's "moov atom not found" problem)
                         self.pipe.write(writing)
+                        if self.copy!=None:
+                            copystream.write(writing)
                         direct=True
                         del writing
             except:
@@ -1256,6 +1273,8 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
         if not direct:  # Video weighs less than 100 KB (!)
             try:
                 self.pipe.write(writing)
+                if self.copy!=None:
+                    copystream.write(writing)
             except:
                 pass
         try:
@@ -1264,6 +1283,10 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
             pass
         try:
             self.pipe.close() # This tells ffmpeg that it's the end of the stream
+        except:
+            pass
+        try:
+            copystream.close() # Might not be defined, but doesn't matter
         except:
             pass
 class DamnMainFrame(wx.Frame): # The main window
