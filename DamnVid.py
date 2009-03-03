@@ -116,7 +116,8 @@ DV_FILE_EXT_BY_CODEC={
     'wmv2':'wmv'
 } # Just in case the format isn't defined, fall back to DV_FILE_EXT_BY_CODEC. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
 DV_CODEC_ADVANCED_CL={
-    'mpeg4':[('g','300'),('cmp','2'),('subcmp','2'),('trellis','2'),'+4mv']
+    'mpeg4':[('g','300'),('cmp','2'),('subcmp','2'),('trellis','2'),'+4mv'],
+    'libx264':[('coder','1'),'+loop',('cmp','+chroma'),('partitions','+parti4x4+partp8x8+partb8x8'),('g','250'),('subq','6'),('me_range','16'),('keyint_min','25'),('sc_threshold','40'),('i_qfactor','0.71'),('b_strategy','1')]
 }
 DV_PREFERENCES=None
 try:
@@ -637,13 +638,15 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             maxheight={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
             maxwidth={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
             count=0
-            for i in self.prefs.lists(pane):
+            availprefs=self.prefs.lists(pane)
+            for i in DV_PREFERENCE_ORDER[prefprefix[0:-1]]:
+                if prefprefix+i in DV_PREFERENCES.keys() and i in availprefs:
+                    currentprefs.append(prefprefix+i)
+            for i in availprefs:
                 if prefprefix+i in DV_PREFERENCES.keys():
                     desc=DV_PREFERENCES[prefprefix+i]
                     width=1
-                    if i in DV_PREFERENCE_ORDER[prefprefix[0:-1]]:
-                        currentprefs.insert(DV_PREFERENCE_ORDER[prefprefix[0:-1]].index(i),prefprefix+i)
-                    else:
+                    if prefprefix+i not in currentprefs:
                         currentprefs.append(prefprefix+i)
                     maxheight[str(desc['type'])]+=1
                     maxwidth[str(desc['type'])]=max((maxwidth[str(desc['type'])],self.getPrefWidth(prefprefix+i)))
@@ -666,6 +669,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 elif DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_MISC:
                     position[0]+=maxheight[str(DV_PREFERENCE_TYPE_PROFILE)]+max((maxheight[str(DV_PREFERENCE_TYPE_VIDEO)],maxheight[str(DV_PREFERENCE_TYPE_AUDIO)]))
                 position[0]+=currentprefsinsection[str(DV_PREFERENCES[i]['type'])]
+                controlposition=(position[0],position[1]+1)
+                controlspan=(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1)
                 currentprefsinsection[str(DV_PREFERENCES[i]['type'])]+=1
                 if DV_PREFERENCES[i]['kind']!='bool':
                     label=wx.StaticText(self.prefpane,-1,DV_PREFERENCES[i]['name']+':')
@@ -677,13 +682,12 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     if not val:
                         val='(default)'
                     else:
-                        val=DV_PREFERENCES[i]['kind'][val]
+                        if val in DV_PREFERENCES[i]['kind']:
+                            val=DV_PREFERENCES[i]['kind'][val]
                     self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
-                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                    self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 elif DV_PREFERENCES[i]['kind'][0]=='%':
-                    self.controls[i]=wx.SpinCtrl(self.prefpane,-1,initial=int(100.0*float(val)/float(str(DV_PREFERENCES[i]['kind'][1:]))),min=0,max=200)
-                    self.Bind(wx.EVT_SPINCTRL,self.onPrefChange,self.controls[i])
-                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                    self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(100.0*float(val)/float(str(DV_PREFERENCES[i]['kind'][1:]))),0,200)
                 elif DV_PREFERENCES[i]['kind']=='bool':
                     self.controls[i]=wx.CheckBox(self.prefpane,-1,DV_PREFERENCES[i]['name'])
                     self.controls[i].SetValue(val=='True')
@@ -691,18 +695,28 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]),wx.EXPAND)
                 elif DV_PREFERENCES[i]['kind'][0:3]=='int':
                     choices=['(default)']
-                    if len(DV_PREFERENCES[i]['kind'])>3:
+                    if DV_PREFERENCES[i]['kind'][0:5]=='intk:':
                         for f in range(int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find(':')+1:DV_PREFERENCES[i]['kind'].find('-')]),int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find('-')+1:])):
                             choices.append(str(pow(2,f))+'k')
-                    if not val:
-                        val='(default)'
-                    self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
-                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                        if not val:
+                            val='(default)'
+                        self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
+                        self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
+                    elif DV_PREFERENCES[i]['kind'][0:4]=='int:':
+                        interval=(int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find(':')+1:DV_PREFERENCES[i]['kind'].find('-')]),int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find('-')+1:]))
+                        if not val:
+                            val='0'
+                        self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(val),min(interval),max(interval))
+                    elif DV_PREFERENCES[i]['kind']=='int':
+                        if not val:
+                            val='(default)'
+                        self.controls[i]=self.makeList(False,['(default)'],self.prefpane,val)
+                        self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 elif DV_PREFERENCES[i]['kind']=='dir':
                     pathpanel=wx.Panel(self.prefpane,-1)
                     pathsizer=wx.BoxSizer(wx.HORIZONTAL)
                     pathpanel.SetSizer(pathsizer)
-                    self.prefpanesizer.Add(pathpanel,(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                    self.prefpanesizer.Add(pathpanel,controlposition,controlspan,wx.EXPAND)
                     self.controls[i]=wx.TextCtrl(pathpanel,-1,val)
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
                     pathsizer.Add(self.controls[i],1,wx.EXPAND)
@@ -712,7 +726,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 elif DV_PREFERENCES[i]['kind']=='text':
                     self.controls[i]=wx.TextCtrl(self.prefpane,-1,val)
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
-                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                    self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 elif DV_PREFERENCES[i]['kind']=='profile':
                     if self.prefs.profiles:
                         choices=[]
@@ -722,7 +736,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                         self.controls[i].SetSelection(int(val)+1)
                     else:
                         self.controls[i]=wx.StaticText(self.prefpane,-1,'No encoding profiles found!')
-                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]+1),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1),wx.EXPAND)
+                    self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 count=count+1
         self.prefpanesizer.Layout() # Mandatory
         newsize=self.toppanel.GetBestSize()
@@ -763,7 +777,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 genericpref=pref[0]
             genericpref+=':'+pref[1]
             val=None
-            if type(DV_PREFERENCES[genericpref]['kind']) is type({}) or DV_PREFERENCES[genericpref]['kind'][0:3]=='int':
+            if type(DV_PREFERENCES[genericpref]['kind']) is type({}) or (DV_PREFERENCES[genericpref]['kind'][0:3]=='int' and DV_PREFERENCES[genericpref]['kind'][0:4]!='int:'):
                 if DV_PREFERENCES[genericpref]['strict']:
                     val=self.controls[i].GetSelection()
                     if val:
@@ -780,8 +794,10 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                                 val=j
             elif DV_PREFERENCES[genericpref]['kind']=='profile':
                 val=self.controls[i].GetSelection()-1
+            elif DV_PREFERENCES[genericpref]['kind'][0:4]=='int:':
+                val=int(self.controls[i].GetValue())
             elif DV_PREFERENCES[genericpref]['kind'][0]=='%':
-                val=float(float(self.controls[i].GetValue())*256.0/100.0)
+                val=float(float(self.controls[i].GetValue())*float(int(DV_PREFERENCES[genericpref]['kind'][1:]))/100.0)
             elif DV_PREFERENCES[genericpref]['kind']=='dir' or DV_PREFERENCES[genericpref]['kind']=='text':
                 val=self.controls[i].GetValue()
                 if genericpref=='damnvid-profile:name':
@@ -843,6 +859,21 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             cont=wx.ComboBox(panel,-1,choices=choices,value=value)
             self.Bind(wx.EVT_TEXT,self.onPrefChange,cont)
         return cont
+    def makeSlider(self,panel,sizer,position,value,minval,maxval):
+        value=min((maxval,max((int(minval),int(value)))))
+        tmppanel=wx.Panel(panel,-1)
+        tmpsizer=wx.BoxSizer(wx.HORIZONTAL)
+        tmppanel.SetSizer(tmpsizer)
+        slider=wx.Slider(tmppanel,-1,value=value,minValue=minval,maxValue=maxval,style=wx.SL_HORIZONTAL)
+        tmpsizer.Add(slider,7,wx.EXPAND)
+        tmplabel=wx.StaticText(tmppanel,-1,str(value))
+        tmpsizer.Add(tmplabel,1)
+        self.Bind(wx.EVT_SLIDER,DamnCurry(self.updateSlider,slider,tmplabel),slider)
+        sizer.Add(tmppanel,position[0],position[1],wx.EXPAND)
+        return slider
+    def updateSlider(self,slider,label,event):
+        label.SetLabel(str(slider.GetValue()))
+        self.onPrefChange(event)
     def getListValue(self,name,strict):
         if strict:
             val=self.listvalues[name][self.controls[name].GetSelection()]
@@ -1119,7 +1150,10 @@ class DamnConverter(thr.Thread): # The actual converter
                                 pref=str(round(float(pref),0)) # Round
                         if i=='encoding_pass':
                             pref='?DAMNVID_VIDEO_PASS?'
-                        cmd.extend(['-'+i[9:],pref])
+                        if i=='b' and pref=='sameq':
+                            cmd.append('-sameq')
+                        else:
+                            cmd.extend(['-'+i[9:],pref])
             vidformat=self.parent.prefs.getp(self.profile,'Encoding_f')
             self.vcodec=self.parent.prefs.getp(self.profile,'Encoding_vcodec')
             self.totalpasses=self.parent.prefs.getp(self.profile,'Encoding_pass')

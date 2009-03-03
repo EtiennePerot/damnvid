@@ -46,10 +46,33 @@ DV_PREFERENCES={
         'strict':True
     },
     'damnvid-profile:encoding_b':{
-        'name':'Target bitrate',
+        'name':'Bitrate',
         'type':DV_PREFERENCE_TYPE_VIDEO,
-        'kind':'intk:7-13', # Int in kilobytes
-        'strict':None
+        'kind':{
+            'sameq':'(Same quality as source)',
+            '256k':'256k',
+            '512k':'512k',
+            '768k':'768k',
+            '1024k':'1024k',
+            '1536k':'1536k',
+            '2048k':'2048k',
+            '3072k':'3092k',
+            '4096k':'4096k'
+        },
+        'order':['sameq','256k','512k','768k','1024k','1536k','2048k','3072k','4096k'],
+        'strict':False
+    },
+    'damnvid-profile:encoding_qmin':{
+        'name':'Minimum quantizer',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int:1-30',
+        'strict':True
+    },
+    'damnvid-profile:encoding_qmax':{
+        'name':'Maximum quantizer',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':'int:2-31',
+        'strict':True
     },
     'damnvid-profile:encoding_s':{
         'name':'Resolution',
@@ -59,11 +82,25 @@ DV_PREFERENCES={
             'qvga':'qVGA (320x240)',
             'vga':'VGA (640x480)',
             'xga':'XGA (1024x768)',
-            'hd480':'HD-480 (852x480)',
-            'hd720':'HD-720 (1280x720)',
-            'hd1080':'HD-1080 (1920x1080)'
+            'hd480':'HD: 480p (852x480)',
+            'hd720':'HD: 720p (1280x720)',
+            'hd1080':'HD: 1080p (1920x1080)'
         },
         'order':['qqvga','qvga','vga','xga','hd480','hd720','hd1080'],
+        'strict':False
+    },
+    'damnvid-profile:encoding_aspect':{
+        'name':'Aspect ratio',
+        'type':DV_PREFERENCE_TYPE_VIDEO,
+        'kind':{
+            '1':'1:1 (Square)',
+            '4:3':'4:3 (SD)',
+            '16:9':'16:9 (HDTV)',
+            '1.5':'3:2',
+            '1.85':'1.85:1',
+            '2.39':'2.39:1'
+        },
+        'order':['1','4:3','16:9','1.5','1.85','2.39'],
         'strict':False
     },
     'damnvid-profile:encoding_f':{
@@ -214,6 +251,12 @@ DV_PREFERENCES={
         'kind':'dir',
         'strict':False
     },
+    'damnvid:threads':{
+        'name':'Number of threads',
+        'type':DV_PREFERENCE_TYPE_MISC,
+        'kind':'int',
+        'strict':False
+    },
     #'damnvid-showdailytip':{
         #'name':'Show Daily Tip when DamnVid starts',
         #'type':DV_PREFERENCE_TYPE_MISC,
@@ -264,7 +307,7 @@ DV_PREFERENCES={
     }
 }
 DV_PREFERENCE_ORDER={
-    'damnvid':['checkforupdates','dirrecursion','defaultoutdir'],
-    'damnvid-profile':['encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_minrate','encoding_maxrate','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
+    'damnvid':['checkforupdates','dirrecursion','defaultoutdir','threads'],
+    'damnvid-profile':['encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
     'damnvid-default-profiles':['file','youtube','youtubehd','googlevideo','dailymotion','veoh','web']
 }
