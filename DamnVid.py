@@ -62,7 +62,7 @@ if DV_OS_NAME=='nt':
     del ctypes
     del wintypes
 else:
-    DV_MY_VIDEOS_PATH='~'+os.sep+'Videos'
+    DV_MY_VIDEOS_PATH=os.path.expanduser('~'+os.sep+'Videos')
 try:
     import threading as thr # Threads
 except ImportError:
@@ -73,7 +73,9 @@ DV_CONF_FILE_LOCATION={
     'posix':'~'+os.sep+'.damnvid',
     'mac':'~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid'
 }
-DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION[DV_OS_NAME]+os.sep
+if DV_OS_NAME=='posix' or DV_OS_NAME=='mac':
+    DV_CONF_FILE_LOCATION=os.path.expanduser(DV_CONF_FILE_LOCATION[DV_OS_NAME])
+DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION+os.sep
 DV_CONF_FILE=DV_CONF_FILE_DIRECTORY+'damnvid.ini'
 DV_FIRST_RUN=False
 if not os.path.lexists(DV_CONF_FILE):
@@ -141,7 +143,7 @@ ID_COL_VIDPATH=3
 # Begin regex constants
 REGEX_DAMNVID_VERSION_CHECK=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
 REGEX_PATH_MULTI_SEPARATOR_CHECK=re.compile('/+')
-REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration: (\\d+):(\\d\\d):([.\\d]+),',re.IGNORECASE)
+REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration:\\s*(\\d+):(\\d\\d):([.\\d]+)',re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
 REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;{}\w]*)?$',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
@@ -166,12 +168,27 @@ REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT=re.compile('\\.addVariable\\s*\\(\\s*([\'"
 REGEX_HTTP_DAILYMOTION_QUALITY=re.compile('(\d+)x(\d+)')
 # End constants
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
+    finalcmd=[]
+    oldcmd=cmd
+    while cmd:
+        if cmd[0]=='"':
+            arg=cmd[1:cmd.find('"',1)]
+            cmd=cmd[2+len(arg):]
+        else:
+            if cmd.find(' ')!=-1:
+                arg=cmd[0:cmd.find(' ')]
+            else:
+                arg=cmd
+            cmd=cmd[len(arg):]
+        cmd=cmd.strip()
+        finalcmd.append(arg)
+    exe=finalcmd[0]
     if cwd==None:
         cwd=os.getcwd()
     if DV_OS_NAME=='nt':
-        return subprocess.Popen(cmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+        return subprocess.Popen(oldcmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd,executable=exe,bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
     else:
-        return subprocess.Popen(cmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd)
+        return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnURLPicker(urls,urlonly=False):
     for i in urls:
         request=urllib2.Request(i)
@@ -189,6 +206,14 @@ def DamnURLPicker(urls,urlonly=False):
                 return None
             pass
     return None
+DV_EVT_PROGRESS=wx.NewEventType()
+DV_EVT_PROG=wx.PyEventBinder(DV_EVT_PROGRESS,1)
+class DamnProgressEvent(wx.PyCommandEvent):
+    def __init__(self,eventtype,eventid,eventinfo):
+        wx.PyCommandEvent.__init__(self,eventtype,eventid)
+        self.info=eventinfo
+    def GetInfo(self):
+        return self.info
 class DamnDropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
     def __init__(self,parent):
         wx.FileDropTarget.__init__(self)
@@ -252,7 +277,7 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
                     else:
                         prof=wx.MenuItem(self,-1,self.parent.parent.prefs.getp(i,'name'))
                         profile.AppendItem(prof)
-                    self.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof)
+                    profile.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof) # Important: profile.Bind, not self.Bind
                 self.AppendMenu(-1,'Encoding profile',profile)
             else:
                 profile=wx.MenuItem(self,-1,'Encoding profile')
@@ -587,7 +612,8 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.Bind(wx.EVT_TREE_SEL_CHANGED,self.onTreeSelectionChanged,self.tree)
         self.Bind(wx.EVT_KEY_DOWN,self.onKeyDown,self.toppanel)
         self.toppanel.SetFocus()
-        self.tree.SelectItem(self.treeroot,True) # Will also resize the window
+        self.tree.SelectItem(self.treeroot,True) # Will also resize the window on certain platforms since it fires the selection events, but not on Ubuntu it seems, so...
+        self.updatePrefPane('damnvid')
         self.Center()
     def onTreeSelectionChanged(self,event):
         item=event.GetItem()
@@ -1011,7 +1037,6 @@ class DamnConverter(thr.Thread): # The actual converter
                 if res:
                     return [res.group(1)]
         elif uri[0:3]=='vh:':
-            print uri
             html=urllib2.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findById&videoId='+REGEX_HTTP_VEOH_SUBID_EXTRACT.sub('\\1',uri[3:])+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
             for i in html:
                 res=REGEX_HTTP_VEOH_TICKET_EXTRACT.search(i)
@@ -1067,11 +1092,24 @@ class DamnConverter(thr.Thread): # The actual converter
         while os.path.lexists(path+prefix+' ('+str(c)+')'+ext):
             c=c+1
         return prefix+' ('+str(c)+')'
+    def update(self,progress=None,statustext=None,status=None,dialog=None,go=None):
+        info={}
+        if progress is not None:
+            info['progress']=float(progress)
+        if statustext is not None:
+            info['statustext']=str(statustext)
+        if status is not None:
+            info['status']=str(status)
+        if dialog is not None:
+            info['dialog']=dialog
+        if go is not None:
+            info['go']=go
+        wx.PostEvent(self.parent,DamnProgressEvent(DV_EVT_PROGRESS,-1,info))
     def run(self):
         self.abort=False
         if not self.abort:
             self.uri=self.uris[0]
-            self.parent.gauge1.SetValue(0.0)
+            self.update(0)
             self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
             self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name'])
             self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
@@ -1097,7 +1135,7 @@ class DamnConverter(thr.Thread): # The actual converter
                         try:
                             tmpuri=src.info()['Content-Disposition'][src.info()['Content-Disposition'].find('filename=')+9:]
                         except:
-                            tmpuri='video.avi' # And pray for the best!
+                            tmpuri='Video.avi' # And pray for the best!
                     else: # Just copy the file, lol
                         total=int(os.lstat(self.stream).st_size)
                         src=open(self.stream,'rb')
@@ -1110,28 +1148,27 @@ class DamnConverter(thr.Thread): # The actual converter
                     dst=open(self.outdir+self.filename+ext,'wb')
                     keepgoing=True
                     copied=0.0
-                    self.parent.SetStatusText('Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
+                    self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
                     while keepgoing and not self.abort:
                         i=src.read(256)
                         if len(i):
                             dst.write(i)
                             copied+=256.0
                         else:
-                            copied=total
+                            copied=float(total)
                             keepgoing=False
                         progress=min((100.0,copied/total*100.0))
-                        self.parent.gauge1.SetValue(progress)
-                        self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
+                        self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
                 except:
                     failed=True
                 self.grabberrun=False
                 if self.abort or failed:
                     self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
-                    self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Failure.')
+                    self.update(status='Failure.')
                 else:
                     self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
-                    self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Success!')
-                self.parent.go(aborted=self.abort)
+                    self.update(status='Success!')
+                self.update(go=self.abort)
                 return
             os_exe_ext=''
             if DV_OS_NAME=='nt':
@@ -1185,11 +1222,11 @@ class DamnConverter(thr.Thread): # The actual converter
             cmd.append('?DAMNVID_OUTPUT_FILE?')
             self.filename=self.filenamenoext+ext
             self.duration=None
-            self.parent.SetStatusText('Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
+            self.update(statustext='Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
             while int(self.passes)<=int(self.totalpasses) and not self.abort:
                 if self.totalpasses!=1:
                     self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
-                    self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
+                    self.update(status='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
                     if self.stream=='-':
                         if self.passes==1:
                             self.tmppassfile=DV_TMP_PATH+self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
@@ -1205,14 +1242,16 @@ class DamnConverter(thr.Thread): # The actual converter
                         self.feeder=DamnDownloader(self.uris,self.process.stdin)
                     self.feeder.start()
                 curline=''
+                tmpdump=open('tmp.txt','a')
                 while self.process.poll()==None and not self.abort:
                     c=self.process.stderr.read(1)
                     curline+=c
                     if c=="\r" or c=="\n":
+                        tmpdump.write(curline+'\n')
                         self.parseLine(curline)
                         curline=''
                 self.passes+=1
-            self.parent.gauge1.SetValue(100.0)
+            self.update(100)
             result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
             time.sleep(.25) # Wait a bit
             self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
@@ -1229,10 +1268,19 @@ class DamnConverter(thr.Thread): # The actual converter
                                 time.sleep(2)
                                 os.rename(DV_TMP_PATH+i,self.outdir+self.filename)
                             except: # Now this is really bad, alert the user
-                                dlg=wx.MessageDialog(None,'DamnVid successfully converted the file but something prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV_TMP_PATH+i,'Cannot move file!',wx.OK|wx.ICON_EXCLAMATION)
-                                dlg.SetIcon(DV_ICON)
-                                dlg.ShowModal()
-                                dlg.Destroy()
+                                try: # Manual copy, might be needed if we're working on two different filesystems on a non-Windows platform
+                                    src=open(DV_TMP_PATH+i,'rb')
+                                    dst=open(self.outdir+self.filename,'wb')
+                                    for fileline in src.readlines():
+                                        dst.write(fileline)
+                                    try: # Another try block in order to avoid raising the huge except block with the dialog
+                                        src.close()
+                                        dst.close()
+                                        os.remove(DV_TMP_PATH+i)
+                                    except:
+                                        pass
+                                except:
+	                            self.update(dialog=('Cannot move file!','DamnVid successfully converted the file but something (File permissions? Disconnected removable device?) prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV_TMP_PATH+i,wx.OK|wx.ICON_EXCLAMATION))
                     else:
                         try:
                             os.remove(DV_TMP_PATH+i)
@@ -1240,12 +1288,10 @@ class DamnConverter(thr.Thread): # The actual converter
                             pass
             if not result:
                 self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
-                self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Success!')
-                self.parent.go(aborted=self.abort)
+                self.update(status='Success!',go=self.abort)
                 return
             self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
-            self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,'Failure.')
-            self.parent.go(aborted=self.abort)
+            self.update(status='Failure.',go=self.abort)
     def parseLine(self,line):
         if self.duration==None:
             res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
@@ -1254,8 +1300,10 @@ class DamnConverter(thr.Thread): # The actual converter
         else:
             res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
             if res:
-                self.parent.gauge1.SetValue(float(float(res.group(1))/self.duration/float(self.totalpasses)+float(float(self.passes-1)/float(self.totalpasses)))*100.0) # Uhm, maybe too many float()s in there?
-                self.parent.list.SetStringItem(self.parent.converting,ID_COL_VIDSTAT,self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(100.0*float(res.group(1))/self.duration))+'%]') # This one doesn't care about the number of passes
+                wx.PostEvent(self.parent,DamnProgressEvent(DV_EVT_PROGRESS,-1,{
+                    'progress':float(float(res.group(1))/self.duration/float(self.totalpasses)+float(float(self.passes-1)/float(self.totalpasses)))*100.0,
+                    'status':self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(100.0*float(res.group(1))/self.duration))+'%]'
+                }))
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
@@ -1476,6 +1524,7 @@ class DamnMainFrame(wx.Frame): # The main window
         grid.AddGrowableRow(0,1)
         grid.AddGrowableCol(0,1)
         self.Bind(wx.EVT_CLOSE,self.onClose,self)
+        self.Bind(DV_EVT_PROG,self.onProgress)
         DV_ICON=wx.Icon(DV_IMAGES_PATH+'icon.ico',wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV_ICON)
         self.videos=[]
@@ -1702,6 +1751,21 @@ class DamnMainFrame(wx.Frame): # The main window
         self.videos.append(meta['uri'])
         self.meta[meta['uri']]=meta
         self.SetStatusText('Added '+meta['name']+'.')
+    def onProgress(self,event):
+        info=event.GetInfo()
+        if info.has_key('progress'):
+            self.gauge1.SetValue(info['progress'])
+        if info.has_key('statustext'):
+            self.SetStatusText(info['statustext'])
+        if info.has_key('status'):
+            self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,info['status'])
+        if info.has_key('dialog'):
+            dlg=wx.MessageDialog(self,dialog[0],dialog[1],dialog[2])
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+            dlg.Destroy()
+        if info.has_key('go'):
+            self.go(info['go'])
     def go(self,aborted=False):
         self.converting=-1
         for i in range(len(self.videos)):
@@ -1719,11 +1783,12 @@ class DamnMainFrame(wx.Frame): # The main window
             if not self.isclosing:
                 self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
                 if not aborted:
-                    dlg=wx.MessageDialog(None,'Done!','Done!',wx.OK|wx.ICON_INFORMATION)
+                    dlg=wx.MessageDialog(self,'Done!','Done!',wx.OK|wx.ICON_INFORMATION)
                 else:
-                    dlg=wx.MessageDialog(None,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
+                    dlg=wx.MessageDialog(self,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
                 dlg.SetIcon(DV_ICON)
                 dlg.ShowModal()
+                dlg.Destroy()
                 self.converting=-1
                 self.stopbutton.Disable()
                 self.gobutton1.Enable()
@@ -1832,7 +1897,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.list.SetStringItem(i,ID_COL_VIDPROFILE,self.prefs.getp(profile,'name'))
     def onPrefs(self,event):
         self.reopenprefs=False
-        prefs=DamnVidPrefEditor(None,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
+        prefs=DamnVidPrefEditor(self,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
         prefs.ShowModal()
         prefs.Destroy()
         if self.reopenprefs:
