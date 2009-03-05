@@ -1,0 +1,9 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=1.0
+Type=Application
+Terminal=false
+Exec=python2.5 /usr/share/damnvid/DamnVid.py
+Name=DamnVid
+Comment=Video downloader and converter
+Icon=/usr/share/damnvid/img/icon.ico

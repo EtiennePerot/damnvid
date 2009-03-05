@@ -34,7 +34,11 @@ import sys # System stuff
 import ConfigParser # INI file parsing and writing
 
 # Begin constants
-DV_VERSION='0.2.2'
+DV_CURDIR=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
+versionfile=open(DV_CURDIR+'version.damnvid','r')
+DV_VERSION=versionfile.readline().strip()
+versionfile.close()
+del versionfile
 DV_URLLIB2_OPENER=urllib2.build_opener()
 DV_URLLIB2_OPENER.addheaders=[('User-agent','DamnVid/'+DV_VERSION)]
 urllib2.install_opener(DV_URLLIB2_OPENER) # All urllib2.urlopen() calls will have the DamnVid user-agent
@@ -67,7 +71,7 @@ try:
     import threading as thr # Threads
 except ImportError:
     import dummy_threading as thr # Moar threads
-DV_CURDIR=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
+
 DV_CONF_FILE_LOCATION={
     'nt':DV_APPDATA_PATH+os.sep+'DamnVid',
     'posix':'~'+os.sep+'.damnvid',
@@ -75,6 +79,8 @@ DV_CONF_FILE_LOCATION={
 }
 if DV_OS_NAME=='posix' or DV_OS_NAME=='mac':
     DV_CONF_FILE_LOCATION=os.path.expanduser(DV_CONF_FILE_LOCATION[DV_OS_NAME])
+else:
+    DV_CONF_FILE_LOCATION=DV_CONF_FILE_LOCATION[DV_OS_NAME]
 DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION+os.sep
 DV_CONF_FILE=DV_CONF_FILE_DIRECTORY+'damnvid.ini'
 DV_FIRST_RUN=False
@@ -277,7 +283,8 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
                     else:
                         prof=wx.MenuItem(self,-1,self.parent.parent.prefs.getp(i,'name'))
                         profile.AppendItem(prof)
-                    profile.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof) # Important: profile.Bind, not self.Bind
+                    self.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof)    # Of course, on one platform it's self.Bind...
+                    profile.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof) # ... and on the other it's profile.Bind. *sigh*
                 self.AppendMenu(-1,'Encoding profile',profile)
             else:
                 profile=wx.MenuItem(self,-1,'Encoding profile')
@@ -1148,17 +1155,21 @@ class DamnConverter(thr.Thread): # The actual converter
                     dst=open(self.outdir+self.filename+ext,'wb')
                     keepgoing=True
                     copied=0.0
+                    lasttime=0.0
                     self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
                     while keepgoing and not self.abort:
-                        i=src.read(256)
+                        i=src.read(1024)
                         if len(i):
                             dst.write(i)
-                            copied+=256.0
+                            copied+=1024.0
                         else:
                             copied=float(total)
                             keepgoing=False
                         progress=min((100.0,copied/total*100.0))
-                        self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
+                        nowtime=float(time.time())
+                        if lasttime+.25<nowtime: # Do not send a progress update more than 4 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 4 times, which is acceptable.
+                            self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
+                            lasttime=nowtime
                 except:
                     failed=True
                 self.grabberrun=False
@@ -1242,12 +1253,10 @@ class DamnConverter(thr.Thread): # The actual converter
                         self.feeder=DamnDownloader(self.uris,self.process.stdin)
                     self.feeder.start()
                 curline=''
-                tmpdump=open('tmp.txt','a')
                 while self.process.poll()==None and not self.abort:
                     c=self.process.stderr.read(1)
                     curline+=c
                     if c=="\r" or c=="\n":
-                        tmpdump.write(curline+'\n')
                         self.parseLine(curline)
                         curline=''
                 self.passes+=1
@@ -1286,7 +1295,7 @@ class DamnConverter(thr.Thread): # The actual converter
                             os.remove(DV_TMP_PATH+i)
                         except:
                             pass
-            if not result:
+            if not result and not self.abort:
                 self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
                 self.update(status='Success!',go=self.abort)
                 return
@@ -1308,7 +1317,7 @@ class DamnConverter(thr.Thread): # The actual converter
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
             if DV_OS_NAME=='nt':
-                DamnSpawner('TASKKILL /PID '+str(self.process.pid)+' /F').wait()
+                DamnSpawner(DV_BIN_PATH+'taskkill.exe /PID '+str(self.process.pid)+' /F').wait()
             elif DV_OS_NAME=='mac':
                 DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # Untested, from http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
             else:
