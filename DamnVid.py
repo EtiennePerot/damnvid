@@ -1187,7 +1187,7 @@ class DamnConverter(thr.Thread): # The actual converter
             elif DV_OS_NAME=='mac':
                 os_exe_ext='osx'
             self.passes=1
-            cmd=[DV_BIN_PATH+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-title',self.parent.meta[self.parent.videos[self.parent.converting]]['name'],'-comment','Converted by DamnVid '+DV_VERSION+'.','-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
+            cmd=[DV_BIN_PATH+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
             for i in DV_PREFERENCES.keys():
                 if i[0:25]=='damnvid-profile:encoding_':
                     i=i[16:]
@@ -1198,7 +1198,7 @@ class DamnConverter(thr.Thread): # The actual converter
                                 pref=str(round(float(pref),0)) # Round
                         if i=='encoding_pass':
                             pref='?DAMNVID_VIDEO_PASS?'
-                        if i=='b' and pref=='sameq':
+                        if i[9:]=='b' and pref=='sameq':
                             cmd.append('-sameq')
                         else:
                             cmd.extend(['-'+i[9:],pref])

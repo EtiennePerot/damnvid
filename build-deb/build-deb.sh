@@ -23,8 +23,8 @@ echo "Package: damnvid
 Version: $version-1
 Architecture: all
 Maintainer: WindPower <windypower@gmail.com>
-Depends: python2.5 (>= 2.5-1), python-wxgtk2.6
-Section: Multimedia
+Depends: python2.5 (>= 2.5-1), python-wxgtk2.8
+Section: sound
 Priority: standard
 Homepage: http://damnvid.googlecode.com/
 Description: A versatile video downloader/converter, written in Python.
