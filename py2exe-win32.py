@@ -51,6 +51,7 @@ setup(
     ]
 )
 shutil.copyfile(path2src+'DamnVid.exe.manifest','dist/DamnVid.exe.manifest')
+shutil.copyfile(path2src+'version.damnvid','dist/version.damnvid')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\gdiplus.dll','dist/gdiplus.dll')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\msvcp71.dll','dist/MSVCP71.dll')
 shutil.copyfile('C:\\Python25\\unicows.dll','dist/unicows.dll')

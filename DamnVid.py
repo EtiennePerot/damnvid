@@ -19,7 +19,7 @@
 
 import wx # Oh my, it's wx.
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
-import wx.lib.hyperlink # Fancy hyperlinks instead of hacked StaticText's
+import wx.lib.hyperlink # Fancy hyperlinks instead of hackish StaticText's
 import os # Filesystem functions.
 import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg)
