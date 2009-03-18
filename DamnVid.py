@@ -113,7 +113,9 @@ DV_FILE_EXT={
     'ogg':'ogg',
     'vob':'vob',
     '3gp':'3gp',
-    '3g2':'3g2'
+    '3g2':'3g2',
+    'mp3':'mp3',
+    'mp2':'mp2'
 }
 DV_FILE_EXT_BY_CODEC={
     'rv10':'rm',
@@ -121,7 +123,11 @@ DV_FILE_EXT_BY_CODEC={
     'flv':'flv',
     'theora':'ogg',
     'wmv1':'wmv',
-    'wmv2':'wmv'
+    'wmv2':'wmv',
+    'ac3':'ac3',
+    'vorbis':'ogg',
+    'wmav1':'wma',
+    'wmav2':'wma'
 } # Just in case the format isn't defined, fall back to DV_FILE_EXT_BY_CODEC. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
 DV_CODEC_ADVANCED_CL={
     'mpeg4':[('g','300'),('cmp','2'),('subcmp','2'),('trellis','2'),'+4mv'],
@@ -449,9 +455,9 @@ class DamnVidPrefs: # Preference manager
             value+=os.sep
         return value
     def reducePath(self,value):
-        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace(DV_MY_VIDEOS_PATH.replace(os.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace('/',os.sep)
-        if value[-1:]!=os.sep:
-            value+=os.sep
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace(DV_MY_VIDEOS_PATH.replace(os.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace(os.sep,'/')
+        if value[-1:]!='/':
+            value+='/'
         return value
     def get(self,name):
         name=name.lower()
@@ -722,10 +728,17 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 elif DV_PREFERENCES[i]['kind'][0]=='%':
                     self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(100.0*float(val)/float(str(DV_PREFERENCES[i]['kind'][1:]))),0,200)
                 elif DV_PREFERENCES[i]['kind']=='bool':
-                    self.controls[i]=wx.CheckBox(self.prefpane,-1,DV_PREFERENCES[i]['name'])
+                    if DV_PREFERENCES[i]['align']:
+                        self.controls[i]=wx.CheckBox(self.prefpane,-1)
+                        label=wx.StaticText(self.prefpane,-1,DV_PREFERENCES[i]['name'])
+                        label.Bind(wx.EVT_LEFT_UP,DamnCurry(self.onFakeCheckboxLabelClick,self.controls[i]))
+                        self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,1),wx.ALIGN_RIGHT)
+                        self.prefpanesizer.Add(label,(position[0],position[1]+1),(1,1),wx.EXPAND)
+                    else:
+                        self.controls[i]=wx.CheckBox(self.prefpane,-1,DV_PREFERENCES[i]['name'])
+                        self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]),wx.EXPAND)
                     self.controls[i].SetValue(val=='True')
                     self.Bind(wx.EVT_CHECKBOX,self.onPrefChange,self.controls[i])
-                    self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]),wx.EXPAND)
                 elif DV_PREFERENCES[i]['kind'][0:3]=='int':
                     choices=['(default)']
                     if DV_PREFERENCES[i]['kind'][0:5]=='intk:':
@@ -795,6 +808,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         if DV_PREFERENCES[pref]['kind']=='bool':
             return 1
         return 0
+    def onFakeCheckboxLabelClick(self,checkbox,event):
+        checkbox.SetValue(not checkbox.IsChecked())
     def splitLongPref(self,pref):
         if pref.find(':')==-1:
             return pref
@@ -1202,8 +1217,15 @@ class DamnConverter(thr.Thread): # The actual converter
                             cmd.append('-sameq')
                         else:
                             cmd.extend(['-'+i[9:],pref])
+            self.encodevideo=self.parent.prefs.getp(self.profile,'video')
+            self.encodeaudio=self.parent.prefs.getp(self.profile,'audio')
+            if not self.encodevideo:
+                cmd.append('-vn')
+            if not self.encodeaudio:
+                cmd.append('-an')
             vidformat=self.parent.prefs.getp(self.profile,'Encoding_f')
             self.vcodec=self.parent.prefs.getp(self.profile,'Encoding_vcodec')
+            self.acodec=self.parent.prefs.getp(self.profile,'Encoding_acodec')
             self.totalpasses=self.parent.prefs.getp(self.profile,'Encoding_pass')
             if not self.totalpasses:
                 self.totalpasses=1
@@ -1212,8 +1234,13 @@ class DamnConverter(thr.Thread): # The actual converter
             if vidformat and DV_FILE_EXT.has_key(vidformat):
                 ext='.'+DV_FILE_EXT[vidformat]
             else:
-                if self.vcodec and DV_FILE_EXT_BY_CODEC.has_key(self.vcodec):
+                if self.vcodec and self.encodevideo and DV_FILE_EXT_BY_CODEC.has_key(self.vcodec):
                     ext='.'+DV_FILE_EXT_BY_CODEC[self.vcodec]
+                elif self.encodeaudio and not self.encodevideo:
+                    if DV_FILE_EXT_BY_CODEC.has_key(self.acodec):
+                        ext='.'+DV_FILE_EXT_BY_CODEC[self.acodec]
+                    else:
+                        ext='.mp3'
                 else:
                     ext='.avi'
             flags=[]
