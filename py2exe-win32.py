@@ -6,8 +6,10 @@ import os
 import shutil
 
 images=[]
-version='0.1'
 path2src='../../DamnVid/'
+versionfile=open(path2src+'version.damnvid','r')
+version=versionfile.readline().strip()
+versionfile.close()
 description='Converts any damn video to any format. Also supports online video downloading and converting.'
 for i in os.listdir(path2src+'img/'):
     if i[-4:].lower()=='.png' or i[-4:].lower()=='.jpg' or i[-4:].lower()=='.gif' or i[-4:].lower()=='.ico' or i[-4:].lower()=='.bmp':
