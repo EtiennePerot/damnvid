@@ -65,6 +65,8 @@ if DV_OS_NAME=='nt':
     DV_APPDATA_PATH=str(DV_APPDATA_PATH.value)
     del ctypes
     del wintypes
+elif DV_OS_NAME=='mac':
+    DV_MY_VIDEOS_PATH=os.path.expanduser('~'+os.sep+'Movies')
 else:
     DV_MY_VIDEOS_PATH=os.path.expanduser('~'+os.sep+'Videos')
 try:
