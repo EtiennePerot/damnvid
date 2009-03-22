@@ -3,22 +3,22 @@
 # Yes, I am aware that this is not the really right way to build .deb's. But hey, if you wanna help me build deb's, feel free to help! :)
 
 orig=$(pwd)
-timestamp=$(date "+%a, %d %b %Y %H:%m:%S %Z")
-rm -rf ~/build-damnvid
 cd ..
+timestamp=$(date "+%a, %d %b %Y %H:%m:%S %Z")
+rm -rf ./package damnvid_*.deb damnvid_*.rpm required_files.txt
+mkdir package
 read version < version.damnvid
-tar -czvf build.tar.gz --exclude=*.svn --exclude=*~ DamnVid.py version.damnvid damnvid.desktop COPYING bin/ffmpeg conf img/*.jpg img/*.png img/*.ico
-mkdir ~/build-damnvid
-mkdir ~/build-damnvid/damnvid-$version
-mv build.tar.gz ~/build-damnvid/damnvid-$version/damnvid-$version.tar.gz
-cd ~/build-damnvid/damnvid-$version
+python build-required-files.py
+tar -czvf build.tar.gz --files-from=required-files.txt
+mv build.tar.gz ./package/build.tar.gz
+cd package
 mkdir -p debian/DEBIAN
 cd debian/DEBIAN
 echo "damnvid ($version) unstable; urgency=low
 
   * See http://code.google.com/p/damnvid/source/list
 
- -- WindPower <windypower@gmail.com>  $timestamp">changelog.Debian
+ -- WindPower <windypower@gmail.com> $timestamp">changelog.Debian
 echo "Package: damnvid
 Version: $version-1
 Architecture: all
@@ -32,21 +32,23 @@ Description: A versatile video downloader/converter, written in Python.
 cp $orig/copyright ./copyright
 cp $orig/dirs ./dirs
 cp $orig/rules ./rules
-cd .. # Back to build-damnvid/damnvid-$version/debian
+cd .. # Back to /package/debian
 mkdir -p usr/share/damnvid
 cd usr/share/damnvid
-tar -xvf ../../../../damnvid-$version.tar.gz
-rm ../../../../damnvid-$version.tar.gz
-cd .. # Now we're in usr/share
+tar -xvf ../../../../build.tar.gz
+rm ../../../../build.tar.gz
+cd .. # Now we're in /package/debian/usr/share
 mkdir applications
 cp $orig/damnvid.desktop applications/damnvid.desktop
 mkdir -p doc/damnvid
 cp ../../DEBIAN/copyright doc/damnvid/copyright
 echo "damnvid for Debian" > doc/damnvid/README.Debian
 gzip -c ../../DEBIAN/changelog.Debian > doc/damnvid/changelog.Debian.gz
-cd ../../.. # Now we're back in build-damnvid/damnvid-$version
+cd ../../.. # Now we're back in package
 dpkg-deb -b debian damnvid_$version-1_all.deb
+cd ..
+mv package/damnvid_$version-1_all.deb ./damnvid_$version-1_all.deb
+rm -rf ./package
 fakeroot alien -r damnvid_$version-1_all.deb
-rm -rf debian
-cd $orig
-
+mv damnvid-*.rpm damnvid-$version-1.noarch.rpm
+echo "All done!"
