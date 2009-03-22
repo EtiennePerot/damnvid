@@ -50,8 +50,11 @@ DV_ICON=None # This will be defined when DamnMainFrame is initialized
 DV_MY_VIDEOS_PATH=''
 DV_APPDATA_PATH=''
 DV_OS_NAME=os.name
+DV_BORDER_PADDING=2
 if DV_OS_NAME=='posix' and sys.platform=='darwin':
     DV_OS_NAME='mac'
+    DV_BORDER_PADDING=4
+DV_CONTROL_GAP=DV_BORDER_PADDING*2
 if DV_OS_NAME=='nt':
     import win32process
     # Need to determine the location of the "My Videos" and "Application Data" folder.
@@ -141,15 +144,15 @@ try:
 except:
     pass # Someone's been messing around with the conf.py file?
 # Begin ID constants
-ID_MENU_EXIT=101
+ID_MENU_EXIT=wx.ID_EXIT
 ID_MENU_ADD_FILE=102
 ID_MENU_ADD_URL=103
 ID_MENU_GO=104
-ID_MENU_PREFERENCES=105
+ID_MENU_PREFERENCES=wx.ID_PREFERENCES
 ID_MENU_OUTDIR=106
-ID_MENU_HALP=107
+ID_MENU_HALP=wx.ID_HELP
 ID_MENU_UPDATE=108
-ID_MENU_ABOUT=109
+ID_MENU_ABOUT=wx.ID_ABOUT
 ID_COL_VIDNAME=0
 ID_COL_VIDPROFILE=1
 ID_COL_VIDSTAT=2
@@ -1479,9 +1482,10 @@ class DamnMainFrame(wx.Frame): # The main window
         self.SetMenuBar(self.menubar)
         vbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
+        vbox.Add((0,DV_BORDER_PADDING))
         panel=wx.Panel(self,-1)
         vbox.Add(panel,1,wx.EXPAND)
-        grid=wx.FlexGridSizer(2,2,7,7)
+        grid=wx.FlexGridSizer(2,2,8,8)
         panel1=wx.Panel(panel,-1)
         grid.Add(panel1,1,wx.EXPAND)
         panel2=wx.Panel(panel,-1)
@@ -1492,6 +1496,7 @@ class DamnMainFrame(wx.Frame): # The main window
         grid.Add(panel4,0)
         panel.SetSizer(grid)
         hbox1=wx.BoxSizer(wx.HORIZONTAL)
+        hbox1.Add((DV_BORDER_PADDING,0))
         panel1.SetSizer(hbox1)
         self.list=DamnList(panel1,window=self)
         self.list.InsertColumn(ID_COL_VIDNAME,'Video name')
@@ -1515,36 +1520,51 @@ class DamnMainFrame(wx.Frame): # The main window
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
         hbox1.Add(self.list,1,wx.EXPAND)
+        vboxwrap2=wx.BoxSizer(wx.HORIZONTAL)
         sizer2=wx.BoxSizer(wx.VERTICAL)
-        panel2.SetSizer(sizer2)
+        vboxwrap2.Add(sizer2)
+        vboxwrap2.Add((DV_BORDER_PADDING,0))
+        sizer2.Add((0,DV_BORDER_PADDING))
+        panel2.SetSizer(vboxwrap2)
         self.addByFile=wx.Button(panel2,-1,'Add Files')
         sizer2.Add(self.addByFile,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onAddFile,self.addByFile)
         self.addByURL=wx.Button(panel2,-1,'Add URL')
         sizer2.Add(self.addByURL,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onAddURL,self.addByURL)
         self.btnRename=wx.Button(panel2,-1,'Rename')
         sizer2.Add(self.btnRename,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onRename,self.btnRename)
         self.btnMoveUp=wx.Button(panel2,-1,'Move up')
         sizer2.Add(self.btnMoveUp,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onMoveUp,self.btnMoveUp)
         self.btnMoveDown=wx.Button(panel2,-1,'Move down')
         sizer2.Add(self.btnMoveDown,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onMoveDown,self.btnMoveDown)
         self.delSelection=wx.Button(panel2,-1,'Remove')
         sizer2.Add(self.delSelection,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onDelSelection,self.delSelection)
         self.delAll=wx.Button(panel2,-1,'Remove all')
         sizer2.Add(self.delAll,0)
+        sizer2.Add((0,DV_CONTROL_GAP))
         self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
         self.gobutton1=wx.Button(panel2,-1,'Let\'s go!')
         sizer2.Add(self.gobutton1,0)
+        sizer2.Add((0,DV_BORDER_PADDING))
+        buttonwidth=sizer2.GetMinSizeTuple()[0]
         self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton1)
         hbox3=wx.BoxSizer(wx.HORIZONTAL)
+        hbox3.Add((DV_BORDER_PADDING,0))
         panel3.SetSizer(hbox3)
         hbox3.Add(wx.StaticText(panel3,-1,'Current video: '),0,wx.ALIGN_CENTER_VERTICAL)
         self.gauge1=wx.Gauge(panel3,-1)
+        self.gauge1.SetSize((self.gauge1.GetSizeTuple()[0],hbox3.GetSizeTuple()[1]))
         hbox3.Add(self.gauge1,1,wx.EXPAND)
         #self.gobutton2=wx.Button(bottompanel,-1,'Let\'s go!')
         #self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton2)
@@ -1553,10 +1573,17 @@ class DamnMainFrame(wx.Frame): # The main window
         #grid.Add(wx.StaticText(bottompanel,-1,'Total progress:'),0)
         #self.gauge2=wx.Gauge(bottompanel,-1)
         #grid.Add(self.gauge2,1,wx.EXPAND)
+        hboxwrapper4=wx.BoxSizer(wx.HORIZONTAL)
         hbox4=wx.BoxSizer(wx.VERTICAL)
-        panel4.SetSizer(hbox4)
+        hboxwrapper4.Add(hbox4)
+        hboxwrapper4.Add((0,DV_BORDER_PADDING))
+        panel4.SetSizer(hboxwrapper4)
         self.stopbutton=wx.Button(panel4,-1,'Stop')
+        for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.delSelection,self.delAll,self.gobutton1,self.stopbutton):
+            button.SetMinSize((buttonwidth,button.GetSizeTuple()[1]))
         hbox4.Add(self.stopbutton)
+        hbox4.Add((0,DV_BORDER_PADDING))
+        vbox.Add((0,DV_BORDER_PADDING))
         self.stopbutton.Disable()
         self.Bind(wx.EVT_BUTTON,self.onStop,self.stopbutton)
         grid.AddGrowableRow(0,1)
@@ -2057,5 +2084,7 @@ class DamnVid(wx.App):
         frame.Show(True)
         frame.Center()
         return True
+    def MacReopenApp(self):
+        self.GetTopWindow().Raise()
 app=DamnVid(0)
 app.MainLoop()

@@ -1,8 +1,9 @@
 #!/bin/sh
 
 echo "Customizing disk image..."
-echo "Adding symlink"
+echo "Adding symlinks"
 ln -sn /Applications /Volumes/DamnVid/Applications
+ln -sn ./../Frameworks /Volumes/DamnVid/DamnVid.app/Contents/Resources/Frameworks
 echo "Setting custom icon"
 cp ./img/icon.icns /Volumes/DamnVid/.VolumeIcon.icns
 SetFile -a C /Volumes/DamnVid
