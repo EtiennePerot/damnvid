@@ -5,15 +5,21 @@ import py2exe
 import os
 import shutil
 
-images=[]
 path2src='../../DamnVid/'
 versionfile=open(path2src+'version.damnvid','r')
 version=versionfile.readline().strip()
 versionfile.close()
-description='Converts any damn video to any format. Also supports online video downloading and converting.'
-for i in os.listdir(path2src+'img/'):
-    if i[-4:].lower()=='.png' or i[-4:].lower()=='.jpg' or i[-4:].lower()=='.gif' or i[-4:].lower()=='.ico' or i[-4:].lower()=='.bmp':
-        images.append(path2src+'img/'+i)
+description='A free, open-source video converter and downloader.'
+files=open(path2src+'required-files.txt','r')
+data_files=[]
+for f in files.readlines():
+    curfile=f.strip()
+    if curfile and curfile!='DamnVid.py':
+        if curfile.find(os.sep)==-1:
+            data_files.append(path2src+curfile)
+        else:
+            data_files.append((curfile[0:curfile.rfind(os.sep)],[path2src+curfile]))
+files.close()
 class Target:
     def __init__(self,**kw):
         self.__dict__.update(kw)
@@ -42,19 +48,12 @@ setup(
         {
             'script':path2src+'DamnVid.py',
             'icon_resources':[
-                (0,path2src+'img/icon.ico'),
+                (0,path2src+'img/icon.ico')
             ]
         }
     ],
-    data_files=[
-        ('bin',[path2src+'bin/ffmpeg.exe',path2src+'bin/SDL.dll']),
-        ('img',images),
-        ('conf',[path2src+'conf/!readme.txt',path2src+'conf/conf.ini',path2src+'conf/preferences.damnvid'])
-    ]
+    data_files=data_files
 )
-shutil.copyfile(path2src+'DamnVid.exe.manifest','dist/DamnVid.exe.manifest')
-shutil.copyfile(path2src+'version.damnvid','dist/version.damnvid')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\gdiplus.dll','dist/gdiplus.dll')
 shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\msvcp71.dll','dist/MSVCP71.dll')
 shutil.copyfile('C:\\Python25\\unicows.dll','dist/unicows.dll')
-shutil.copyfile(path2src+'COPYING','dist/COPYING')

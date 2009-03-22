@@ -6,7 +6,11 @@ if OSNAME=='posix' and sys.platform=='darwin':
 required_files=[]
 while not os.path.lexists('./DamnVid.py'):
     os.chdir('./..')
-required_files.extend(['DamnVid.py','version.damnvid','COPYING'])
+ext='py'
+if OSNAME=='nt':
+    ext='exe'
+required_files.extend(['DamnVid.'+ext,'version.damnvid','COPYING'])
+del ext
 if OSNAME=='nt':
     required_files.append('DamnVid.exe.manifest')
 required_dirs=['img','conf']
