@@ -38,7 +38,11 @@ setup(
             'argv_emulation':True,
             'iconfile': path2src+'img/icon.icns',
             'plist':{
-                'CFBundleShortVersionString':version
+                'CFBundleShortVersionString':version,
+                'CFBundleGetInfoString':'DamnVid '+version,
+                'CFBundleExecutable':'DamnVid',
+                'CFBundleName':'DamnVid',
+                'CFBundleIdentifier':'com.googlecode.DamnVid'
             }
         }
     },

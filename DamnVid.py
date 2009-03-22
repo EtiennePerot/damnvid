@@ -50,7 +50,7 @@ DV_ICON=None # This will be defined when DamnMainFrame is initialized
 DV_MY_VIDEOS_PATH=''
 DV_APPDATA_PATH=''
 DV_OS_NAME=os.name
-DV_BORDER_PADDING=2
+DV_BORDER_PADDING=0
 if DV_OS_NAME=='posix' and sys.platform=='darwin':
     DV_OS_NAME='mac'
     DV_BORDER_PADDING=4
@@ -223,6 +223,16 @@ def DamnURLPicker(urls,urlonly=False):
                 return None
             pass
     return None
+def DamnFriendlyDir(d):
+    if DV_OS_NAME=='mac':
+        myvids='Movies'
+    else:
+        myvids='My Videos'
+    d=d.replace('?DAMNVID_MY_VIDEOS?',myvids)
+    d=os.path.expanduser(d).replace(DV_MY_VIDEOS_PATH,myvids).replace('/',os.sep).replace('\\',os.sep)
+    while d[-1:]==os.sep:
+        d=d[0:-1]
+    return d
 DV_EVT_PROGRESS=wx.NewEventType()
 DV_EVT_PROG=wx.PyEventBinder(DV_EVT_PROGRESS,1)
 class DamnProgressEvent(wx.PyCommandEvent):
@@ -570,14 +580,18 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.bestsize=[0,0]
         # Top part of the toppanel
         self.topsizer=wx.BoxSizer(wx.VERTICAL)
+        self.topsizer.Add((0,DV_BORDER_PADDING))
         self.uppersizer=wx.BoxSizer(wx.HORIZONTAL)
+        self.uppersizer.Add((DV_BORDER_PADDING,0))
         self.topsizer.Add(self.uppersizer,1,wx.EXPAND)
         # - Left part of the upperpanel
         self.upperleftpanel=wx.Panel(self.toppanel,-1)
         self.uppersizer.Add(self.upperleftpanel,0)
+        self.uppersizer.Add((DV_CONTROL_GAP,0))
         self.upperleftsizer=wx.BoxSizer(wx.VERTICAL)
-        self.tree=wx.TreeCtrl(self.upperleftpanel,-1,size=(180,280),style=wx.TR_LINES_AT_ROOT|wx.TR_HAS_BUTTONS|wx.TR_FULL_ROW_HIGHLIGHT)
+        self.tree=wx.TreeCtrl(self.upperleftpanel,-1,size=(220,280),style=wx.TR_LINES_AT_ROOT|wx.TR_HAS_BUTTONS|wx.TR_FULL_ROW_HIGHLIGHT)
         self.upperleftsizer.Add(self.tree,1,wx.EXPAND)
+        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
         # - - Tree construction
         self.treeroot=self.tree.AddRoot('DamnVid Preferences')
         self.defaultprofiles=self.tree.AppendItem(self.treeroot,'Default profiles')
@@ -589,14 +603,19 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         # - - End tree construction
         self.addProfileButton=wx.Button(self.upperleftpanel,-1,'Add profile')
         self.upperleftsizer.Add(self.addProfileButton,0,wx.EXPAND)
+        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
         self.deleteProfileButton=wx.Button(self.upperleftpanel,-1,'Delete profile')
         self.upperleftsizer.Add(self.deleteProfileButton,0,wx.EXPAND)
+        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
         self.importButton=wx.Button(self.upperleftpanel,-1,'Import preferences')
         self.upperleftsizer.Add(self.importButton,0,wx.EXPAND)
+        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
         self.exportButton=wx.Button(self.upperleftpanel,-1,'Export preferences')
         self.upperleftsizer.Add(self.exportButton,0,wx.EXPAND)
+        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
         self.resetButton=wx.Button(self.upperleftpanel,-1,'Reset all')
         self.upperleftsizer.Add(self.resetButton,0,wx.EXPAND)
+        self.upperleftsizer.Add((0,DV_BORDER_PADDING))
         self.upperleftpanel.SetSizer(self.upperleftsizer)
         # - Right part of the upperpanel
         self.upperrightpanel=wx.Panel(self.toppanel,-1)
@@ -605,19 +624,24 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.upperrightsizer=wx.StaticBoxSizer(self.prefpanelabel,wx.VERTICAL)
         # - - Preference pane creation
         self.prefpane=wx.Panel(self.upperrightpanel,-1)
-        self.prefpanesizer=wx.GridBagSizer(2,2)
+        self.prefpanesizer=wx.GridBagSizer(DV_BORDER_PADDING,DV_CONTROL_GAP) # Border-padding on vertical gap because otherwise the dialog gets annoyingly huge
         self.prefpane.SetSizer(self.prefpanesizer)
         # - - End preference pane creation
         self.upperrightsizer.Add(self.prefpane,1,wx.EXPAND)
+        self.uppersizer.Add((DV_BORDER_PADDING,0))
         self.upperrightpanel.SetSizer(self.upperrightsizer)
+        self.topsizer.Add((0,DV_CONTROL_GAP))
         # Bottom part of the toppanel
         self.lowersizer=wx.BoxSizer(wx.HORIZONTAL)
         self.topsizer.Add(self.lowersizer,0,wx.EXPAND)
         self.lowersizer.AddStretchSpacer(1)
         self.okButton=wx.Button(self.toppanel,wx.ID_OK,'OK')
         self.lowersizer.Add(self.okButton,0,wx.ALIGN_RIGHT)
+        self.lowersizer.Add((DV_CONTROL_GAP,0))
         self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,'Cancel')
         self.lowersizer.Add(self.closeButton,0,wx.ALIGN_RIGHT)
+        self.lowersizer.Add((DV_BORDER_PADDING,0))
+        self.topsizer.Add((0,DV_BORDER_PADDING))
         # Final touches, binds, etc.
         self.toppanel.SetSizer(self.topsizer)
         self.Bind(wx.EVT_BUTTON,self.onAddProfile,self.addProfileButton)
@@ -718,7 +742,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 currentprefsinsection[str(DV_PREFERENCES[i]['type'])]+=1
                 if DV_PREFERENCES[i]['kind']!='bool':
                     label=wx.StaticText(self.prefpane,-1,DV_PREFERENCES[i]['name']+':')
-                    self.prefpanesizer.Add(label,(position[0],position[1]),(1,1),wx.ALIGN_RIGHT)
+                    self.prefpanesizer.Add(label,(position[0],position[1]),(1,1),wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT)
                 if type(DV_PREFERENCES[i]['kind']) is type({}):
                     choices=['(default)']
                     for f in DV_PREFERENCES[i]['order']:
@@ -729,7 +753,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                         if val in DV_PREFERENCES[i]['kind']:
                             val=DV_PREFERENCES[i]['kind'][val]
                     self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
-                    self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
+                    self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
                 elif DV_PREFERENCES[i]['kind'][0]=='%':
                     self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(100.0*float(val)/float(str(DV_PREFERENCES[i]['kind'][1:]))),0,200)
                 elif DV_PREFERENCES[i]['kind']=='bool':
@@ -771,6 +795,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     self.controls[i]=wx.TextCtrl(pathpanel,-1,val)
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
                     pathsizer.Add(self.controls[i],1,wx.EXPAND)
+                    pathsizer.Add((DV_CONTROL_GAP,0))
                     browseButton=DamnBrowseDirButton(pathpanel,-1,'Browse...',control=self.controls[i],title='Select DamnVid '+DV_VERSION+'\'s output directory.',callback=self.onBrowseDir)
                     self.Bind(wx.EVT_BUTTON,browseButton.onBrowse,browseButton)
                     pathsizer.Add(browseButton,0)
@@ -910,6 +935,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             self.Bind(wx.EVT_CHOICE,self.onPrefChange,cont)
         else:
             cont=wx.ComboBox(panel,-1,choices=choices,value=value)
+            cont.SetValue(value) # Fixes bug on OS X where the value wouldn't be set if it's not one of the choices
             self.Bind(wx.EVT_TEXT,self.onPrefChange,cont)
         return cont
     def makeSlider(self,panel,sizer,position,value,minval,maxval):
@@ -917,12 +943,16 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         tmppanel=wx.Panel(panel,-1)
         tmpsizer=wx.BoxSizer(wx.HORIZONTAL)
         tmppanel.SetSizer(tmpsizer)
+        containersizer=wx.BoxSizer(wx.VERTICAL)
+        tmpsizer.Add(containersizer,7,wx.ALIGN_CENTER_VERTICAL)
+        containersizer.Add((0,1))
         slider=wx.Slider(tmppanel,-1,value=value,minValue=minval,maxValue=maxval,style=wx.SL_HORIZONTAL)
-        tmpsizer.Add(slider,7,wx.EXPAND)
+        containersizer.Add(slider,1,wx.EXPAND)
+        containersizer.Add((0,1))
         tmplabel=wx.StaticText(tmppanel,-1,str(value))
-        tmpsizer.Add(tmplabel,1)
+        tmpsizer.Add(tmplabel,1,wx.ALIGN_CENTER_VERTICAL)
         self.Bind(wx.EVT_SLIDER,DamnCurry(self.updateSlider,slider,tmplabel),slider)
-        sizer.Add(tmppanel,position[0],position[1],wx.EXPAND)
+        sizer.Add(tmppanel,position[0],position[1],wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
         return slider
     def updateSlider(self,slider,label,event):
         label.SetLabel(str(slider.GetValue()))
@@ -1199,6 +1229,7 @@ class DamnConverter(thr.Thread): # The actual converter
                 else:
                     self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
                     self.update(status='Success!')
+                    self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
                 self.update(go=self.abort)
                 return
             os_exe_ext=''
@@ -1329,6 +1360,7 @@ class DamnConverter(thr.Thread): # The actual converter
                             pass
             if not result and not self.abort:
                 self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
+                self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
                 self.update(status='Success!',go=self.abort)
                 return
             self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
@@ -1351,7 +1383,7 @@ class DamnConverter(thr.Thread): # The actual converter
             if DV_OS_NAME=='nt':
                 DamnSpawner(DV_BIN_PATH+'taskkill.exe /PID '+str(self.process.pid)+' /F').wait()
             elif DV_OS_NAME=='mac':
-                DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # Untested, from http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
+                DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # From http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
             else:
                 os.kill(self.process.pid,signal.SIGTERM)
             time.sleep(.5) # Wait a bit, let the files get unlocked
@@ -1487,7 +1519,7 @@ class DamnMainFrame(wx.Frame): # The main window
         vbox.Add(panel,1,wx.EXPAND)
         grid=wx.FlexGridSizer(2,2,8,8)
         panel1=wx.Panel(panel,-1)
-        grid.Add(panel1,1,wx.EXPAND)
+        grid.Add(panel1,0,wx.EXPAND)
         panel2=wx.Panel(panel,-1)
         grid.Add(panel2,0)
         panel3=wx.Panel(panel,-1)
@@ -1565,7 +1597,7 @@ class DamnMainFrame(wx.Frame): # The main window
         hbox3.Add(wx.StaticText(panel3,-1,'Current video: '),0,wx.ALIGN_CENTER_VERTICAL)
         self.gauge1=wx.Gauge(panel3,-1)
         self.gauge1.SetSize((self.gauge1.GetSizeTuple()[0],hbox3.GetSizeTuple()[1]))
-        hbox3.Add(self.gauge1,1,wx.EXPAND)
+        hbox3.Add(self.gauge1,1,wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
         #self.gobutton2=wx.Button(bottompanel,-1,'Let\'s go!')
         #self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton2)
         #grid.Add(wx.StaticText(bottompanel,-1,''),0)
@@ -1589,10 +1621,12 @@ class DamnMainFrame(wx.Frame): # The main window
         grid.AddGrowableRow(0,1)
         grid.AddGrowableCol(0,1)
         self.Bind(wx.EVT_CLOSE,self.onClose,self)
+        self.Bind(wx.EVT_SIZE,self.onResize,self)
         self.Bind(DV_EVT_PROG,self.onProgress)
         DV_ICON=wx.Icon(DV_IMAGES_PATH+'icon.ico',wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV_ICON)
         self.videos=[]
+        self.resultlist=[]
         self.thisbatch=0
         self.thisvideo=[]
         self.meta={}
@@ -1848,7 +1882,30 @@ class DamnMainFrame(wx.Frame): # The main window
             if not self.isclosing:
                 self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
                 if not aborted:
-                    dlg=wx.MessageDialog(self,'Done!','Done!',wx.OK|wx.ICON_INFORMATION)
+                    message='Done.'
+                    if len(self.resultlist):
+                        message='Done!\nAll videos have been put into their respective output folders:\n'
+                        dirs={}
+                        for i in self.resultlist:
+                            if not dirs.has_key(i[1]):
+                                dirs[i[1]]=[]
+                            dirs[i[1]].append(i[0])
+                        self.resultlist=[]
+                        for i in dirs.iterkeys():
+                            if len(dirs[i])==1:
+                                haveverb='s'
+                                vids='"'+dirs[i][0]+'"'
+                            else:
+                                haveverb='ve'
+                                vids=''
+                                for f in range(len(dirs[i])):
+                                    if f==len(dirs[i])-1:
+                                        vids+='and "'+dirs[i][f]+'"'
+                                    else:
+                                        vids+='"'+dirs[i][f]+'", '
+                            message+='\n'+vids+' ha'+haveverb+' been put into '+DamnFriendlyDir(i)+'.'
+                        del haveverb,dirs,vids
+                    dlg=wx.MessageDialog(self,message,'Done!',wx.OK|wx.ICON_INFORMATION)
                 else:
                     dlg=wx.MessageDialog(self,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
                 dlg.SetIcon(DV_ICON)
@@ -2067,6 +2124,8 @@ class DamnMainFrame(wx.Frame): # The main window
             dlg=wx.MessageDialog(None,'Add some videos in the list first.','No videos!',wx.OK|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV_ICON)
         dlg.Destroy()
+    def onResize(self,event):
+        self.Layout()
     def onClose(self,event):
         if self.converting!=-1:
             dlg=wx.MessageDialog(None,'DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.\r\nContinue?','Conversion in progress',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_EXCLAMATION)
