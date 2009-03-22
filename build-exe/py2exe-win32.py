@@ -14,7 +14,7 @@ files=open(path2src+'required-files.txt','r')
 data_files=[]
 for f in files.readlines():
     curfile=f.strip()
-    if curfile and curfile!='DamnVid.py':
+    if curfile and curfile!='DamnVid.exe':
         if curfile.find(os.sep)==-1:
             data_files.append(path2src+curfile)
         else:
