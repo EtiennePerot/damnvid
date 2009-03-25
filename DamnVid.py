@@ -18,6 +18,7 @@
 
 
 import wx # Oh my, it's wx.
+import wx.animate # wx gif animations! Oh my!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import wx.lib.hyperlink # Fancy hyperlinks instead of hackish StaticText's
 import os # Filesystem functions.
@@ -236,6 +237,14 @@ def DamnFriendlyDir(d):
 DV_EVT_PROGRESS=wx.NewEventType()
 DV_EVT_PROG=wx.PyEventBinder(DV_EVT_PROGRESS,1)
 class DamnProgressEvent(wx.PyCommandEvent):
+    def __init__(self,eventtype,eventid,eventinfo):
+        wx.PyCommandEvent.__init__(self,eventtype,eventid)
+        self.info=eventinfo
+    def GetInfo(self):
+        return self.info
+DV_EVT_LOADING=wx.NewEventType()
+DV_EVT_LOAD=wx.PyEventBinder(DV_EVT_LOADING,1)
+class DamnLoadingEvent(wx.PyCommandEvent):
     def __init__(self,eventtype,eventid,eventinfo):
         wx.PyCommandEvent.__init__(self,eventtype,eventid)
         self.info=eventinfo
@@ -1074,6 +1083,100 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         del self.prefs,self.parent.prefs # Delete modified object
         self.parent.prefs=DamnVidPrefs() # Reload from ini
         self.Close(True)
+class DamnVideoLoader(thr.Thread):
+    def __init__(self,parent,uris):
+        thr.Thread.__init__(self)
+        self.uris=uris
+        self.parent=parent
+    def run(self):
+        self.parent.toggleLoading(True)
+        self.vidLoop(self.uris)
+        self.parent.toggleLoading(False)
+    def postEvent(self,info):
+        wx.PostEvent(self.parent,DamnLoadingEvent(DV_EVT_LOADING,-1,info))
+    def getVidName(self,uri):
+        return self.parent.getVidName(uri)
+    def addValid(self,meta):
+        self.postEvent({'meta':meta})
+    def SetStatusText(self,status):
+        self.postEvent({'status':status})
+    def showDialog(self,title,content,icon):
+        self.postEvent({'dialog':(title,content,icon)})
+    def noHtmlEnt(self,html):
+        return self.parent.noHtmlEnt(html)
+    def getDefaultProfile(self,profile):
+        return int(self.parent.prefs.getd(profile))
+    def vidLoop(self,uris):
+        for uri in uris:
+            if self.parent.validURI(uri):
+                if REGEX_HTTP_GENERIC.match(uri):
+                    # It's a URL
+                    match=REGEX_HTTP_YOUTUBE.search(uri)
+                    if match:
+                        uri='yt:'+match.group(1)
+                        name=self.getVidName(uri)
+                        profile='youtube'
+                        icon=self.parent.ID_ICON_YOUTUBE
+                        if type(name) is not type(''):
+                            if len(name)>1 and name[1]=='HD':
+                                profile='youtubehd'
+                                icon=self.parent.ID_ICON_YOUTUBEHD
+                            name=name[0]
+                        self.addValid({'name':name,'profile':self.getDefaultProfile(profile),'profilemodified':False,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':icon})
+                    elif REGEX_HTTP_GVIDEO.search(uri):
+                        match=REGEX_HTTP_GVIDEO.search(uri)
+                        uri='gv:'+match.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('googlevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_GVIDEO})
+                    elif REGEX_HTTP_VEOH.search(uri):
+                        html=urllib2.urlopen(uri) # Gotta download it right there instead of downloading it twice with the getVidName function
+                        name='Unknown title'
+                        Id=''
+                        for i in html:
+                            match=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
+                            if match:
+                                name=self.noHtmlEnt(match.group(1))
+                            else:
+                                match=REGEX_HTTP_VEOH_ID_EXTRACT.search(i)
+                                if match:
+                                    Id=match.group(1)
+                        if Id:
+                            uri='vh:'+Id
+                            self.addValid({'name':name,'profile':self.getDefaultProfile('veoh'),'profilemodified':False,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_VEOH})
+                        else:
+                            self.SetStatusText('Couldn\'t detect Veoh video.')
+                    elif REGEX_HTTP_DAILYMOTION.search(uri):
+                        uri='dm:'+uri
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('dailymotion'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_DAILYMOTION})
+                    else:
+                        name=self.getVidName(uri)
+                        if name=='Unknown title':
+                            name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('web'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_ONLINE})
+                else:
+                    # It's a file or a directory
+                    if os.path.isdir(uri):
+                        if self.parent.prefs.get('DirRecursion')=='True':
+                            for i in os.listdir(uri):
+                                self.vidLoop([uri+os.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
+                        else:
+                            if len(uris)==1: # Only one dir, so an alert here is tolerable
+                                self.showDialog('Recursion is disabled.','This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.',wx.OK|wx.ICON_EXCLAMATION)
+                            else:
+                                self.SetStatusText('Skipped '+uri+' (directory recursion disabled).')
+                    else:
+                        filename=os.path.basename(uri)
+                        if uri in self.parent.videos:
+                            self.SetStatusText('Skipped '+filename+' (already in list).')
+                            if len(uris)==1: # There's only one file, so an alert here is tolerable
+                                self.showDialog('Duplicate found','This video is already in the list!',wx.ICON_EXCLAMATION|wx.OK)
+                        else:
+                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':self.getDefaultProfile('file'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.parent.ID_ICON_LOCAL})
+            else:
+                if len(uris)==1: # There's only one URI, so an alert here is tolerable
+                    self.showDialog('Invalid video','This is not a valid video!',wx.ICON_EXCLAMATION|wx.OK)
+                self.SetStatusText('Skipped '+uri+' (invalid video).')
 class DamnConverter(thr.Thread): # The actual converter
     def __init__(self,parent):
         self.parent=parent
@@ -1558,6 +1661,17 @@ class DamnMainFrame(wx.Frame): # The main window
         vboxwrap2.Add((DV_BORDER_PADDING,0))
         sizer2.Add((0,DV_BORDER_PADDING))
         panel2.SetSizer(vboxwrap2)
+        self.droptarget=wx.StaticBitmap(panel2,-1,wx.Bitmap(DV_IMAGES_PATH+'droptargetwithlogo.png',wx.BITMAP_TYPE_PNG))
+        sizer2.Add(self.droptarget,0,wx.ALIGN_CENTER)
+        self.loadingdroptarget=wx.animate.GIFAnimationCtrl(panel2,-1,DV_IMAGES_PATH+'droptargetloading.gif')
+        sizer2.Add(self.loadingdroptarget,0,wx.ALIGN_CENTER)
+        self.loadingdroptarget.GetPlayer().UseBackgroundColour(True)
+        self.loadingdroptarget.Play()
+        self.loadingdroptarget.Hide()
+        self.droptarget.SetDropTarget(DamnDropHandler(self))
+        self.loadingdroptarget.SetDropTarget(DamnDropHandler(self))
+        # Extra forced gap here
+        sizer2.Add((0,DV_CONTROL_GAP+4))
         self.addByFile=wx.Button(panel2,-1,'Add Files')
         sizer2.Add(self.addByFile,0)
         sizer2.Add((0,DV_CONTROL_GAP))
@@ -1623,6 +1737,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.Bind(wx.EVT_CLOSE,self.onClose,self)
         self.Bind(wx.EVT_SIZE,self.onResize,self)
         self.Bind(DV_EVT_PROG,self.onProgress)
+        self.Bind(DV_EVT_LOAD,self.onLoading)
         DV_ICON=wx.Icon(DV_IMAGES_PATH+'icon.ico',wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV_ICON)
         self.videos=[]
@@ -1633,6 +1748,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.prefs=DamnVidPrefs()
         self.converting=-1
         self.isclosing=False
+        self.loadingvisible=0
         self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
         if DV_FIRST_RUN:
             dlg=wx.MessageDialog(self,'Welcome to DamnVid '+DV_VERSION+'!\nWould you like DamnVid to check for updates every time it starts?','Welcome to DamnVid '+DV_VERSION+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
@@ -1757,89 +1873,35 @@ class DamnMainFrame(wx.Frame): # The main window
                 pass # Can't grab this? Return Unknown title
         return 'Unknown title'
     def noHtmlEnt(self,html): # Replaces HTML entities from html
+        html=html.encode('ascii','ignore')
         for i in htmlentitydefs.entitydefs.iterkeys():
             html=html.replace('&'+str(i)+';',htmlentitydefs.entitydefs[i])
         return html
-    def addVid(self,uris):
-        for uri in uris:
-            if self.validURI(uri):
-                if REGEX_HTTP_GENERIC.match(uri):
-                    # It's a URL
-                    match=REGEX_HTTP_YOUTUBE.search(uri)
-                    if match:
-                        uri='yt:'+match.group(1)
-                        name=self.getVidName(uri)
-                        profile='youtube'
-                        icon=self.ID_ICON_YOUTUBE
-                        if type(name) is not type(''):
-                            if len(name)>1 and name[1]=='HD':
-                                profile='youtubehd'
-                                icon=self.ID_ICON_YOUTUBEHD
-                            name=name[0]
-                        self.addValid({'name':name,'profile':int(self.prefs.getd(profile)),'profilemodified':False,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':icon})
-                    elif REGEX_HTTP_GVIDEO.search(uri):
-                        match=REGEX_HTTP_GVIDEO.search(uri)
-                        uri='gv:'+match.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':int(self.prefs.getd('googlevideo')),'profilemodified':False,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.ID_ICON_GVIDEO})
-                    elif REGEX_HTTP_VEOH.search(uri):
-                        html=urllib2.urlopen(uri) # Gotta download it right there instead of downloading it twice with the getVidName function
-                        name='Unknown title'
-                        Id=''
-                        for i in html:
-                            match=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
-                            if match:
-                                name=self.noHtmlEnt(match.group(1))
-                            else:
-                                match=REGEX_HTTP_VEOH_ID_EXTRACT.search(i)
-                                if match:
-                                    Id=match.group(1)
-                        if Id:
-                            uri='vh:'+Id
-                            self.addValid({'name':name,'profile':int(self.prefs.getd('veoh')),'profilemodified':False,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.ID_ICON_VEOH})
-                        else:
-                            self.SetStatusText('Couldn\'t detect Veoh video.')
-                    elif REGEX_HTTP_DAILYMOTION.search(uri):
-                        uri='dm:'+uri
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':int(self.prefs.getd('dailymotion')),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.ID_ICON_DAILYMOTION})
-                    else:
-                        name=self.getVidName(uri)
-                        if name=='Unknown title':
-                            name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
-                        self.addValid({'name':name,'profile':int(self.prefs.getd('web')),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.ID_ICON_ONLINE})
-                else:
-                    # It's a file or a directory
-                    if os.path.isdir(uri):
-                        if self.prefs.get('DirRecursion')=='True':
-                            for i in os.listdir(uri):
-                                self.addVid([uri+os.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
-                        else:
-                            if len(uris)==1: # Only one dir, so an alert here is tolerable
-                                dlg=wx.MessageDialog(None,'This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.','Recursion is disabled.',wx.OK|wx.ICON_EXCLAMATION)
-                                dlg.SetIcon(DV_ICON)
-                                dlg.ShowModal()
-                                dlg.Destroy()
-                            else:
-                                self.SetStatusText('Skipped '+uri+' (directory recursion disabled).')
-                    else:
-                        filename=os.path.basename(uri)
-                        if uri in self.videos:
-                            self.SetStatusText('Skipped '+filename+' (already in list).')
-                            if len(uris)==1: # There's only one file, so an alert here is tolerable
-                                dlg=wx.MessageDialog(None,'This video is already in the list!','Duplicate found',wx.ICON_EXCLAMATION|wx.OK)
-                                dlg.SetIcon(DV_ICON)
-                                dlg.ShowModal()
-                                dlg.Destroy()
-                        else:
-                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':int(self.prefs.getd('file')),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.ID_ICON_LOCAL})
+    def toggleLoading(self,show):
+        isvisible=self.loadingvisible>0
+        self.loadingvisible=max((0,self.loadingvisible+int(show)*2-1))
+        if (isvisible and not self.loadingvisible) or (not isvisible and self.loadingvisible):
+            wx.PostEvent(self,DamnLoadingEvent(DV_EVT_LOADING,-1,{'show':bool(self.loadingvisible)}))
+    def onLoading(self,event):
+        info=event.GetInfo()
+        if info.has_key('show'):
+            if info['show']:
+                self.droptarget.Hide()
+                self.loadingdroptarget.Show()
             else:
-                if len(uris)==1: # There's only one URI, so an alert here is tolerable
-                    dlg=wx.MessageDialog(None,'This is not a valid video!','Invalid video',wx.ICON_EXCLAMATION|wx.OK)
-                    dlg.SetIcon(DV_ICON)
-                    dlg.ShowModal()
-                    dlg.Destroy()
-                self.SetStatusText('Skipped '+uri+' (invalid video).')
+                self.droptarget.Show()
+                self.loadingdroptarget.Hide()
+        if info.has_key('status'):
+            self.SetStatusText(info['status'])
+        if info.has_key('dialog'):
+            dlg=wx.MessageDialog(self,info['dialog'][1],info['dialog'][0],info['dialog'][2])
+            dlg.SetIcon(DV_ICON)
+            dlg.ShowModal()
+            dlg.Destroy()
+        if info.has_key('meta'):
+            self.addValid(info['meta'])
+    def addVid(self,uris):
+        DamnVideoLoader(self,uris).start()
     def addValid(self,meta):
         curvid=len(self.videos)
         self.list.InsertStringItem(curvid,meta['name'])
@@ -2019,7 +2081,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.list.SetStringItem(i,ID_COL_VIDPROFILE,self.prefs.getp(profile,'name'))
     def onPrefs(self,event):
         self.reopenprefs=False
-        prefs=DamnVidPrefEditor(self,-1,'DamnVid '+DV_VERSION+' preferences',main=self)
+        prefs=DamnVidPrefEditor(self,-1,'DamnVid preferences',main=self)
         prefs.ShowModal()
         prefs.Destroy()
         if self.reopenprefs:
@@ -2139,7 +2201,7 @@ class DamnMainFrame(wx.Frame): # The main window
             self.Destroy()
 class DamnVid(wx.App):
     def OnInit(self):
-        frame=DamnMainFrame(None,-1,'DamnVid '+DV_VERSION+' by WindPower')
+        frame=DamnMainFrame(None,-1,'DamnVid')
         frame.Show(True)
         frame.Center()
         return True
