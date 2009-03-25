@@ -1661,15 +1661,9 @@ class DamnMainFrame(wx.Frame): # The main window
         vboxwrap2.Add((DV_BORDER_PADDING,0))
         sizer2.Add((0,DV_BORDER_PADDING))
         panel2.SetSizer(vboxwrap2)
-        self.droptarget=wx.StaticBitmap(panel2,-1,wx.Bitmap(DV_IMAGES_PATH+'droptargetwithlogo.png',wx.BITMAP_TYPE_PNG))
+        self.droptarget=wx.animate.GIFAnimationCtrl(panel2,-1,DV_IMAGES_PATH+'droptarget.gif')
         sizer2.Add(self.droptarget,0,wx.ALIGN_CENTER)
-        self.loadingdroptarget=wx.animate.GIFAnimationCtrl(panel2,-1,DV_IMAGES_PATH+'droptargetloading.gif')
-        sizer2.Add(self.loadingdroptarget,0,wx.ALIGN_CENTER)
-        self.loadingdroptarget.GetPlayer().UseBackgroundColour(True)
-        self.loadingdroptarget.Play()
-        self.loadingdroptarget.Hide()
         self.droptarget.SetDropTarget(DamnDropHandler(self))
-        self.loadingdroptarget.SetDropTarget(DamnDropHandler(self))
         # Extra forced gap here
         sizer2.Add((0,DV_CONTROL_GAP+4))
         self.addByFile=wx.Button(panel2,-1,'Add Files')
@@ -1886,11 +1880,11 @@ class DamnMainFrame(wx.Frame): # The main window
         info=event.GetInfo()
         if info.has_key('show'):
             if info['show']:
-                self.droptarget.Hide()
-                self.loadingdroptarget.Show()
+                self.droptarget.LoadFile(DV_IMAGES_PATH+'droptargetloading.gif')
+                self.droptarget.Play()
             else:
-                self.droptarget.Show()
-                self.loadingdroptarget.Hide()
+                self.droptarget.Stop()
+                self.droptarget.LoadFile(DV_IMAGES_PATH+'droptarget.gif')
         if info.has_key('status'):
             self.SetStatusText(info['status'])
         if info.has_key('dialog'):
