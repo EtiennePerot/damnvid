@@ -5,7 +5,7 @@
 orig=$(pwd)
 cd ..
 timestamp=$(date "+%a, %d %b %Y %H:%m:%S %Z")
-rm -rf ./package damnvid_*.deb damnvid_*.rpm required_files.txt
+rm -rf ./package damnvid*.deb damnvid*.rpm required-files.txt
 mkdir package
 read version < version.damnvid
 python build-required-files.py
@@ -46,9 +46,17 @@ echo "damnvid for Debian" > doc/damnvid/README.Debian
 gzip -c ../../DEBIAN/changelog.Debian > doc/damnvid/changelog.Debian.gz
 cd ../../.. # Now we're back in package
 dpkg-deb -b debian damnvid_$version-1_all.deb
+mv damnvid_$version-1_all.deb ./../damnvid_$version-1_all.deb
+# deb file okay, now going to make RPM
+cd debian
+rm -rf ./DEBIAN
 cd ..
-mv package/damnvid_$version-1_all.deb ./damnvid_$version-1_all.deb
+mv ./debian/usr ./usr
+rm -rf ./debian
+cd ../build-rpm
+python ./build-spec.py
+cd ../package
+rpmbuild -bb --clean --target noarch damnvid.spec
+cd ..
 rm -rf ./package
-fakeroot alien -r damnvid_$version-1_all.deb
-mv damnvid-*.rpm damnvid-$version-1.noarch.rpm
 echo "All done!"
