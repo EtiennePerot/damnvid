@@ -19,8 +19,8 @@
 
 import wx # Oh my, it's wx.
 import wx.animate # wx gif animations! Oh my!
+import wx.lib.wordwrap # wx wordwrapping! Oh my my!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
-import wx.lib.hyperlink # Fancy hyperlinks instead of hackish StaticText's
 import os # Filesystem functions.
 import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg)
@@ -33,79 +33,102 @@ import tempfile,random # Generate temporary files
 import shutil # Shell utilities (copyfile)
 import sys # System stuff
 import ConfigParser # INI file parsing and writing
-
-# Begin constants
-DV_CURDIR=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
-versionfile=open(DV_CURDIR+'version.damnvid','r')
-DV_VERSION=versionfile.readline().strip()
-versionfile.close()
-del versionfile
-DV_URLLIB2_OPENER=urllib2.build_opener()
-DV_URLLIB2_OPENER.addheaders=[('User-agent','DamnVid/'+DV_VERSION)]
-urllib2.install_opener(DV_URLLIB2_OPENER) # All urllib2.urlopen() calls will have the DamnVid user-agent
-DV_URL='http://code.google.com/p/damnvid/'
-DV_URL_HALP='http://code.google.com/p/damnvid/wiki/Help'
-DV_URL_UPDATE='http://code.google.com/p/damnvid/wiki/CurrentVersion'
-DV_URL_DOWNLOAD='http://code.google.com/p/damnvid/downloads/'
-DV_ICON=None # This will be defined when DamnMainFrame is initialized
-DV_MY_VIDEOS_PATH=''
-DV_APPDATA_PATH=''
-DV_OS_NAME=os.name
-DV_BORDER_PADDING=0
-if DV_OS_NAME=='posix' and sys.platform=='darwin':
-    DV_OS_NAME='mac'
-    DV_BORDER_PADDING=4
-DV_CONTROL_GAP=DV_BORDER_PADDING*2
-if DV_OS_NAME=='nt':
-    import win32process
-    # Need to determine the location of the "My Videos" and "Application Data" folder.
-    import ctypes
-    from ctypes import wintypes
-    DV_MY_VIDEOS_PATH=ctypes.create_string_buffer(wintypes.MAX_PATH)
-    DV_APPDATA_PATH=ctypes.create_string_buffer(wintypes.MAX_PATH)
-    ctypes.windll.shell32.SHGetFolderPathA(None,0xE,None,0,DV_MY_VIDEOS_PATH)
-    ctypes.windll.shell32.SHGetFolderPathA(None,0x1A,None,0,DV_APPDATA_PATH)
-    DV_MY_VIDEOS_PATH=str(DV_MY_VIDEOS_PATH.value)
-    DV_APPDATA_PATH=str(DV_APPDATA_PATH.value)
-    del ctypes
-    del wintypes
-elif DV_OS_NAME=='mac':
-    DV_MY_VIDEOS_PATH=os.path.expanduser('~'+os.sep+'Movies')
-else:
-    DV_MY_VIDEOS_PATH=os.path.expanduser('~'+os.sep+'Videos')
+import base64 # Base64 encoding/decoding
+import gdata.youtube # YouTube API client
+import gdata.youtube.service # YouTube service
+import xmlrpclib # Required for the Revver API
+import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
+import unicodedata # Unicode normalization
+import hashlib # MD5 hashes, required to grab Livevideo backend pages
 try:
     import threading as thr # Threads
 except ImportError:
     import dummy_threading as thr # Moar threads
 
-DV_CONF_FILE_LOCATION={
-    'nt':DV_APPDATA_PATH+os.sep+'DamnVid',
+# Begin constants
+class DamnVid:
+    pass
+DV=DamnVid() # The only global variable out there. Srsly.
+DV.curdir=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
+versionfile=open(DV.curdir+'version.damnvid','r')
+DV.version=versionfile.readline().strip()
+versionfile.close()
+del versionfile
+DV.urllib2_urlopener=urllib2.build_opener()
+DV.urllib2_urlopener.addheaders=[('User-agent','DamnVid/'+DV.version)]
+urllib2.install_opener(DV.urllib2_urlopener) # All urllib2.urlopen() calls will have the DamnVid user-agent
+DV.url='http://code.google.com/p/damnvid/'
+DV.url_halp='http://code.google.com/p/damnvid/wiki/Help'
+DV.url_update='http://code.google.com/p/damnvid/wiki/CurrentVersion'
+DV.url_download='http://code.google.com/p/damnvid/downloads/'
+DV.gui_ok=False
+DV.icon=None # This will be defined when DamnMainFrame is initialized
+DV.my_videos_path=''
+DV.appdata_path=''
+DV.os=os.name
+if DV.os=='posix' and sys.platform=='darwin':
+    DV.os='mac'
+    DV.border_padding=12
+    DV.control_hgap=10
+    DV.control_vgap=4
+else:
+    DV.border_padding=8
+    DV.control_hgap=8
+    DV.control_vgap=4
+if DV.os=='nt':
+    import win32process
+    # Need to determine the location of the "My Videos" and "Application Data" folder.
+    import ctypes
+    from ctypes import wintypes
+    DV.my_videos_path=ctypes.create_string_buffer(wintypes.MAX_PATH)
+    DV.appdata_path=ctypes.create_string_buffer(wintypes.MAX_PATH)
+    ctypes.windll.shell32.SHGetFolderPathA(None,0xE,None,0,DV.my_videos_path)
+    ctypes.windll.shell32.SHGetFolderPathA(None,0x1A,None,0,DV.appdata_path)
+    DV.my_videos_path=str(DV.my_videos_path.value)
+    DV.appdata_path=str(DV.appdata_path.value)
+    del ctypes
+    del wintypes
+    # Do not delete win32process, it is used in the DamnSpawner class.
+elif DV.os=='mac':
+    DV.my_videos_path=os.path.expanduser('~'+os.sep+'Movies')
+else:
+    DV.my_videos_path=os.path.expanduser('~'+os.sep+'Videos')
+
+DV.conf_file_location={
+    'nt':DV.appdata_path+os.sep+'DamnVid',
     'posix':'~'+os.sep+'.damnvid',
     'mac':'~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid'
 }
-if DV_OS_NAME=='posix' or DV_OS_NAME=='mac':
-    DV_CONF_FILE_LOCATION=os.path.expanduser(DV_CONF_FILE_LOCATION[DV_OS_NAME])
+if DV.os=='posix' or DV.os=='mac':
+    DV.conf_file_location=os.path.expanduser(DV.conf_file_location[DV.os])
 else:
-    DV_CONF_FILE_LOCATION=DV_CONF_FILE_LOCATION[DV_OS_NAME]
-DV_CONF_FILE_DIRECTORY=DV_CONF_FILE_LOCATION+os.sep
-DV_CONF_FILE=DV_CONF_FILE_DIRECTORY+'damnvid.ini'
-DV_FIRST_RUN=False
-if not os.path.lexists(DV_CONF_FILE):
-    if not os.path.lexists(os.path.dirname(DV_CONF_FILE)):
-        os.makedirs(os.path.dirname(DV_CONF_FILE))
-    shutil.copyfile(DV_CURDIR+'conf'+os.sep+'conf.ini',DV_CONF_FILE)
-    lastversion=open(DV_CONF_FILE_DIRECTORY+'lastversion.damnvid','w')
-    lastversion.write(DV_VERSION)
+    DV.conf_file_location=DV.conf_file_location[DV.os]
+DV.conf_file_directory=DV.conf_file_location+os.sep
+DV.conf_file=DV.conf_file_directory+'damnvid.ini'
+DV.first_run=False
+DV.updated=False
+if not os.path.lexists(DV.conf_file):
+    if not os.path.lexists(os.path.dirname(DV.conf_file)):
+        os.makedirs(os.path.dirname(DV.conf_file))
+    shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
+    lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
+    lastversion.write(DV.version)
     lastversion.close()
     del lastversion
-    DV_FIRST_RUN=True
-DV_IMAGES_PATH=DV_CURDIR+'img/'.replace('/',os.sep)
-DV_BIN_PATH=DV_CURDIR+'bin/'.replace('/',os.sep)
-DV_TMP_PATH=tempfile.gettempdir()
-if DV_TMP_PATH[-1]!=os.sep:
-    DV_TMP_PATH+=os.sep
-DV_TMP_PATH+='damnvid-'
-DV_FILE_EXT={
+    DV.first_run=True
+else:
+    lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
+    version=lastversion.readline().strip()
+    lastversion.close()
+    DV.updated=version==DV.version
+    del lastversion,version
+DV.images_path=DV.curdir+'img/'.replace('/',os.sep)
+DV.bin_path=DV.curdir+'bin/'.replace('/',os.sep)
+DV.tmp_path=tempfile.gettempdir()
+if DV.tmp_path[-1]!=os.sep:
+    DV.tmp_path+=os.sep
+DV.tmp_path+='damnvid-'
+DV.file_ext={
     'avi':'avi',
     'flv':'flv',
     'mpeg1video':'mpg',
@@ -123,7 +146,7 @@ DV_FILE_EXT={
     'mp3':'mp3',
     'mp2':'mp2'
 }
-DV_FILE_EXT_BY_CODEC={
+DV.file_ext_by_codec={
     'rv10':'rm',
     'rv20':'rm',
     'flv':'flv',
@@ -134,16 +157,160 @@ DV_FILE_EXT_BY_CODEC={
     'vorbis':'ogg',
     'wmav1':'wma',
     'wmav2':'wma'
-} # Just in case the format isn't defined, fall back to DV_FILE_EXT_BY_CODEC. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
-DV_CODEC_ADVANCED_CL={
+} # Just in case the format isn't defined, fall back to DV.file_ext_by_codec. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
+DV.codec_advanced_cl={
     'mpeg4':[('g','300'),('cmp','2'),('subcmp','2'),('trellis','2'),'+4mv'],
     'libx264':[('coder','1'),'+loop',('cmp','+chroma'),('partitions','+parti4x4+partp8x8+partb8x8'),('g','250'),('subq','6'),('me_range','16'),('keyint_min','25'),('sc_threshold','40'),('i_qfactor','0.71'),('b_strategy','1')]
 }
-DV_PREFERENCES=None
-try:
-    execfile(DV_CURDIR+'conf'+os.sep+'preferences.damnvid') # Load preferences
-except:
-    pass # Someone's been messing around with the conf.py file?
+# Begin APIs
+DV.youtube_service=gdata.youtube.service.YouTubeService()
+DV.revver_api=xmlrpclib.Server('https://api.revver.com/xml/1.0?login=DamnVid&passwd=oc83Y8XYaIiSTTj3CHKt') # O noes it's a password
+# End APIs
+def DamnGetListIcon(icon):
+    if type(icon) is type(1):
+        return icon
+    if icon in DV.listicons_order:
+        return DV.listicons_order.index(icon)
+    return 0 # Damnvid generic video icon
+def DamnRegisterModule(module):
+    DV.modules[module['name']]=module
+    if module.has_key('register'):
+        module['class'].register={}
+        if module['register'].has_key('listicons'):
+            module['class'].register['listicons']={}
+            for icon in module['register']['listicons'].iterkeys():
+                DV.listicons[icon]=DV.modules_path+module['name']+os.sep+module['register']['listicons'][icon]
+                DV.listicons_order.append(icon)
+    if module.has_key('preferences'):
+        for pref in module['preferences'].iterkeys():
+            DV.preferences['damnvid-module-'+module['name']+':'+pref]=module['preferences'][pref]
+            DV.defaultprefs['damnvid-module-'+module['name']+':'+pref]=module['preferences'][pref]['default']
+            if module['preferences'][pref]['kind']=='dir':
+                DV.path_prefs.append('damnvid-module-'+module['name']+':'+pref)
+        if module.has_key('preferences_order'):
+            DV.preference_order['damnvid-module-'+module['name']]=module['preferences_order']
+        else:
+            DV.preference_order['damnvid-module-'+module['name']]=module['preferences'].keys()
+class DamnVideoModule:
+    def __init__(self,uri):
+        self.name='generic'
+        self.uri=uri
+        self.link=None
+        self.id=None
+        self.valid=None
+        self.title=None
+        self.ticket=None
+        self.ticketdate=None
+        self.regex={
+            'title':DV.generic_title_extract
+        }
+    def isUp(self):
+        return True
+    def validURI(self):
+        return not not self.valid
+    def getLink(self):
+        return self.link
+    def getURI(self):
+        return self.uri
+    def getID(self):
+        return self.id
+    def getTitle(self):
+        if self.title is None:
+            return u'Unknown title'
+        return self.title
+    def getIcon(self):
+        return DamnGetListIcon(self.name)
+    def pref(self,pref,value=None):
+        if value is None:
+            return DV.prefs.getm(self.name,pref)
+        return DV.prefs.setm(self.name,pref,value)
+    def newTicket(self,ticket):
+        self.ticket=ticket
+        self.ticketdate=time.time()
+    def getProfile(self):
+        return self.pref('profile')
+    def getOutdir(self):
+        return self.pref('outdir')
+    def getDownload(self):
+        return self.uri
+    def addVid(self,parent):
+        parent.addValid(self.getVidObject())
+    def getVidObject(self):
+        return {'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self}
+class DamnModuleUpdateCheck(thr.Thread):
+    def __init__(self,parent,modules):
+        self.parent=parent
+        if type(modules) is not type([]):
+            modules=[modules]
+        self.modules=modules
+        self.done={}
+        self.downloaded=[]
+        thr.Thread.__init__(self)
+    def postEvent(self,module,result):
+        wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,{'module':module,'result':result}))
+    def run(self):
+        for module in self.modules:
+            if not module['about'].has_key('url'):
+                self.postEvent(module,'cannot')
+            elif module['about']['url'] not in self.downloaded:
+                self.downloaded.append(module['about']['url'])
+                http=urllib2.urlopen(module['about']['url'])
+                checkingfor=[module]
+                for module2 in self.modules:
+                    if module2['about'].has_key('url'):
+                        if module2['about']['url']==module['about']['url'] and module2 not in checkingfor:
+                            checkingfor.append(module2)
+                match=False
+                html=''
+                for i in http:
+                    html+=i
+                for module2 in checkingfor:
+                    res=re.search('<tt>'+re.escape(module2['name'])+'</tt>.*?Latest\s+version\s*:\s*<tt>([^<>]+)</tt>.*?Available\s+at\s*:\s*<a href="([^"]+)"',html,re.IGNORECASE)
+                    if not res:
+                        self.postEvent(module2,'error')
+                    else:
+                        if DamnHtmlEntities(res.group(1))!=unicode(module2['version']):
+                            self.postEvent(module2,(DamnHtmlEntities(res.group(1)),DamnHtmlEntities(res.group(2))))
+                        else:
+                            self.postEvent(module2,'uptodate')
+def DamnLoadConfig(forcemodules=False):
+    DV.preferences=None
+    try:
+        execfile(DV.curdir+'conf'+os.sep+'preferences.damnvid') # Load preferences
+    except:
+        pass # Someone's been messing around with the conf.py file?
+    DV.path_prefs=[]
+    DV.defaultprefs={
+    }
+    for i in DV.preferences.iterkeys():
+        if DV.preferences[i].has_key('default'):
+            DV.defaultprefs[i]=DV.preferences[i]['default']
+        else:
+            DV.defaultprefs[i]=None
+        if DV.preferences[i]['kind']=='dir':
+            DV.path_prefs.append(i)
+    DV.prefs=None # Will be loaded later
+    # Load modules
+    if DV.first_run or DV.updated or True or forcemodules: # Fixme: Remove "or True", is is only used for debugging
+        if os.path.lexists(DV.conf_file_directory+'modules'):
+            shutil.rmtree(DV.conf_file_directory+'modules')
+        shutil.copytree(DV.curdir+'modules',DV.conf_file_directory+'modules')
+    DV.modules_path=DV.conf_file_directory+'modules'+os.sep
+    DV.modules={}
+    DV.generic_title_extract=re.compile('<title>\s*([^<>]+?)\s*</title>',re.IGNORECASE)
+    DV.listicons={
+        'damnvid':DV.images_path+'video.png',
+        'generic':DV.images_path+'online.png'
+    }
+    DV.listicons_order=['damnvid','generic']
+    DV.listicons_imagelist=None # Will be loaded later
+    for i in os.listdir(DV.modules_path):
+        if os.path.isdir(DV.modules_path+i):
+            for j in os.listdir(DV.modules_path+i):
+                if not os.path.isdir(DV.modules_path+i+os.sep+j) and j[-8:]=='.damnvid':
+                    execfile(DV.modules_path+i+os.sep+j)
+    # End load modules
+DamnLoadConfig()
 # Begin ID constants
 ID_MENU_EXIT=wx.ID_EXIT
 ID_MENU_ADD_FILE=102
@@ -163,8 +330,10 @@ REGEX_DAMNVID_VERSION_CHECK=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
 REGEX_PATH_MULTI_SEPARATOR_CHECK=re.compile('/+')
 REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration:\\s*(\\d+):(\\d\\d):([.\\d]+)',re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
-REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/;{}\w]*)?$',re.IGNORECASE)
+REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}#\w]*)?$',re.IGNORECASE)
+REGEX_HTTP_GENERIC_LOOSE=re.compile('https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}\w]*)?',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
+REGEX_HTTP_YOUTUBE_PLAYLIST=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*p(?:laylist)?[/=]([-_\w]{6,})',re.IGNORECASE)
 REGEX_HTTP_GVIDEO=re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE)
 REGEX_HTTP_VEOH=re.compile('^https?://(?:[-_\w]+\.)*veoh\.com/videos/',re.IGNORECASE)
 REGEX_HTTP_DAILYMOTION=re.compile('^https?://(?:[-_\w]+\.)*dailymotion\.com/',re.IGNORECASE)
@@ -176,15 +345,104 @@ REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNOREC
 REGEX_HTTP_YOUTUBE_TITLE_EXTRACT=re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE)
 REGEX_HTTP_YOUTUBE_TICKET_EXTRACT=re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2')
 REGEX_HTTP_GVIDEO_TITLE_EXTRACT=REGEX_HTTP_GENERIC_TITLE_EXTRACT
-REGEX_HTTP_GVIDEO_TICKET_EXTRACT=re.compile('If the download does not start automatically, right-click <a href="([^"]+)"',re.IGNORECASE)
-REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('<title>\\s*([^<>]+)(?: : Online Video)? \\| Veoh Video Network</title>',re.IGNORECASE)
-REGEX_HTTP_VEOH_ID_EXTRACT=re.compile('permalinkId=(\\w+)',re.IGNORECASE)
-REGEX_HTTP_VEOH_SUBID_EXTRACT=re.compile('^\\w+?(\\d+).*$')
-REGEX_HTTP_VEOH_TICKET_EXTRACT=re.compile('fullPreviewHashPath="([^"]+)"',re.IGNORECASE)
-"""To redo!"""#REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT=re.compile('<title>(?:Video\\s*)?([^<>]+?)\\s*-[^-<>]+-[^-<>]+</title>',re.IGNORECASE)
+REGEX_HTTP_GVIDEO_TICKET_EXTRACT=re.compile('If the download does not start automatically, right-click <a href="?([^"<>]+)"?>',re.IGNORECASE)
+REGEX_HTTP_VEOH=re.compile('veoh\.com/.*?(?:%3D|[?&=/#])v(\w+)',re.IGNORECASE)
+REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('title\s*=\s*"([^"]+)"',re.IGNORECASE)
+REGEX_HTTP_VEOH_TICKET_EXTRACT=(re.compile('fullPreviewHashPath\s*=\s*"([^"]+)"',re.IGNORECASE),re.compile('isExternalMedia\s*=\s*"true"',re.IGNORECASE),re.compile('aowPermalink\s*=\s*"([^"]+)"',re.IGNORECASE))
+REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT=re.compile('<h1(?: class="nav")?>([^<>]+)</h1>',re.IGNORECASE)
 REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT=re.compile('\\.addVariable\\s*\\(\\s*([\'"])video\\1\\s*,\\s*([\'"])((?:(?!\\2).)+)\\2\\s*\\)',re.IGNORECASE)
 REGEX_HTTP_DAILYMOTION_QUALITY=re.compile('(\d+)x(\d+)')
+REGEX_HTTP_BLIPTV=re.compile('blip\.tv/(?:file/|.*#)(\d+)',re.IGNORECASE)
+REGEX_HTTP_BLIPTV_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
+REGEX_HTTP_BLIPTV_TICKET_EXTRACT=re.compile('<link type="video[^"]*" href="([^"]+)"',re.IGNORECASE)
+REGEX_HTTP_METACAFE=re.compile('metacafe\.com/+(?:watch/)?(\d+)/?',re.IGNORECASE)
+REGEX_HTTP_METACAFE_TITLE_EXTRACT=re.compile('\s*[^"<>\w]*([^<>"]+?)\s*</h1>',re.IGNORECASE)
+REGEX_HTTP_METACAFE_TICKET_EXTRACT=re.compile('mediaURL=([^&<>]+)&gdaKey=([-_\w]+)',re.IGNORECASE)
+REGEX_HTTP_CRUNCHYROLL=re.compile('crunchyroll\.com/media-(\d+)/?',re.IGNORECASE)
+REGEX_HTTP_CRUNCHYROLL_TITLE_EXTRACT=re.compile('<title>[^-<>"]*-\s*([^"<>]+)</title>',re.IGNORECASE)
+REGEX_HTTP_CRUNCHYROLL_TICKET_EXTRACT=re.compile('crunchyroll.com%2Fgetitem%3Fvideoid%3D(\w+)%26amp%3Bmediaid%3D(\w+)%3C%2Ffile%3E',re.IGNORECASE)
+REGEX_HTTP_MEGAVIDEO=re.compile('megavideo\.com/(?:\?v=)(\w+)',re.IGNORECASE)
+REGEX_HTTP_MEGAVIDEO_TITLE_EXTRACT=re.compile('\.title\s*=\s*[\'"]([^\s"\']+)[\'"]',re.IGNORECASE)
+REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT=(re.compile('\.k1\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.k2\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.un\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.s\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE))
+REGEX_HTTP_REVVER=re.compile('revver\.com/(?:video/)(\d+)/?',re.IGNORECASE)
+REGEX_HTTP_BREAK=re.compile('break\.com/',re.IGNORECASE) # Break URLs seem to be very loose, and so is this regex
+REGEX_HTTP_BREAK_TITLE_EXTRACT=re.compile('="hd_player_title">([^<>"]+)</div>',re.IGNORECASE)
+REGEX_HTTP_BREAK_TICKET_EXTRACT=re.compile('sGlobalFileName\s*=\s*[\'"]([^\'"]+)[\'"].*sGlobalContentFilePath\s*=\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE)
+REGEX_HTTP_FLICKR=re.compile('flickr\.com/',re.IGNORECASE) # Flickr video URL start with /photos/ right now, I'm pretty sure it's going to change soon, so I'm making this one pretty loose as well
+REGEX_HTTP_FLICKR_TITLE_EXTRACT=re.compile('<h1\s+id="title[^<>]+>\s*([^<>"]+)\s*</h1>',re.IGNORECASE)
+REGEX_HTTP_FLICKR_TICKET_EXTRACT=(re.compile('<div\s+id="tagdiv(\d+)-(\d+)',re.IGNORECASE),re.compile('p.secret\s*=\s*[\'"](\w+)[\'"]',re.IGNORECASE),re.compile('<STREAM\s*APP="([^"<>]+)"\s*FULLPATH="([^"<>]+)"',re.IGNORECASE))
+REGEX_HTTP_LIVEVIDEO=re.compile('livevideo\.com/video/(\w+)/?',re.IGNORECASE)
+REGEX_HTTP_LIVEVIDEO_TITLE_EXTRACT=re.compile('class="videotitle">\s*([^<>]+)?\s*',re.IGNORECASE)
+REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT=(re.compile('swf[?&]+video=([^\'"]+)',re.IGNORECASE),re.compile('(?:^|[?&])+video_id=([^?&]+)(?:$|[?&])+',re.IGNORECASE))
+REGEX_HTTP_YOUKU=re.compile('youku\.com/(?:v_show/id_)?([-+_\w]+)=+\.html',re.IGNORECASE)
+REGEX_HTTP_YOUKU_TITLE_EXTRACT=re.compile('</span>\s*(.*?)\s*</h1>',re.IGNORECASE)
+REGEX_HTTP_YOUKU_TICKET_EXTRACT=(re.compile('addVariable\s*\(\s*[\'"]VideoIDS[\'"]\s*,\s*(\d+)\s*\)',re.IGNORECASE),re.compile('sendVideoLink\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('[\'"\s]+?key1[\'"\s]+?:\s*[\'"]([^\'"]+)[\'"]\s*,\s*[\'"\s]+?key2[\'"\s]+?:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE))
+REGEX_THOUSAND_SEPARATORS=re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
+# End regex constants
 # End constants
+
+def DamnMegaVideoDecrypt(s,k1,k2): # This required a nice bit of reverse-engineering, but it works!
+    binary=''
+    assoc={
+        '0':'0000',
+        '1':'0001',
+        '2':'0010',
+        '3':'0011',
+        '4':'0100',
+        '5':'0101',
+        '6':'0110',
+        '7':'0111',
+        '8':'1000',
+        '9':'1001',
+        'a':'1010',
+        'b':'1011',
+        'c':'1100',
+        'd':'1101',
+        'e':'1110',
+        'f':'1111'
+    }
+    theotherway={
+        '0000':'0',
+        '0001':'1',
+        '0010':'2',
+        '0011':'3',
+        '0100':'4',
+        '0101':'5',
+        '0110':'6',
+        '0111':'7',
+        '1000':'8',
+        '1001':'9',
+        '1010':'a',
+        '1011':'b',
+        '1100':'c',
+        '1101':'d',
+        '1110':'e',
+        '1111':'f'
+    }
+    for i in s:
+        if assoc.has_key(i):
+            binary+=assoc[i]
+    ar2=[]
+    for i in range(384):
+        k1=(k1*11+77213)%81371
+        k2=(k2*17+92717)%192811
+        ar2.append((k1+k2)%128)
+    for i in range(256,-1,-1):
+        mi=min((ar2[i],i%128))
+        ma=max((ar2[i],i%128))
+        if mi!=ma:
+            binary=binary[0:mi]+binary[ma]+binary[mi+1:ma]+binary[mi]+binary[ma+1:]
+    for i in range(128):
+        if binary[i]=='0':
+            tmp=ar2[i+256]%2
+        else:
+            tmp=not bool(ar2[i+256]%2)
+        binary=binary[0:i]+str(int(tmp))+binary[i+1:]
+    result=''
+    for i in range(0,len(binary),4):
+        if theotherway.has_key(binary[i:i+4]):
+            result+=theotherway[binary[i:i+4]]
+    return result
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     finalcmd=[]
     oldcmd=cmd
@@ -203,7 +461,7 @@ def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     exe=finalcmd[0]
     if cwd==None:
         cwd=os.getcwd()
-    if DV_OS_NAME=='nt':
+    if DV.os=='nt':
         return subprocess.Popen(oldcmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd,executable=exe,bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
     else:
         return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
@@ -225,25 +483,27 @@ def DamnURLPicker(urls,urlonly=False):
             pass
     return None
 def DamnFriendlyDir(d):
-    if DV_OS_NAME=='mac':
+    if DV.os=='mac':
         myvids='Movies'
     else:
         myvids='My Videos'
     d=d.replace('?DAMNVID_MY_VIDEOS?',myvids)
-    d=os.path.expanduser(d).replace(DV_MY_VIDEOS_PATH,myvids).replace('/',os.sep).replace('\\',os.sep)
+    d=os.path.expanduser(d).replace(DV.my_videos_path,myvids).replace('/',os.sep).replace('\\',os.sep)
     while d[-1:]==os.sep:
         d=d[0:-1]
     return d
-DV_EVT_PROGRESS=wx.NewEventType()
-DV_EVT_PROG=wx.PyEventBinder(DV_EVT_PROGRESS,1)
+def DamnHtmlEntities(html):
+    return unicode(BeautifulSoup.BeautifulStoneSoup(html,convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES))
+DV.evt_progress=wx.NewEventType()
+DV.evt_prog=wx.PyEventBinder(DV.evt_progress,1)
 class DamnProgressEvent(wx.PyCommandEvent):
     def __init__(self,eventtype,eventid,eventinfo):
         wx.PyCommandEvent.__init__(self,eventtype,eventid)
         self.info=eventinfo
     def GetInfo(self):
         return self.info
-DV_EVT_LOADING=wx.NewEventType()
-DV_EVT_LOAD=wx.PyEventBinder(DV_EVT_LOADING,1)
+DV.evt_loading=wx.NewEventType()
+DV.evt_load=wx.PyEventBinder(DV.evt_loading,1)
 class DamnLoadingEvent(wx.PyCommandEvent):
     def __init__(self,eventtype,eventid,eventinfo):
         wx.PyCommandEvent.__init__(self,eventtype,eventid)
@@ -305,13 +565,13 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
                 for i in self.items:
                     if int(self.parent.parent.meta[self.parent.parent.videos[i]]['profile'])!=uniprofile:
                         uniprofile=-2
-                for i in range(-1,self.parent.parent.prefs.profiles):
+                for i in range(-1,DV.prefs.profiles):
                     if uniprofile!=-2:
-                        prof=wx.MenuItem(self,-1,self.parent.parent.prefs.getp(i,'name'),kind=wx.ITEM_RADIO)
+                        prof=wx.MenuItem(self,-1,DV.prefs.getp(i,'name'),kind=wx.ITEM_RADIO)
                         profile.AppendItem(prof) # Item has to be appended before being checked, otherwise error. Annoying code duplication.
                         prof.Check(i==uniprofile)
                     else:
-                        prof=wx.MenuItem(self,-1,self.parent.parent.prefs.getp(i,'name'))
+                        prof=wx.MenuItem(self,-1,DV.prefs.getp(i,'name'))
                         profile.AppendItem(prof)
                     self.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof)    # Of course, on one platform it's self.Bind...
                     profile.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof) # ... and on the other it's profile.Bind. *sigh*
@@ -327,6 +587,9 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
             addurl=wx.MenuItem(self,-1,'Add URL')
             self.AppendItem(addurl)
             self.Bind(wx.EVT_MENU,self.parent.parent.onAddURL,addurl)
+class DamnHyperlink(wx.HyperlinkCtrl):
+    def __init__(self,parent,id,label,url):
+        wx.HyperlinkCtrl.__init__(self,parent,id,label,url)
 class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
     def __init__(self,parent,window):
         wx.ListCtrl.__init__(self,parent,-1,style=wx.LC_REPORT)
@@ -356,6 +619,163 @@ class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inheri
             tmp=[self.GetItem(i1,i).GetText(),self.GetItem(i1,i).GetImage()]
             self.SetStringItem(i1,i,self.GetItem(i2,i).GetText(),self.GetItem(i2,i).GetImage())
             self.SetStringItem(i2,i,tmp[0],tmp[1])
+class DamnAddURLDialog(wx.Dialog):
+    def __init__(self,parent,default):
+        self.parent=parent
+        wx.Dialog.__init__(self,parent,-1,'Add videos by URL...')
+        absolutetopsizer=wx.BoxSizer(wx.HORIZONTAL)
+        self.SetSizer(absolutetopsizer)
+        innertopsizer=wx.BoxSizer(wx.HORIZONTAL)
+        innertopsizer2=wx.BoxSizer(wx.VERTICAL)
+        self.toppanel=wx.Panel(self,-1)
+        absolutetopsizer.Add(self.toppanel,1,wx.EXPAND)
+        self.toppanel.SetSizer(innertopsizer)
+        topsizer=wx.BoxSizer(wx.VERTICAL)
+        innertopsizer.Add((DV.border_padding,0))
+        innertopsizer.Add(innertopsizer2,1,wx.EXPAND)
+        innertopsizer.Add((DV.border_padding,0))
+        innertopsizer2.Add((0,DV.border_padding))
+        innertopsizer2.Add(topsizer,1,wx.EXPAND)
+        innertopsizer2.Add((0,DV.border_padding))
+        # Finished paddings and stuff, now for the actual dialog construction
+        topsizer.Add(wx.StaticText(self.toppanel,-1,'Enter the URL of the video you wish to download.'))
+        topsizer.Add((0,DV.control_vgap))
+        urlboxsizer=wx.BoxSizer(wx.HORIZONTAL)
+        topsizer.Add(urlboxsizer,0,wx.EXPAND)
+        urllabel=wx.StaticText(self.toppanel,-1,'URL:')
+        urlboxsizer.Add(urllabel,0,wx.ALIGN_CENTER_VERTICAL)
+        urlboxsizer.Add((DV.control_hgap,0))
+        self.urlbox=wx.TextCtrl(self.toppanel,-1,default,style=wx.TE_PROCESS_ENTER)
+        urlboxsizer.Add(self.urlbox,1,wx.EXPAND)
+        self.urlbox.Bind(wx.EVT_TEXT_ENTER,self.onAdd)
+        self.urlbox.Bind(wx.EVT_KEY_DOWN,self.onKeyDown)
+        urlboxsizer.Add((DV.control_hgap,0))
+        self.addButton=wx.Button(self.toppanel,-1,'+')
+        urlboxsizer.Add(self.addButton,0)
+        btnheight=self.addButton.GetSizeTuple()[1]
+        self.addButton.SetMinSize((btnheight,btnheight)) # Makes the button have a 1:1 aspect ratio
+        self.addButton.Bind(wx.EVT_BUTTON,self.onAdd)
+        topsizer.Add((0,DV.control_vgap))
+        autoconvertchecksizer=wx.BoxSizer(wx.HORIZONTAL)
+        self.autoconvertcheck=wx.CheckBox(self.toppanel,-1,'Automatically download and convert right away')
+        self.autoconvertcheck.SetValue(DV.prefs.get('autoconvert')=='True')
+        self.autoconvertcheck.Bind(wx.EVT_CHECKBOX,self.onAutoconvertCheck)
+        autoconvertchecksizer.Add((DV.control_hgap+urllabel.GetSizeTuple()[0],0))
+        autoconvertchecksizer.Add(self.autoconvertcheck)
+        topsizer.Add(autoconvertchecksizer,0,wx.EXPAND)
+        topsizer.Add((0,DV.control_vgap))
+        topsizer.Add(wx.StaticLine(self.toppanel,-1,style=wx.HORIZONTAL),0,wx.EXPAND)
+        topsizer.Add((0,DV.control_vgap))
+        # Start building the bottom part, put sizers in place...
+        bottomhorizontalsizer=wx.BoxSizer(wx.HORIZONTAL)
+        topsizer.Add(bottomhorizontalsizer,1,wx.EXPAND)
+        bottomleftsizer=wx.BoxSizer(wx.VERTICAL)
+        bottomhorizontalsizer.Add(bottomleftsizer,1,wx.EXPAND|wx.ALIGN_TOP)
+        bottomhorizontalsizer.Add((DV.control_hgap,0))
+        bottomhorizontalsizer.Add(wx.StaticLine(self.toppanel,-1,style=wx.VERTICAL),0,wx.EXPAND|wx.ALIGN_TOP)
+        bottomhorizontalsizer.Add((DV.control_hgap,0))
+        bottomrightsizer=wx.BoxSizer(wx.VERTICAL)
+        bottomhorizontalsizer.Add(bottomrightsizer,1,wx.EXPAND|wx.ALIGN_TOP)
+        # Now start building the bottom-left part
+        bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'Go ahead, add some videos!'))
+        bottomleftsizer.Add((0,DV.control_vgap))
+        bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'The following sites are suported:'))
+        supportedsites=(
+            ('YouTube','http://www.youtube.com/browse','youtube.png'),
+            ('YouTube HD','http://www.youtube.com/browse?s=mphd','youtubehd.png'),
+            ('Google Video','http://video.google.com/','googlevideo.png'),
+            ('Dailymotion','http://www.dailymotion.com/','dailymotion.png'),
+            ('Veoh','http://www.veoh.com/','veoh.png'),
+            ('Metacafe','http://www.metacafe.com/','metacafe.png'),
+            ('Break.com','http://www.break.com/','break.png'),
+            ('Flickr','http://www.flickr.com/','flickr.png'),
+            ('Youku','http://www.youku.com/','youku.png'),
+            ('Revver','http://revver.com/','revver.png'),
+            ('Megavideo','http://megavideo.com/','megavideo.png'),
+            ('Livevideo','http://www.livevideo.com/','livevideo.png'),
+            ('Crunchyroll','http://www.crunchyroll.com/','crunchyroll.png'),
+            ('Blip.tv','http://blip.tv/','bliptv.png')
+        )
+        for i in supportedsites:
+            bottomleftsizer.Add((0,DV.control_vgap))
+            sitesizer=wx.BoxSizer(wx.HORIZONTAL)
+            bottomleftsizer.Add(sitesizer)
+            sitesizer.Add(wx.StaticBitmap(self.toppanel,-1,wx.Bitmap(DV.images_path+i[2])),0,wx.ALIGN_CENTER_VERTICAL)
+            sitesizer.Add((DV.control_hgap,0))
+            sitesizer.Add(DamnHyperlink(self.toppanel,-1,i[0],i[1]),0,wx.ALIGN_CENTER_VERTICAL)
+        # Now start building the bottom-right part
+        self.monitorcheck=wx.CheckBox(self.toppanel,-1,'Monitor clipboard for new URLs')
+        self.monitorcheck.Bind(wx.EVT_CHECKBOX,self.onMonitorCheck)
+        self.monitorcheck.SetValue(DV.prefs.get('clipboard')=='True')
+        bottomrightsizer.Add(self.monitorcheck)
+        bottomrightsizer.Add((0,DV.control_vgap))
+        self.monitorlabel=wx.StaticText(self.toppanel,-1,'')
+        bottomrightsizer.Add(self.monitorlabel)
+        bottomrightsizer.Add((0,DV.control_vgap))
+        self.monitorlabel2=wx.StaticText(self.toppanel,-1,'')
+        bottomrightsizer.Add(self.monitorlabel2)
+        self.onMonitorCheck()
+        bottomrightsizer.Add((0,DV.control_vgap))
+        self.videolist=DamnList(self.toppanel,self)
+        il=wx.ImageList(16,16,True)
+        for i in range(DV.listicons_imagelist.GetImageCount()):
+            il.Add(DV.listicons_imagelist.GetBitmap(i))
+        self.videolist.AssignImageList(il,wx.IMAGE_LIST_SMALL)
+        bottomrightsizer.Add(self.videolist,1,wx.EXPAND)
+        self.videocolumn=self.videolist.InsertColumn(ID_COL_VIDNAME,'Videos')
+        # We're done! Final touches...
+        self.videos=[]
+        self.SetClientSize(self.toppanel.GetBestSize())
+        self.Center()
+        self.Bind(wx.EVT_KEY_DOWN,self.onKeyDown,self.toppanel)
+        self.Bind(wx.EVT_CLOSE,self.onClose)
+    def onAdd(self,event=None,val=None):
+        if val is None:
+            val=self.urlbox.GetValue()
+            self.urlbox.SetValue('')
+        message=None
+        if not val:
+            message=('No URL entered','You must enter a URL!')
+        elif not self.parent.validURI(val):
+            message=('Invalid URL','This is not a valid URL!')
+        if message is not None:
+            dlg=wx.MessageDialog(None,message[1],message[0],wx.OK|wx.ICON_EXCLAMATION)
+            dlg.SetIcon(DV.icon)
+            dlg.ShowModal()
+            dlg.Destroy()
+            return
+        self.videolist.InsertStringItem(len(self.videos),val)
+        self.videolist.SetItemImage(len(self.videos),DamnGetListIcon('generic'),DamnGetListIcon('generic'))
+        self.videos.append(val)
+        self.parent.addVid([val],DV.prefs.get('autoconvert')=='True')
+        self.urlbox.SetFocus()
+    def update(self,original,name,icon):
+        for i in range(len(self.videos)):
+            if self.videos[i]==original:
+                self.videolist.SetStringItem(i,self.videocolumn,name)
+                self.videolist.SetItemImage(i,DamnGetListIcon(icon),DamnGetListIcon(icon))
+    def onAutoconvertCheck(self,event=None):
+        DV.prefs.set('autoconvert',str(self.autoconvertcheck.GetValue()))
+    def onMonitorCheck(self,event=None):
+        newpref=self.monitorcheck.GetValue()
+        DV.prefs.set('clipboard',str(newpref))
+        if newpref:
+            self.monitorlabel.SetLabel('Your clipboard is being monitored.')
+            self.monitorlabel2.SetLabel('Simply copy a video URL and DamnVid will add it.')
+        else:
+            self.monitorlabel.SetLabel('Your clipboard is not being monitored.')
+            self.monitorlabel2.SetLabel('Check the checkbox above if you want it to be monitored.')
+        self.monitorlabel.Wrap(180)
+        self.monitorlabel2.Wrap(180)
+        self.toppanel.Layout()
+    def onKeyDown(self,event):
+        if event.GetKeyCode() in (wx.WXK_ESCAPE,wx.WXK_CANCEL):
+            self.onClose(event)
+        else:
+            event.Skip() # Let the event slide, otherwise the key press isn't even registered
+    def onClose(self,event):
+        DV.prefs.save() # Save eventually-changed-with-the-checkboxes prefs
+        self.Destroy()
 class DamnEEgg(wx.Dialog):
     def __init__(self,parent,id):
         wx.Dialog.__init__(self,parent,id,'Salute the Secret Stoat!')
@@ -365,8 +785,8 @@ class DamnEEgg(wx.Dialog):
         topvbox.Add(self.panel,1,wx.EXPAND)
         self.vbox=wx.BoxSizer(wx.VERTICAL)
         self.panel.SetSizer(self.vbox)
-        self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap(DV_IMAGES_PATH+'stoat.jpg')),0,wx.ALIGN_CENTER)
-        self.AddText('DamnVid '+DV_VERSION+' is *100% stoat-powered*, and *proud* of it.',True)
+        self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap(DV.images_path+'stoat.jpg')),0,wx.ALIGN_CENTER)
+        self.AddText('DamnVid '+DV.version+' is *100% stoat-powered*, and *proud* of it.',True)
         self.AddText('*No stoats were harmed* (much) during DamnVid\'s development. Ya rly.',True)
         self.vbox.Add((0,5))
         self.AddText('Praise the *Secret Stoat* and all it stands for: *WIN*.',True)
@@ -393,8 +813,9 @@ class DamnEEgg(wx.Dialog):
                 strings[-1]+=i
         hbox=wx.BoxSizer(wx.HORIZONTAL)
         bold=False
-        normfont=wx.Font(8,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL)
-        boldfont=wx.Font(8,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD)
+        sysfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        normfont=wx.Font(sysfont.GetPointSize(),sysfont.GetFamily(),sysfont.GetStyle(),sysfont.GetWeight())
+        boldfont=wx.Font(sysfont.GetPointSize(),sysfont.GetFamily(),sysfont.GetStyle(),wx.FONTWEIGHT_BOLD)
         for i in strings:
             t=wx.StaticText(self.panel,-1,i)
             t.Wrap(500)
@@ -413,7 +834,7 @@ class DamnEEgg(wx.Dialog):
 class DamnAboutDamnVid(wx.Dialog):
     def __init__(self,parent,id,main):
         self.parent=main
-        wx.Dialog.__init__(self,parent,id,'About DamnVid '+DV_VERSION)
+        wx.Dialog.__init__(self,parent,id,'About DamnVid '+DV.version)
         topvbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(topvbox)
         panel=wx.Panel(self,-1)
@@ -424,20 +845,16 @@ class DamnAboutDamnVid(wx.Dialog):
         hbox.Add(vbox1,0,wx.EXPAND)
         vbox2=wx.BoxSizer(wx.VERTICAL)
         hbox.Add(vbox2,1,wx.EXPAND)
-        icon=wx.StaticBitmap(panel,-1,wx.Bitmap(DV_IMAGES_PATH+'icon256.png'))
+        icon=wx.StaticBitmap(panel,-1,wx.Bitmap(DV.images_path+'icon256.png'))
         icon.Bind(wx.EVT_LEFT_DCLICK,self.eEgg)
         vbox1.Add(icon,1,wx.ALIGN_CENTER)
-        title=wx.StaticText(panel,-1,'DamnVid '+DV_VERSION)
+        title=wx.StaticText(panel,-1,'DamnVid '+DV.version)
         title.SetFont(wx.Font(24,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
         vbox2.Add(title,1)
         author=wx.StaticText(panel,-1,'By WindPower')
         author.SetFont(wx.Font(16,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL))
         vbox2.Add(author,1)
-        link=wx.lib.hyperlink.HyperLinkCtrl(panel)
-        link.SetURL(DV_URL)
-        link.SetLabel(DV_URL)
-        link.SetToolTipString('Click here to go to DamnVid '+DV_VERSION+'\'s homepage.')
-        vbox2.Add(link)
+        vbox2.Add(DamnHyperlink(panel,-1,DV.url,DV.url))
         vbox2.Add(wx.StaticText(panel,-1,'Contributors:'))
         vbox2.Add(wx.StaticText(panel,-1,'- Tatara (Linux compatibility/packaging)'))
         vbox2.Add(wx.StaticText(panel,-1,'- Palmer (Graphics)'))
@@ -454,71 +871,90 @@ class DamnAboutDamnVid(wx.Dialog):
         self.Center()
     def eEgg(self,event):
         dlg=DamnEEgg(None,-1)
-        dlg.SetIcon(DV_ICON)
+        dlg.SetIcon(DV.icon)
         dlg.ShowModal()
         dlg.Destroy()
     def onOK(self,event):
         self.Close(True)
-class DamnVidPrefs: # Preference manager
+class DamnSplashScreen(wx.SplashScreen):
+    def __init__(self):
+        wx.SplashScreen.__init__(self,wx.Bitmap(DV.images_path+'splashscreen.png',wx.BITMAP_TYPE_PNG),wx.SPLASH_CENTRE_ON_SCREEN,10000,None)
+class DamnVidPrefs: # Preference manager (backend, not GUI)
     def __init__(self):
         self.conf={}
-        f=open(DV_CONF_FILE,'r')
-        #for i in re.finditer('(?m)^([_\\w]+)=(.*)$',f.read()):
-            #self.conf[i.group(1)]=i.group(2).replace('%CWD%',DV_CURDIR[0:-1]).replace('/',os.sep).strip()
+        f=open(DV.conf_file,'r')
         self.ini=ConfigParser.SafeConfigParser()
         self.ini.readfp(f)
         f.close()
         self.profiles=0
-        self.pathprefs=['outdir','lastfiledir','defaultoutdir']
         for i in self.ini.sections():
             if i[0:16]=='damnvid-profile-':
                 self.profiles=self.profiles+1
     def expandPath(self,value):
-        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace('?DAMNVID_MY_VIDEOS?',DV_MY_VIDEOS_PATH.replace(os.sep,'/'))).replace('/',os.sep)
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace('?DAMNVID_MY_VIDEOS?',DV.my_videos_path.replace(os.sep,'/'))).replace('/',os.sep)
         if value[-1:]!=os.sep:
             value+=os.sep
         return value
     def reducePath(self,value):
-        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace(DV_MY_VIDEOS_PATH.replace(os.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace(os.sep,'/')
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace(DV.my_videos_path.replace(os.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace(os.sep,'/')
         if value[-1:]!='/':
             value+='/'
         return value
-    def get(self,name):
-        name=name.lower()
-        if not self.ini.has_option('damnvid',name):
-            self.ini.set('damnvid',name,'')
-        value=self.ini.get('damnvid',name)
-        if name in self.pathprefs:
-            value=self.expandPath(value)
-        return value
-    def set(self,name,value):
-        name=name.lower()
-        if name in self.pathprefs:
-            value=self.reducePath(value)
-        self.ini.set('damnvid',name,value)
-        return value
     def gets(self,section,name):
         name=name.lower()
+        shortsection=section
+        if shortsection[0:16]=='damnvid-profile-':
+            shortsection='damnvid-profile'
         if self.ini.has_section(section):
-            value=self.ini.get(section,name)
-            if name in self.pathprefs:
+            if self.ini.has_option(section,name):
+                value=self.ini.get(section,name)
+            elif DV.defaultprefs.has_key(shortsection+':'+name):
+                value=DV.defaultprefs[shortsection+':'+name]
+                self.sets(section,name,value)
+            else:
+                value=''
+            if shortsection+':'+name in DV.path_prefs:
                 value=self.expandPath(value)
             return value
-        else:
-            print 'No such section:',section
+        elif DV.defaultprefs.has_key(section+':'+name):
+            value=DV.defaultprefs[section+':'+name]
+            self.ini.add_section(section)
+            self.sets(section,name,value)
+            return self.gets(section,name)
+        print 'No such section:',section
     def sets(self,section,name,value):
         name=name.lower()
         if self.ini.has_section(section):
-            if name in self.pathprefs:
+            if section+':'+name in DV.path_prefs:
                 value=self.reducePath(value)
-            return self.ini.set(section,name,value)
+            return self.ini.set(section,name,str(value))
         else:
             print 'No such section:',section
+    def rems(self,section,name=None):
+        try:
+            if name is None:
+                self.ini.remove_section(section)
+            else:
+                self.ini.remove_option(section,name)
+        except:
+            print 'No such section/option'
     def lists(self,section):
+        prefs=[]
+        if DV.preference_order.has_key(section):
+            prefs.extend(DV.preference_order[section])
         if self.ini.has_section(section):
-            return self.ini.options(section)
-        else:
-            print 'No such section.'
+            for i in self.ini.options(section):
+                if i not in prefs:
+                    prefs.append(i)
+        if len(prefs):
+            return prefs
+        print 'No such section.'
+    def listsections(self):
+        return self.ini.sections()
+    def get(self,name):
+        return self.gets('damnvid',name)
+    def set(self,name,value):
+        return self.sets('damnvid',name,value)
     def getp(self,profile,name):
         if int(profile)==-1:
             if name.lower()=='name':
@@ -536,10 +972,15 @@ class DamnVidPrefs: # Preference manager
         return self.sets('damnvid-default-profiles',name,value)
     def listd(self):
         return self.lists('damnvid-default-profiles')
+    def getm(self,module,name):
+        return self.gets('damnvid-module-'+module,name)
+    def setm(self,module,name,value):
+        return self.sets('damnvid-module-'+module,name,value)
     def addp(self):
         self.ini.add_section('damnvid-profile-'+str(self.profiles))
-        for i in self.ini.options('damnvid-typical-profile'):
-            self.ini.set('damnvid-profile-'+str(self.profiles),i,self.ini.get('damnvid-typical-profile',i))
+        for i in DV.defaultprefs.iterkeys():
+            if i[0:16]=='damnvid-profile:':
+                self.ini.set('damnvid-profile-'+str(self.profiles),i,DV.defaultprefs[i])
         self.profiles=self.profiles+1
     def remp(self,profile):
         if self.profiles>1:
@@ -559,8 +1000,12 @@ class DamnVidPrefs: # Preference manager
         else:
             print 'Denied~'
             return None
+    def geta(self,section,name):
+        return eval(base64.b64decode(self.gets(section,name)))
+    def seta(self,section,name,value):
+        return self.sets(section,name,base64.b64encode(str(value)))
     def save(self):
-        f=open(DV_CONF_FILE,'w')
+        f=open(DV.conf_file,'w')
         self.ini.write(f)
         f.close()
 class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
@@ -571,7 +1016,7 @@ class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
         wx.Button.__init__(self,parent,id,label)
     def onBrowse(self,event):
         dlg=wx.DirDialog(self,self.title,self.filefield.GetValue(),style=wx.DD_DEFAULT_STYLE|wx.DD_NEW_DIR_BUTTON)
-        dlg.SetIcon(DV_ICON)
+        dlg.SetIcon(DV.icon)
         path=None
         if dlg.ShowModal()==wx.ID_OK:
             path=dlg.GetPath()
@@ -579,52 +1024,431 @@ class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
         dlg.Destroy()
         if path!=None:
             self.callback(self,path)
+class DamnYouTubeService(thr.Thread):
+    def __init__(self,parent,query=None):
+        self.parent=parent
+        thr.Thread.__init__(self)
+        if query is None:
+            self.queries=None
+        else:
+            self.queries=[query]
+    def query(self,query):
+        if self.queries is None:
+            self.queries=[query]
+        else:
+            self.queries.append(query)
+    def stillAlive(self):
+        return True
+    def postEvent(self,info):
+        info['self']=self
+        try:
+            wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,info))
+        except:
+            pass # Window might have been closed
+    def returnResult(self,result,index=0):
+        return self.postEvent({'index':index,'query':self.queries[index],'result':result})
+    def getTempFile(self):
+        name=DV.tmp_path+str(random.random())+'.tmp'
+        while os.path.lexists(name):
+            name=DV.tmp_path+str(random.random())+'.tmp'
+        return name
+    def run(self):
+        while self.queries is None:
+            time.sleep(.025)
+        try:
+            self.parent.loadlevel+=1
+        except:
+            pass # Window might have been closed
+        while len(self.queries):
+            query=self.queries[0]
+            if query[0]=='feed':
+                self.returnResult(DV.youtube_service.GetYouTubeVideoFeed(query[1]))
+            elif query[0]=='image':
+                http=urllib2.urlopen(query[1])
+                tmpf=self.getTempFile()
+                tmpfstream=open(tmpf,'wb')
+                for i in http.readlines():
+                    tmpfstream.write(i)
+                http.close()
+                tmpfstream.close()
+                self.returnResult(tmpf)
+            self.queries.pop(0)
+            if not len(self.queries):
+                time.sleep(.5) # Hang around for a moment, wait for work
+        self.postEvent({'query':('done',)})
+        try:
+            self.parent.loadlevel-=1
+        except:
+            pass # Window might have been closed
+class DamnVidBrowser(wx.Dialog):
+    def __init__(self,parent):
+        self.parent=parent
+        wx.Dialog.__init__(self,parent,-1,'Search for videos...')
+        topsizer=wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(topsizer)
+        self.toppanel=wx.Panel(self,-1)
+        topsizer.Add(self.toppanel,1,wx.EXPAND)
+        topvbox=wx.BoxSizer(wx.VERTICAL)
+        tophbox=wx.BoxSizer(wx.HORIZONTAL)
+        self.toppanel.SetSizer(tophbox)
+        tophbox.Add((DV.border_padding,0))
+        tophbox.Add(topvbox,1,wx.EXPAND)
+        tophbox.Add((DV.border_padding,0))
+        topvbox.Add((0,DV.border_padding))
+        searchhbox=wx.BoxSizer(wx.HORIZONTAL)
+        topvbox.Add(searchhbox,0,wx.EXPAND)
+        searchhbox.Add(wx.StaticText(self.toppanel,-1,'Search:'),0,wx.ALIGN_CENTER_VERTICAL)
+        searchhbox.Add((DV.control_hgap,0))
+        self.standardchoices=('Most popular','Most viewed','Top rated','Recently featured','Most recent','Most discussed','Top favorites','Most linked','Most responded')
+        self.searchbox=wx.SearchCtrl(self.toppanel,-1,'',style=wx.TE_PROCESS_ENTER)
+        self.searchbox.SetSearchMenuBitmap(wx.Bitmap(DV.images_path+'searchctrl.png'))
+        self.searchbox.Bind(wx.EVT_TEXT_ENTER,self.search)
+        searchhbox.Add(self.searchbox,1,wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
+        self.searchbutton=wx.animate.GIFAnimationCtrl(self.toppanel,-1,DV.images_path+'search.gif')
+        self.searchbutton.Bind(wx.EVT_LEFT_DOWN,self.search)
+        searchhbox.Add((DV.control_hgap,0))
+        searchhbox.Add(self.searchbutton,0,wx.ALIGN_CENTER_VERTICAL)
+        self.scrollpanel=wx.ScrolledWindow(self.toppanel,-1,size=(360,270+3*DV.control_vgap))
+        self.scrollpanel.SetMinSize((360,270+3*DV.control_vgap))
+        self.scrollpanel.SetScrollbars(0,0,0,0)
+        scrollpanelsizer=wx.BoxSizer(wx.HORIZONTAL)
+        self.scrollpanel.SetSizer(scrollpanelsizer)
+        self.resultpanel=wx.Panel(self.scrollpanel,-1)
+        scrollpanelsizer.Add(self.resultpanel,1,wx.EXPAND)
+        self.resultsizer=wx.BoxSizer(wx.VERTICAL)
+        self.resultpanel.SetSizer(self.resultsizer)
+        topvbox.Add((0,DV.control_vgap))
+        topvbox.Add(self.scrollpanel,1,wx.EXPAND)
+        self.Bind(wx.EVT_CLOSE,self.onClose)
+        self.Bind(DV.evt_load,self.onLoad)
+        self.boxmenu=wx.Panel(self,-1) # Temp panel, gonna be deleted in buildSearchbox anyway
+        self.buildSearchbox()
+        self.loadlevel=0
+        self.results=[]
+        self.displayedurls=[]
+        self.resultctrls=[]
+        self.service=None
+        self.scrollpanel.Hide()
+        self.waitingpanel=wx.Panel(self.toppanel,-1,size=(360,270+3*DV.control_vgap))
+        waitingsizer=wx.BoxSizer(wx.VERTICAL)
+        self.waitingpanel.SetSizer(waitingsizer)
+        waitingsizer.Add((0,int(DV.control_vgap*1.5)))
+        waitingsizer2=wx.BoxSizer(wx.HORIZONTAL)
+        waitingsizer.Add(waitingsizer2)
+        waitingsizer2.Add((DV.control_hgap,0))
+        topvbox.Add(self.waitingpanel)
+        self.searchingimg=wx.StaticBitmap(self.waitingpanel,-1,wx.Bitmap(DV.images_path+'searchpanel.png'))
+        waitingsizer2.Add(self.searchingimg)
+        defaultsearch=DV.prefs.gets('damnvid-search','default_search')
+        if defaultsearch:
+            self.search(search=defaultsearch)
+        else:
+            pass
+        topvbox.Add((0,DV.control_vgap))
+        self.downloadAll=wx.Button(self.toppanel,-1,'Download all')
+        self.downloadAll.Bind(wx.EVT_BUTTON,self.onDownloadAll)
+        topvbox.Add(self.downloadAll,0,wx.ALIGN_RIGHT)
+        topvbox.Add((0,DV.border_padding))
+        self.SetClientSize(self.GetBestSize())
+        self.Center()
+    def cleanString(self,s):
+        return DamnHtmlEntities(s)
+    def getService(self):
+        if self.service is None:
+            self.service=DamnYouTubeService(self)
+            self.service.start()
+        else:
+            try:
+                if self.service.stillAlive():
+                    return self.service
+            except:
+                self.service=None
+                return self.getService()
+        return self.service
+    def search(self,event=None,search=''):
+        self.scrollpanel.Hide()
+        self.waitingpanel.Show()
+        self.toppanel.Layout()
+        if not search:
+            search=self.searchbox.GetValue()
+        if not search:
+            return
+        self.searchbox.SetValue(search)
+        self.searchbutton.LoadFile(DV.images_path+'searching.gif')
+        self.searchbutton.Play()
+        prefix='http://gdata.youtube.com/feeds/api/videos?racy=include&orderby=viewCount&vq='
+        if search in self.standardchoices:
+            prefix='http://gdata.youtube.com/feeds/api/standardfeeds/'
+            search=search.lower().replace(' ','_')
+        else:
+            history=DV.prefs.geta('damnvid-search','history')
+            if search not in history:
+                history.append(search)
+                while len(history)>int(DV.prefs.gets('damnvid-search','history_length')):
+                    history.pop(0)
+            DV.prefs.seta('damnvid-search','history',history)
+        self.buildSearchbox()
+        self.getService().query(('feed',prefix+urllib2.quote(search)))
+        for i in self.resultctrls:
+            i.Destroy()
+        self.resultctrls=[]
+        self.scrollpanel.SetScrollbars(0,0,0,0)
+        self.resultsizer.Clear(True)
+        self.displayedurls=[]
+    def onLoad(self,event):
+        info=event.GetInfo()
+        if info['query'][0]=='feed':
+            results=info['result']
+            boldfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+            boldfont.SetWeight(wx.FONTWEIGHT_BOLD)
+            tmpscrollbar=wx.ScrollBar(self.resultpanel,-1,style=wx.SB_VERTICAL)
+            panelwidth=self.resultpanel.GetSizeTuple()[0]-tmpscrollbar.GetSizeTuple()[0]
+            tmpscrollbar.Destroy()
+            del tmpscrollbar
+            for i in range(len(results.entry)):
+                tmpvbox=wx.BoxSizer(wx.VERTICAL)
+                tmpsizer=wx.BoxSizer(wx.HORIZONTAL)
+                tmpvbox.Add((0,DV.border_padding))
+                tmpvbox.Add(tmpsizer)
+                tmppanel=wx.Panel(self.resultpanel,-1,style=wx.SIMPLE_BORDER)
+                self.resultctrls.append(tmppanel)
+                tmppanel.SetBackgroundColour(wx.WHITE)
+                tmppanel.SetMinSize((panelwidth,-1))
+                self.resultsizer.Add(tmppanel)
+                tmppanel.SetSizer(tmpvbox)
+                tmpsizer.Add((DV.border_padding,0))
+                thumb=wx.animate.GIFAnimationCtrl(tmppanel,-1,DV.images_path+'thumbnail.gif')
+                self.getService().query(('image',results.entry[i].media.thumbnail[0].url,thumb))
+                tmpsizer.Add(thumb)
+                thumb.Play()
+                tmpsizer.Add((DV.control_hgap,0))
+                infobox=wx.BoxSizer(wx.VERTICAL)
+                tmpsizer.Add(infobox,1,wx.EXPAND)
+                title=DamnHyperlink(tmppanel,-1,self.cleanString(results.entry[i].media.title.text),self.cleanString(results.entry[i].media.player.url))
+                infobox.Add(title)
+                #infobox.Add((0,DV.control_vgap))
+                desc=self.makeDescPanel(results.entry[i].media.description.text,tmppanel,panelwidth-2*DV.border_padding)
+                tmpvbox.Add(desc,0,wx.EXPAND)
+                desc.Hide()
+                videoinfo=wx.BoxSizer(wx.HORIZONTAL)
+                infobox.Add(videoinfo)
+                #infobox.Add((0,DV.control_vgap))
+                tmplabel=wx.StaticText(tmppanel,-1,results.entry[i].media.category[0].text)
+                tmplabel.SetFont(boldfont)
+                tmplabel.SetForegroundColour(wx.BLACK)
+                videoinfo.Add(tmplabel)
+                tmplabel=wx.StaticText(tmppanel,-1,', ')
+                tmplabel.SetForegroundColour(wx.BLACK)
+                videoinfo.Add(tmplabel)
+                tmplabel=wx.StaticText(tmppanel,-1,self.sec2time(results.entry[i].media.duration.seconds))
+                tmplabel.SetFont(boldfont)
+                tmplabel.SetForegroundColour(wx.BLACK)
+                videoinfo.Add(tmplabel)
+                tmplabel=wx.StaticText(tmppanel,-1,'.')
+                tmplabel.SetForegroundColour(wx.BLACK)
+                videoinfo.Add(tmplabel)
+                statistics=wx.BoxSizer(wx.HORIZONTAL)
+                infobox.Add(statistics)
+                infobox.Add((0,DV.control_vgap))
+                statistics2=wx.BoxSizer(wx.HORIZONTAL)
+                infobox.Add(statistics2)
+                viewcount=wx.StaticText(tmppanel,-1,self.numFormat(results.entry[i].statistics.view_count))
+                viewcount.SetFont(boldfont)
+                viewcount.SetForegroundColour(wx.BLACK)
+                statistics.Add(viewcount)
+                tmplabel=wx.StaticText(tmppanel,-1,' views.')
+                tmplabel.SetForegroundColour(wx.BLACK)
+                statistics.Add(tmplabel)
+                tmplabel=wx.StaticText(tmppanel,-1,'Rating: ')
+                tmplabel.SetForegroundColour(wx.BLACK)
+                statistics2.Add(tmplabel,0,wx.ALIGN_CENTER_VERTICAL)
+                if results.entry[i].rating is None:
+                    tmplabel=wx.StaticText(tmppanel,-1,'(None)')
+                    tmplabel.SetForegroundColour(wx.BLACK)
+                    statistics2.Add(tmplabel,0,wx.ALIGN_CENTER_VERTICAL)
+                else:
+                    statistics2.Add(wx.StaticBitmap(tmppanel,-1,wx.Bitmap(DV.images_path+'stars_'+str(int(round(float(results.entry[i].rating.average),0)))+'.png')),0,wx.ALIGN_CENTER_VERTICAL)
+                infobox.Add((0,DV.control_vgap))
+                buttonrow=wx.BoxSizer(wx.HORIZONTAL)
+                infobox.Add(buttonrow)
+                btnDesc=wx.Button(tmppanel,-1,'Description')
+                buttonrow.Add(btnDesc)
+                buttonrow.Add((DV.control_hgap,0))
+                btnDesc.Bind(wx.EVT_BUTTON,DamnCurry(self.onDescButton,desc,tmppanel))
+                btnDownload=wx.Button(tmppanel,-1,'Download')
+                btnDownload.Bind(wx.EVT_BUTTON,DamnCurry(self.onDownload,results.entry[i].media.player.url))
+                self.displayedurls.append(results.entry[i].media.player.url)
+                buttonrow.Add(btnDownload)
+                tmpsizer.Add((DV.border_padding,0))
+                tmpvbox.Add((0,DV.border_padding))
+                if i+1!=len(results.entry):
+                    self.resultsizer.Add((0,DV.control_vgap))
+                    self.resultsizer.Add(wx.StaticLine(tmppanel,-1),0,wx.EXPAND)
+                    self.resultsizer.Add((0,DV.control_vgap))
+            self.waitingpanel.Hide()
+            self.scrollpanel.Show()
+            self.resultpanel.Fit()
+            self.scrollpanel.SetScrollbars(0,1,0,self.resultpanel.GetSizeTuple()[1])
+            self.toppanel.Layout()
+        elif info['query'][0]=='image':
+            try:
+                ctrl=info['query'][2]
+                ctrl.Stop()
+                ctrl.SetInactiveBitmap(wx.Bitmap(info['result']))
+            except:
+                pass
+            try:
+                os.remove(info['result'])
+            except:
+                pass
+        elif info['query'][0]=='done':
+            try:
+                self.service=None
+                self.searchbutton.Stop()
+                self.searchbutton.LoadFile(DV.images_path+'search.gif')
+            except:
+                pass
+    def buildSearchbox(self):
+        val=self.searchbox.GetValue().strip().lower()
+        self.boxmenu.Destroy()
+        del self.boxmenu
+        self.boxmenu=wx.Menu('')
+        history=DV.prefs.geta('damnvid-search','history')
+        if len(history):
+            history.reverse() # Recent entries appear on top
+            for i in history:
+                item=wx.MenuItem(self.boxmenu,-1,i,kind=wx.ITEM_RADIO)
+                self.boxmenu.AppendItem(item) # Once again, item has to be appended before being checked
+                item.Check(i.lower()==val)
+                self.boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
+                self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
+            item=wx.MenuItem(self.boxmenu,-1,'(Clear search history)',kind=wx.ITEM_RADIO) # Ironic, but necessary to put this one as a radio, otherwise wx guesses that the menu is actually two separated radio menus
+            self.boxmenu.AppendItem(item)
+            self.boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
+            self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
+        for i in self.standardchoices:
+            item=wx.MenuItem(self.boxmenu,-1,i,kind=wx.ITEM_RADIO)
+            self.boxmenu.AppendItem(item)
+            item.Check(i.lower()==val)
+            self.boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
+            self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
+        self.searchbox.SetMenu(self.boxmenu)
+    def onSearchMenu(self,query,event):
+        if query is None: # Clear history
+            DV.prefs.seta('damnvid-search','history',[])
+            DV.prefs.save()
+            self.buildSearchbox()
+        else:
+            self.searchbox.SetValue(query)
+            self.search()
+    def makeDescPanel(self,desc,parent,width):
+        desc=self.cleanString(desc)
+        panel=wx.Panel(parent,-1)
+        wrapper=wx.BoxSizer(wx.HORIZONTAL)
+        sizer=wx.BoxSizer(wx.VERTICAL)
+        sizer.Add((0,DV.control_vgap))
+        wrapper.Add((DV.border_padding,0))
+        wrapper.Add(sizer)
+        wrapper.Add((DV.border_padding,0))
+        panel.SetSizer(wrapper)
+        descfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        descfont.SetWeight(wx.FONTWEIGHT_BOLD)
+        txt=wx.StaticText(panel,-1,'Description:')
+        txt.SetFont(descfont)
+        txt.SetForegroundColour(wx.BLACK)
+        sizer.Add(txt)
+        descs=[]
+        lastindex=0
+        urls=[]
+        curmatch=1
+        for link in REGEX_HTTP_GENERIC_LOOSE.finditer(desc):
+            before=desc[lastindex:link.start()].strip()
+            if before:
+                descs.extend((before,link.group()))
+            else:
+                descs.append(link.group())
+                curmatch-=1
+            urls.append(curmatch)
+            lastindex=link.end()
+            curmatch+=2
+        if not len(descs):
+            descs=[desc]
+        for i in range(len(descs)):
+            if i in urls:
+                link=DamnHyperlink(panel,-1,descs[i],descs[i])
+                sizer.Add(link)
+            else:
+                txt=wx.StaticText(panel,-1,descs[i])
+                txt.SetForegroundColour(wx.BLACK)
+                txt.Wrap(width)
+                sizer.Add(txt)
+        return panel
+    def sec2time(self,sec):
+        t=(0,0,int(sec))
+        t=(t[0],(t[2]-t[2]%60)/60,t[2]%60)
+        t=(str((t[1]-t[1]%60)/60),str(t[1]%60),str(t[2]))
+        if t[0]=='0':
+            return t[1]+':'+self.numFormat(t[2],True)
+        return t[0]+':'+self.numFormat(t[1],True)+':'+self.numFormat(t[2],True)
+    def numFormat(self,num,doublezero=False):
+        num=REGEX_THOUSAND_SEPARATORS.sub(',',str(num))
+        if doublezero and len(num)==1:
+            num='0'+num
+        return num
+    def onDownload(self,url,event):
+        self.parent.addVid([url],DV.prefs.get('autoconvert')=='True')
+    def onDownloadAll(self,event):
+        self.parent.addVid(self.displayedurls,DV.prefs.get('autoconvert')=='True')
+    def onDescButton(self,ctrl,panel,event):
+        position=self.scrollpanel.GetViewStart()
+        ctrl.Show(not ctrl.IsShown())
+        panel.Fit()
+        panel.Layout()
+        self.resultpanel.Fit()
+        self.scrollpanel.SetScrollbars(0,1,0,self.resultpanel.GetSizeTuple()[1])
+        self.scrollpanel.Scroll(position[0],position[1])
+    def onClose(self,event=None):
+        self.parent.searchopen=False
+        DV.prefs.save() # Saves search history
+        self.Destroy()
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
     def __init__(self,parent,id,title,main):
         # Dialog init
         wx.Dialog.__init__(self,parent,id,title)
         self.parent=main
-        self.prefs=self.parent.prefs
+        DV.prefs.save() # Save just in case, we're gonna modify stuff!
         self.toppanel=wx.Panel(self,-1)
         self.bestsize=[0,0]
         # Top part of the toppanel
         self.topsizer=wx.BoxSizer(wx.VERTICAL)
-        self.topsizer.Add((0,DV_BORDER_PADDING))
+        self.topsizer.Add((0,DV.border_padding))
         self.uppersizer=wx.BoxSizer(wx.HORIZONTAL)
-        self.uppersizer.Add((DV_BORDER_PADDING,0))
+        self.uppersizer.Add((DV.border_padding,0))
         self.topsizer.Add(self.uppersizer,1,wx.EXPAND)
         # - Left part of the upperpanel
         self.upperleftpanel=wx.Panel(self.toppanel,-1)
         self.uppersizer.Add(self.upperleftpanel,0)
-        self.uppersizer.Add((DV_CONTROL_GAP,0))
+        self.uppersizer.Add((DV.control_hgap,0))
         self.upperleftsizer=wx.BoxSizer(wx.VERTICAL)
         self.tree=wx.TreeCtrl(self.upperleftpanel,-1,size=(220,280),style=wx.TR_LINES_AT_ROOT|wx.TR_HAS_BUTTONS|wx.TR_FULL_ROW_HIGHLIGHT)
         self.upperleftsizer.Add(self.tree,1,wx.EXPAND)
-        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
-        # - - Tree construction
-        self.treeroot=self.tree.AddRoot('DamnVid Preferences')
-        self.defaultprofiles=self.tree.AppendItem(self.treeroot,'Default profiles')
-        self.profileroot=self.tree.AppendItem(self.treeroot,'Encoding profiles')
-        self.profiles=[]
-        for i in range(0,self.prefs.profiles):
-            self.profiles.append(self.tree.AppendItem(self.profileroot,self.prefs.getp(i,'name')))
-        self.tree.ExpandAll()
-        # - - End tree construction
+        self.upperleftsizer.Add((0,DV.control_vgap))
+        self.buildTree()
         self.addProfileButton=wx.Button(self.upperleftpanel,-1,'Add profile')
         self.upperleftsizer.Add(self.addProfileButton,0,wx.EXPAND)
-        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
+        self.upperleftsizer.Add((0,DV.control_vgap))
         self.deleteProfileButton=wx.Button(self.upperleftpanel,-1,'Delete profile')
         self.upperleftsizer.Add(self.deleteProfileButton,0,wx.EXPAND)
-        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
+        self.upperleftsizer.Add((0,DV.control_vgap))
         self.importButton=wx.Button(self.upperleftpanel,-1,'Import preferences')
         self.upperleftsizer.Add(self.importButton,0,wx.EXPAND)
-        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
+        self.upperleftsizer.Add((0,DV.control_vgap))
         self.exportButton=wx.Button(self.upperleftpanel,-1,'Export preferences')
         self.upperleftsizer.Add(self.exportButton,0,wx.EXPAND)
-        self.upperleftsizer.Add((0,DV_CONTROL_GAP))
+        self.upperleftsizer.Add((0,DV.control_vgap))
         self.resetButton=wx.Button(self.upperleftpanel,-1,'Reset all')
         self.upperleftsizer.Add(self.resetButton,0,wx.EXPAND)
-        self.upperleftsizer.Add((0,DV_BORDER_PADDING))
+        self.upperleftsizer.Add((0,DV.border_padding))
         self.upperleftpanel.SetSizer(self.upperleftsizer)
         # - Right part of the upperpanel
         self.upperrightpanel=wx.Panel(self.toppanel,-1)
@@ -633,24 +1457,24 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.upperrightsizer=wx.StaticBoxSizer(self.prefpanelabel,wx.VERTICAL)
         # - - Preference pane creation
         self.prefpane=wx.Panel(self.upperrightpanel,-1)
-        self.prefpanesizer=wx.GridBagSizer(DV_BORDER_PADDING,DV_CONTROL_GAP) # Border-padding on vertical gap because otherwise the dialog gets annoyingly huge
+        self.prefpanesizer=wx.GridBagSizer(DV.control_vgap,DV.control_hgap) # Yes, it's vgap then hgap
         self.prefpane.SetSizer(self.prefpanesizer)
         # - - End preference pane creation
         self.upperrightsizer.Add(self.prefpane,1,wx.EXPAND)
-        self.uppersizer.Add((DV_BORDER_PADDING,0))
+        self.uppersizer.Add((DV.border_padding,0))
         self.upperrightpanel.SetSizer(self.upperrightsizer)
-        self.topsizer.Add((0,DV_CONTROL_GAP))
+        self.topsizer.Add((0,DV.control_vgap))
         # Bottom part of the toppanel
         self.lowersizer=wx.BoxSizer(wx.HORIZONTAL)
         self.topsizer.Add(self.lowersizer,0,wx.EXPAND)
         self.lowersizer.AddStretchSpacer(1)
         self.okButton=wx.Button(self.toppanel,wx.ID_OK,'OK')
         self.lowersizer.Add(self.okButton,0,wx.ALIGN_RIGHT)
-        self.lowersizer.Add((DV_CONTROL_GAP,0))
+        self.lowersizer.Add((DV.control_hgap,0))
         self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,'Cancel')
         self.lowersizer.Add(self.closeButton,0,wx.ALIGN_RIGHT)
-        self.lowersizer.Add((DV_BORDER_PADDING,0))
-        self.topsizer.Add((0,DV_BORDER_PADDING))
+        self.lowersizer.Add((DV.border_padding,0))
+        self.topsizer.Add((0,DV.border_padding))
         # Final touches, binds, etc.
         self.toppanel.SetSizer(self.topsizer)
         self.Bind(wx.EVT_BUTTON,self.onAddProfile,self.addProfileButton)
@@ -662,32 +1486,154 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.Bind(wx.EVT_BUTTON,self.onClose,self.closeButton)
         self.Bind(wx.EVT_TREE_SEL_CHANGED,self.onTreeSelectionChanged,self.tree)
         self.Bind(wx.EVT_KEY_DOWN,self.onKeyDown,self.toppanel)
+        self.Bind(DV.evt_load,self.onLoad)
         self.toppanel.SetFocus()
-        self.tree.SelectItem(self.treeroot,True) # Will also resize the window on certain platforms since it fires the selection events, but not on Ubuntu it seems, so...
+        self.forceSelect(self.treeroot) # Will also resize the window on certain platforms since it fires the selection events, but not on Ubuntu it seems, so...
         self.updatePrefPane('damnvid')
         self.Center()
+    def buildTree(self):
+        self.tree.DeleteAllItems()
+        treeimages=wx.ImageList(16,16,True)
+        self.tree.AssignImageList(treeimages)
+        self.treeroot=self.tree.AddRoot('DamnVid Preferences')
+        self.tree.SetItemImage(self.treeroot,treeimages.Add(wx.Bitmap(DV.images_path+'icon16.png')))
+        self.searchprefs=self.tree.AppendItem(self.treeroot,'YouTube browser')
+        self.tree.SetItemImage(self.searchprefs,treeimages.Add(wx.Bitmap(DV.images_path+'youtubebrowser.png')))
+        self.modulelistitem=self.tree.AppendItem(self.treeroot,'Modules')
+        self.tree.SetItemImage(self.modulelistitem,treeimages.Add(wx.Bitmap(DV.images_path+'modules.png')))
+        self.modules={}
+        self.moduledescs={}
+        for i in DV.modules.iterkeys():
+            self.modules[i]=self.tree.AppendItem(self.modulelistitem,DV.modules[i]['title'])
+            self.tree.SetItemImage(self.modules[i],treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+os.sep+DV.modules[i]['icon']['small'])))
+        self.profileroot=self.tree.AppendItem(self.treeroot,'Encoding profiles')
+        self.tree.SetItemImage(self.profileroot,treeimages.Add(wx.Bitmap(DV.images_path+'profiles.png')))
+        self.profiles=[]
+        for i in range(0,DV.prefs.profiles):
+            treeitem=self.tree.AppendItem(self.profileroot,DV.prefs.getp(i,'name'))
+            self.profiles.append(treeitem)
+            self.tree.SetItemImage(treeitem,treeimages.Add(wx.Bitmap(DV.images_path+'profile.png')))
+        self.tree.ExpandAll()
+        self.forceSelect(self.treeroot)
+    def forceSelect(self,item,event=None):
+        self.tree.SelectItem(item,True)
     def onTreeSelectionChanged(self,event):
         item=event.GetItem()
         self.prefpanelabel.SetLabel(self.tree.GetItemText(item))
         if item==self.treeroot:
             self.updatePrefPane('damnvid')
-        elif item==self.defaultprofiles:
-            self.updatePrefPane('damnvid-default-profiles')
+        elif item==self.searchprefs:
+            self.updatePrefPane('damnvid-search')
+        elif item==self.modulelistitem:
+            self.updatePrefPane('special:modules')
         elif item==self.profileroot:
             self.updatePrefPane('special:profileroot')
         elif item in self.profiles:
-            count=0
-            profile=None
-            for i in self.profiles:
-                if i!=item:
-                    count=count+1
-                else:
-                    profile=str(count)
-            self.updatePrefPane('damnvid-profile-'+profile)
+            self.updatePrefPane('damnvid-profile-'+str(self.profiles.index(item)))
+        elif item in self.modules.values():
+            for i in self.modules.iterkeys():
+                if self.modules[i]==item:
+                    self.updatePrefPane('damnvid-module-'+i)
+                    break
         else:
             self.updatePrefPane('special:error')
+    def getLabel(self,panel,label,color='#000000',bold=False,hyperlink=None):
+        if hyperlink is None:
+            lbl=wx.StaticText(panel,-1,label)
+        else:
+            lbl=DamnHyperlink(panel,-1,label,hyperlink)
+        if bold:
+            sysfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+            boldfont=wx.Font(sysfont.GetPointSize(),sysfont.GetFamily(),sysfont.GetStyle(),wx.FONTWEIGHT_BOLD)
+            lbl.SetFont(boldfont)
+        if hyperlink is None and color is not None:
+            lbl.SetForegroundColour(color)
+        return lbl
+    def buildModulePanel(self,parent,module,extended=False,buttons=True):
+        mod=DV.modules[module]
+        tmppanel=wx.Panel(parent,-1,style=wx.SIMPLE_BORDER)
+        tmppanel.SetBackgroundColour(wx.WHITE)
+        tmptop3sizer=wx.BoxSizer(wx.VERTICAL)
+        tmppanel.SetSizer(tmptop3sizer)
+        tmptop3sizer.Add((0,DV.border_padding))
+        tmptop2sizer=wx.BoxSizer(wx.HORIZONTAL)
+        tmptop3sizer.Add(tmptop2sizer,1,wx.EXPAND)
+        tmptop3sizer.Add((0,DV.border_padding))
+        tmptop2sizer.Add((DV.border_padding,0))
+        tmptopsizer=wx.BoxSizer(wx.VERTICAL)
+        tmptop2sizer.Add(tmptopsizer,1,wx.EXPAND)
+        tmptop2sizer.Add((DV.border_padding,0))
+        # Construct top row of the module item
+        tehrow=wx.BoxSizer(wx.HORIZONTAL)
+        tmptopsizer.Add(tehrow,1,wx.EXPAND)
+        tehrow.Add(wx.StaticBitmap(tmppanel,-1,wx.Bitmap(DV.modules_path+module+os.sep+mod['icon']['large'])))
+        tehrow.Add((DV.control_hgap,0))
+        rightcol=wx.BoxSizer(wx.VERTICAL)
+        tehrow.Add(rightcol,1,wx.EXPAND)
+        toprow=wx.BoxSizer(wx.HORIZONTAL)
+        rightcol.Add(toprow)
+        if mod['about'].has_key('url'):
+            toprow.Add(self.getLabel(tmppanel,mod['title'],hyperlink=mod['about']['url'],bold=True))
+        else:
+            toprow.Add(self.getLabel(tmppanel,mod['title'],bold=True))
+        toprow.Add(self.getLabel(tmppanel,' (version '))
+        toprow.Add(self.getLabel(tmppanel,mod['version'],bold=True))
+        toprow.Add(self.getLabel(tmppanel, ')'))
+        toprow.Add(self.getLabel(tmppanel,' by ',color='#707070'))
+        if mod['author'].has_key('url'):
+            toprow.Add(self.getLabel(tmppanel,mod['author']['name'],hyperlink=mod['author']['url'],bold=True))
+        else:
+            toprow.Add(self.getLabel(tmppanel,mod['author']['name'],bold=True))
+        toprow.Add(self.getLabel(tmppanel,'.'))
+        if extended:
+            rightcol.Add(self.getLabel(tmppanel,'Author:',bold=True))
+            authorsizer=wx.BoxSizer(wx.HORIZONTAL)
+            rightcol.Add(authorsizer)
+            authorsizer.Add((DV.control_hgap*2,0)) # Indent a bit
+            if mod['author'].has_key('url'):
+                authorsizer.Add(self.getLabel(tmppanel,mod['author']['name'],bold=True,hyperlink=mod['author']['url']))
+            else:
+                authorsizer.Add(self.getLabel(tmppanel,mod['author']['name'],bold=True))
+            if mod['author'].has_key('email'):
+                authorsizer.Add(self.getLabel(tmppanel,' <',color='#707070'))
+                authorsizer.Add(self.getLabel(tmppanel,mod['author']['email'],hyperlink='mailto:'+mod['author']['email']))
+                authorsizer.Add(self.getLabel(tmppanel,'>',color='#707070'))
+            desc=self.getLabel(tmppanel,mod['about']['long'])
+        else:
+            desc=self.getLabel(tmppanel,mod['about']['short'])
+        descwidth=parent.GetSizeTuple()[0]-2*DV.border_padding-72-DV.control_hgap
+        desc.Wrap(descwidth)
+        self.moduledescs[mod['name']]=(desc,descwidth)
+        rightcol.Add((0,DV.control_vgap))
+        rightcol.Add(desc)
+        if buttons:
+            rightcol.Add((0,DV.control_vgap))
+            tmpbuttonsizer=wx.BoxSizer(wx.HORIZONTAL)
+            rightcol.Add(tmpbuttonsizer,0,wx.ALIGN_RIGHT)
+            config=wx.Button(tmppanel,-1,'Configure')
+            config.Bind(wx.EVT_BUTTON,DamnCurry(self.forceSelect,self.modules[module]))
+            tmpbuttonsizer.Add(config)
+            tmpbuttonsizer.Add((DV.control_hgap,0))
+            update=wx.Button(tmppanel,-1,'Update')
+            update.Bind(wx.EVT_BUTTON,DamnCurry(self.onModuleUpdate,module))
+            tmpbuttonsizer.Add(update)
+            tmpbuttonsizer.Add((DV.control_hgap,0))
+            uninstall=wx.Button(tmppanel,-1,'Uninstall')
+            uninstall.Bind(wx.EVT_BUTTON,DamnCurry(self.onModuleUninstall,module))
+            tmpbuttonsizer.Add(uninstall)
+        return tmppanel
     def updatePrefPane(self,pane):
         self.prefpanesizer.Clear(True) # Delete all controls in prefpane
+        for i in range(self.prefpanesizer.GetCols()):
+            try:
+                self.prefpanesizer.RemoveGrowableCol(i)
+            except:
+                pass
+        for i in range(self.prefpanesizer.GetRows()):
+            try:
+                self.prefpanesizer.RemoveGrowableRow(i)
+            except:
+                pass
         self.pane=pane
         if pane[0:8].lower()=='special:':
             pane=pane[8:]
@@ -703,100 +1649,132 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 txt=wx.StaticText(self.prefpane,-1,'Error!')
                 txt.Wrap(max(self.prefpane.GetSize()[0],300))
                 self.prefpanesizer.Add(txt,(0,0),(1,1))
+            elif pane=='modules':
+                topsizer=wx.BoxSizer(wx.VERTICAL)
+                self.prefpanesizer.Add(topsizer,(0,0),(1,1),wx.EXPAND)
+                self.prefpanesizer.AddGrowableCol(0,1)
+                self.prefpanesizer.AddGrowableRow(0,1)
+                # Construct module list
+                self.modulelist=wx.ScrolledWindow(self.prefpane,-1,size=(460,3*(72+2*DV.border_padding)))
+                self.modulelist.SetMinSize((460,3*(72+2*DV.border_padding)))
+                modlistsizer=wx.BoxSizer(wx.VERTICAL)
+                self.modulelist.SetSizer(modlistsizer)
+                topsizer.Add(self.modulelist,1,wx.EXPAND)
+                topsizer.Add((0,DV.control_vgap))
+                buttonsizer=wx.BoxSizer(wx.HORIZONTAL)
+                topsizer.Add(buttonsizer,0,wx.ALIGN_RIGHT)
+                # Construct module list scrollable window
+                for mod in DV.modules.iterkeys():
+                    modlistsizer.Add(self.buildModulePanel(self.modulelist,mod),0,wx.EXPAND)
+                # Construct buttons under module list
+                install=wx.Button(self.prefpane,-1,'Install...')
+                install.Bind(wx.EVT_BUTTON,self.onModuleInstall)
+                buttonsizer.Add(install)
+                buttonsizer.Add((DV.control_hgap,0))
+                reset=wx.Button(self.prefpane,-1,'Reset all...')
+                reset.Bind(wx.EVT_BUTTON,self.onModuleAllReset)
+                buttonsizer.Add(reset)
+                buttonsizer.Add((DV.control_hgap,0))
+                update=wx.Button(self.prefpane,-1,'Check for updates')
+                update.Bind(wx.EVT_BUTTON,self.onModuleAllUpdate)
+                buttonsizer.Add(update)
         else:
             prefprefix=pane
             profile=None
+            module=None
             if prefprefix[0:16].lower()=='damnvid-profile-':
                 prefprefix=prefprefix[0:15]
                 profile=int(pane[16:])
+            elif prefprefix[0:15].lower()=='damnvid-module-':
+                module=prefprefix[15:]
             prefprefix+=':'
             self.controls={}
             currentprefs=[]
-            maxheight={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
-            maxwidth={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
+            maxheight={str(DV.preference_type_video):0,str(DV.preference_type_audio):0,str(DV.preference_type_profile):0,str(DV.preference_type_misc):0}
+            maxwidth={str(DV.preference_type_video):0,str(DV.preference_type_audio):0,str(DV.preference_type_profile):0,str(DV.preference_type_misc):0}
             count=0
-            availprefs=self.prefs.lists(pane)
-            for i in DV_PREFERENCE_ORDER[prefprefix[0:-1]]:
-                if prefprefix+i in DV_PREFERENCES.keys() and i in availprefs:
+            availprefs=DV.prefs.lists(pane)
+            for i in DV.preference_order[prefprefix[0:-1]]:
+                if prefprefix+i in DV.preferences.keys() and i in availprefs:
                     currentprefs.append(prefprefix+i)
             for i in availprefs:
-                if prefprefix+i in DV_PREFERENCES.keys():
-                    desc=DV_PREFERENCES[prefprefix+i]
+                if prefprefix+i in DV.preferences.keys():
+                    desc=DV.preferences[prefprefix+i]
                     width=1
                     if prefprefix+i not in currentprefs:
                         currentprefs.append(prefprefix+i)
                     maxheight[str(desc['type'])]+=1
                     maxwidth[str(desc['type'])]=max((maxwidth[str(desc['type'])],self.getPrefWidth(prefprefix+i)))
-            maxwidth[str(DV_PREFERENCE_TYPE_PROFILE)]=max((maxwidth[str(DV_PREFERENCE_TYPE_MISC)],maxwidth[str(DV_PREFERENCE_TYPE_PROFILE)],maxwidth[str(DV_PREFERENCE_TYPE_VIDEO)]+maxwidth[str(DV_PREFERENCE_TYPE_AUDIO)]))
-            maxwidth[str(DV_PREFERENCE_TYPE_MISC)]=maxwidth[str(DV_PREFERENCE_TYPE_PROFILE)]
+            maxwidth[str(DV.preference_type_profile)]=max((maxwidth[str(DV.preference_type_misc)],maxwidth[str(DV.preference_type_profile)],maxwidth[str(DV.preference_type_video)]+maxwidth[str(DV.preference_type_audio)]))
+            maxwidth[str(DV.preference_type_misc)]=maxwidth[str(DV.preference_type_profile)]
             count=0
-            currentprefsinsection={str(DV_PREFERENCE_TYPE_VIDEO):0,str(DV_PREFERENCE_TYPE_AUDIO):0,str(DV_PREFERENCE_TYPE_PROFILE):0,str(DV_PREFERENCE_TYPE_MISC):0}
+            currentprefsinsection={str(DV.preference_type_video):0,str(DV.preference_type_audio):0,str(DV.preference_type_profile):0,str(DV.preference_type_misc):0}
             for i in currentprefs:
                 shortprefname=i[i.find(':')+1:]
                 if profile==None:
-                    val=self.prefs.gets(pane,shortprefname)
+                    val=DV.prefs.gets(pane,shortprefname)
                 else:
-                    val=self.prefs.getp(profile,shortprefname)
-                position=[0,0]
-                maxspan=[1,maxwidth[str(DV_PREFERENCES[i]['type'])]]
-                if DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_AUDIO:
-                    position[1]+=maxwidth[str(DV_PREFERENCE_TYPE_VIDEO)]
-                elif DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_PROFILE:
-                    position[0]+=max((maxheight[str(DV_PREFERENCE_TYPE_VIDEO)],maxheight[str(DV_PREFERENCE_TYPE_AUDIO)]))
-                elif DV_PREFERENCES[i]['type']==DV_PREFERENCE_TYPE_MISC:
-                    position[0]+=maxheight[str(DV_PREFERENCE_TYPE_PROFILE)]+max((maxheight[str(DV_PREFERENCE_TYPE_VIDEO)],maxheight[str(DV_PREFERENCE_TYPE_AUDIO)]))
-                position[0]+=currentprefsinsection[str(DV_PREFERENCES[i]['type'])]
+                    val=DV.prefs.getp(profile,shortprefname)
+                position=[int(module is not None),0]
+                maxspan=[1,maxwidth[str(DV.preferences[i]['type'])]]
+                if DV.preferences[i]['type']==DV.preference_type_audio:
+                    position[1]+=maxwidth[str(DV.preference_type_video)]
+                elif DV.preferences[i]['type']==DV.preference_type_profile:
+                    position[0]+=max((maxheight[str(DV.preference_type_video)],maxheight[str(DV.preference_type_audio)]))
+                elif DV.preferences[i]['type']==DV.preference_type_misc:
+                    position[0]+=maxheight[str(DV.preference_type_profile)]+max((maxheight[str(DV.preference_type_video)],maxheight[str(DV.preference_type_audio)]))
+                position[0]+=currentprefsinsection[str(DV.preferences[i]['type'])]
                 controlposition=(position[0],position[1]+1)
-                controlspan=(1,maxwidth[str(DV_PREFERENCES[i]['type'])]-1)
-                currentprefsinsection[str(DV_PREFERENCES[i]['type'])]+=1
-                if DV_PREFERENCES[i]['kind']!='bool':
-                    label=wx.StaticText(self.prefpane,-1,DV_PREFERENCES[i]['name']+':')
+                controlspan=(1,maxwidth[str(DV.preferences[i]['type'])]-1)
+                currentprefsinsection[str(DV.preferences[i]['type'])]+=1
+                if DV.preferences[i]['kind']!='bool':
+                    label=wx.StaticText(self.prefpane,-1,DV.preferences[i]['name']+':')
                     self.prefpanesizer.Add(label,(position[0],position[1]),(1,1),wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT)
-                if type(DV_PREFERENCES[i]['kind']) is type({}):
+                if type(DV.preferences[i]['kind']) is type({}):
                     choices=['(default)']
-                    for f in DV_PREFERENCES[i]['order']:
-                        choices.append(DV_PREFERENCES[i]['kind'][f])
+                    for f in DV.preferences[i]['order']:
+                        choices.append(DV.preferences[i]['kind'][f])
                     if not val:
                         val='(default)'
                     else:
-                        if val in DV_PREFERENCES[i]['kind']:
-                            val=DV_PREFERENCES[i]['kind'][val]
-                    self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
+                        if val in DV.preferences[i]['kind']:
+                            val=DV.preferences[i]['kind'][val]
+                    self.controls[i]=self.makeList(DV.preferences[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
                     self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
-                elif DV_PREFERENCES[i]['kind'][0]=='%':
-                    self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(100.0*float(val)/float(str(DV_PREFERENCES[i]['kind'][1:]))),0,200)
-                elif DV_PREFERENCES[i]['kind']=='bool':
-                    if DV_PREFERENCES[i]['align']:
+                elif DV.preferences[i]['kind'][0]=='%':
+                    self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(100.0*float(val)/float(str(DV.preferences[i]['kind'][1:]))),0,200)
+                elif DV.preferences[i]['kind']=='bool':
+                    if DV.preferences[i]['align']:
                         self.controls[i]=wx.CheckBox(self.prefpane,-1)
-                        label=wx.StaticText(self.prefpane,-1,DV_PREFERENCES[i]['name'])
+                        label=wx.StaticText(self.prefpane,-1,DV.preferences[i]['name'])
                         label.Bind(wx.EVT_LEFT_UP,DamnCurry(self.onFakeCheckboxLabelClick,self.controls[i]))
                         self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,1),wx.ALIGN_RIGHT)
                         self.prefpanesizer.Add(label,(position[0],position[1]+1),(1,1),wx.EXPAND)
                     else:
-                        self.controls[i]=wx.CheckBox(self.prefpane,-1,DV_PREFERENCES[i]['name'])
-                        self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV_PREFERENCES[i]['type'])]),wx.EXPAND)
+                        self.controls[i]=wx.CheckBox(self.prefpane,-1,DV.preferences[i]['name'])
+                        self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV.preferences[i]['type'])]),wx.EXPAND)
                     self.controls[i].SetValue(val=='True')
                     self.Bind(wx.EVT_CHECKBOX,self.onPrefChange,self.controls[i])
-                elif DV_PREFERENCES[i]['kind'][0:3]=='int':
+                elif DV.preferences[i]['kind'][0:3]=='int':
                     choices=['(default)']
-                    if DV_PREFERENCES[i]['kind'][0:5]=='intk:':
-                        for f in range(int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find(':')+1:DV_PREFERENCES[i]['kind'].find('-')]),int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find('-')+1:])):
+                    if DV.preferences[i]['kind'][0:5]=='intk:':
+                        for f in range(int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find(':')+1:DV.preferences[i]['kind'].find('-')]),int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find('-')+1:])):
                             choices.append(str(pow(2,f))+'k')
                         if not val:
                             val='(default)'
-                        self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
+                        self.controls[i]=self.makeList(DV.preferences[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
                         self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
-                    elif DV_PREFERENCES[i]['kind'][0:4]=='int:':
-                        interval=(int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find(':')+1:DV_PREFERENCES[i]['kind'].find('-')]),int(DV_PREFERENCES[i]['kind'][DV_PREFERENCES[i]['kind'].find('-')+1:]))
+                    elif DV.preferences[i]['kind'][0:4]=='int:':
+                        interval=(int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find(':')+1:DV.preferences[i]['kind'].find('-')]),int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find('-')+1:]))
                         if not val:
                             val='0'
                         self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(val),min(interval),max(interval))
-                    elif DV_PREFERENCES[i]['kind']=='int':
+                    elif DV.preferences[i]['kind']=='int':
                         if not val:
                             val='(default)'
                         self.controls[i]=self.makeList(False,['(default)'],self.prefpane,val)
                         self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
-                elif DV_PREFERENCES[i]['kind']=='dir':
+                elif DV.preferences[i]['kind']=='dir':
                     pathpanel=wx.Panel(self.prefpane,-1)
                     pathsizer=wx.BoxSizer(wx.HORIZONTAL)
                     pathpanel.SetSizer(pathsizer)
@@ -804,25 +1782,41 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     self.controls[i]=wx.TextCtrl(pathpanel,-1,val)
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
                     pathsizer.Add(self.controls[i],1,wx.EXPAND)
-                    pathsizer.Add((DV_CONTROL_GAP,0))
-                    browseButton=DamnBrowseDirButton(pathpanel,-1,'Browse...',control=self.controls[i],title='Select DamnVid '+DV_VERSION+'\'s output directory.',callback=self.onBrowseDir)
+                    pathsizer.Add((DV.control_hgap,0))
+                    browseButton=DamnBrowseDirButton(pathpanel,-1,'Browse...',control=self.controls[i],title='Select DamnVid '+DV.version+'\'s output directory.',callback=self.onBrowseDir)
                     self.Bind(wx.EVT_BUTTON,browseButton.onBrowse,browseButton)
                     pathsizer.Add(browseButton,0)
-                elif DV_PREFERENCES[i]['kind']=='text':
+                elif DV.preferences[i]['kind']=='text':
                     self.controls[i]=wx.TextCtrl(self.prefpane,-1,val)
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
                     self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
-                elif DV_PREFERENCES[i]['kind']=='profile':
-                    if self.prefs.profiles:
+                elif DV.preferences[i]['kind']=='profile':
+                    if DV.prefs.profiles:
                         choices=[]
-                        for p in range(-1,self.prefs.profiles):
-                            choices.append(self.prefs.getp(p,'name'))
-                        self.controls[i]=self.makeList(DV_PREFERENCES[i]['strict'],choices,self.prefpane,None) # makeList takes care of the event binding
+                        for p in range(-1,DV.prefs.profiles):
+                            choices.append(DV.prefs.getp(p,'name'))
+                        self.controls[i]=self.makeList(DV.preferences[i]['strict'],choices,self.prefpane,None) # makeList takes care of the event binding
                         self.controls[i].SetSelection(int(val)+1)
                     else:
                         self.controls[i]=wx.StaticText(self.prefpane,-1,'No encoding profiles found!')
                     self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 count=count+1
+            self.prefpanesizer.Layout()
+            cols=self.prefpanesizer.GetCols()
+            totalwidth=float(self.prefpanesizer.GetMinSize()[0]-(cols-1)*self.prefpanesizer.GetHGap())
+            splitwidth=round(totalwidth/float(cols)-.5)
+            lastrow=self.prefpanesizer.GetRows()
+            for i in range(cols):
+                try:
+                    self.prefpanesizer.AddGrowableCol(i)
+                except:
+                    pass
+                curwidth=splitwidth
+                if i==cols-1:
+                    curwidth+=totalwidth-splitwidth*cols
+                self.prefpanesizer.Add((int(curwidth),0),(lastrow,i),(1,1))
+            if module is not None:
+                self.prefpanesizer.Add(self.buildModulePanel(self.prefpane,module,extended=True,buttons=False),(0,0),(1,self.prefpanesizer.GetCols()),wx.EXPAND)
         self.prefpanesizer.Layout() # Mandatory
         newsize=self.toppanel.GetBestSize()
         if newsize[0]>self.bestsize[0]:
@@ -832,19 +1826,19 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         self.SetClientSize(self.bestsize)
         self.Center()
     def getPrefWidth(self,pref):
-        if type(DV_PREFERENCES[pref]['kind']) is type({}):
+        if type(DV.preferences[pref]['kind']) is type({}):
             return 2
-        if DV_PREFERENCES[pref]['kind'][0:3]=='int':
+        if DV.preferences[pref]['kind'][0:3]=='int':
             return 2
-        if DV_PREFERENCES[pref]['kind']=='profile':
+        if DV.preferences[pref]['kind']=='profile':
             return 2
-        if DV_PREFERENCES[pref]['kind'][0]=='%':
+        if DV.preferences[pref]['kind'][0]=='%':
             return 2
-        if DV_PREFERENCES[pref]['kind']=='text':
+        if DV.preferences[pref]['kind']=='text':
             return 2
-        if DV_PREFERENCES[pref]['kind']=='dir':
+        if DV.preferences[pref]['kind']=='dir':
             return 2 # Label + Panel{TextCtrl + Button} = 2
-        if DV_PREFERENCES[pref]['kind']=='bool':
+        if DV.preferences[pref]['kind']=='bool':
             return 1
         return 0
     def onFakeCheckboxLabelClick(self,checkbox,event):
@@ -864,51 +1858,51 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 genericpref=pref[0]
             genericpref+=':'+pref[1]
             val=None
-            if type(DV_PREFERENCES[genericpref]['kind']) is type({}) or (DV_PREFERENCES[genericpref]['kind'][0:3]=='int' and DV_PREFERENCES[genericpref]['kind'][0:4]!='int:'):
-                if DV_PREFERENCES[genericpref]['strict']:
+            if type(DV.preferences[genericpref]['kind']) is type({}) or (DV.preferences[genericpref]['kind'][0:3]=='int' and DV.preferences[genericpref]['kind'][0:4]!='int:'):
+                if DV.preferences[genericpref]['strict']:
                     val=self.controls[i].GetSelection()
                     if val:
-                        val=DV_PREFERENCES[genericpref]['order'][val-1]
+                        val=DV.preferences[genericpref]['order'][val-1]
                     else:
                         val=''
                 else:
                     val=self.controls[i].GetValue()
                     if val=='(default)':
                         val=''
-                    elif type(DV_PREFERENCES[genericpref]['kind']) is type({}) and val in DV_PREFERENCES[genericpref]['kind'].values():
-                        for j in DV_PREFERENCES[genericpref]['kind'].iterkeys():
-                            if val==DV_PREFERENCES[genericpref]['kind'][j]:
+                    elif type(DV.preferences[genericpref]['kind']) is type({}) and val in DV.preferences[genericpref]['kind'].values():
+                        for j in DV.preferences[genericpref]['kind'].iterkeys():
+                            if val==DV.preferences[genericpref]['kind'][j]:
                                 val=j
-            elif DV_PREFERENCES[genericpref]['kind']=='profile':
+            elif DV.preferences[genericpref]['kind']=='profile':
                 val=self.controls[i].GetSelection()-1
-            elif DV_PREFERENCES[genericpref]['kind'][0:4]=='int:':
+            elif DV.preferences[genericpref]['kind'][0:4]=='int:':
                 val=int(self.controls[i].GetValue())
-            elif DV_PREFERENCES[genericpref]['kind'][0]=='%':
-                val=float(float(self.controls[i].GetValue())*float(int(DV_PREFERENCES[genericpref]['kind'][1:]))/100.0)
-            elif DV_PREFERENCES[genericpref]['kind']=='dir' or DV_PREFERENCES[genericpref]['kind']=='text':
+            elif DV.preferences[genericpref]['kind'][0]=='%':
+                val=float(float(self.controls[i].GetValue())*float(int(DV.preferences[genericpref]['kind'][1:]))/100.0)
+            elif DV.preferences[genericpref]['kind']=='dir' or DV.preferences[genericpref]['kind']=='text':
                 val=self.controls[i].GetValue()
                 if genericpref=='damnvid-profile:name':
                     name=val
-            elif DV_PREFERENCES[genericpref]['kind']=='bool':
+            elif DV.preferences[genericpref]['kind']=='bool':
                 val=self.controls[i].IsChecked() # The str() representation takes care of True/False
-            if val!=None:
-                self.prefs.sets(self.pane,prefname,str(val))
+            if val is not None:
+                DV.prefs.sets(self.pane,prefname,str(val))
         if name!=None and self.tree.GetSelection()!=self.treeroot and self.tree.GetItemParent(self.tree.GetSelection())==self.profileroot:
             self.tree.SetItemText(self.tree.GetSelection(),name)
             self.prefpanelabel.SetLabel(name)
     def onBrowseDir(self,button,path):
         for i in self.controls.iterkeys():
             if self.controls[i]==button.filefield:
-                self.prefs.sets(self.pane,self.splitLongPref(i)[1],path)
+                DV.prefs.sets(self.pane,self.splitLongPref(i)[1],path)
     def onAddProfile(self,event):
-        self.prefs.addp()
-        self.profiles.append(self.tree.AppendItem(self.profileroot,self.prefs.getp(self.prefs.profiles-1,'name')))
+        DV.prefs.addp()
+        self.profiles.append(self.tree.AppendItem(self.profileroot,DV.prefs.getp(DV.prefs.profiles-1,'name')))
         self.tree.SelectItem(self.profiles[-1],True)
     def onDeleteProfile(self,event):
         if self.tree.GetSelection()!=self.treeroot and self.tree.GetItemParent(self.tree.GetSelection())==self.profileroot:
             if len(self.profiles)>1:
                 profile=int(self.pane[16:])
-                self.prefs.remp(profile)
+                DV.prefs.remp(profile)
                 curprofile=self.tree.GetSelection()
                 if not profile:
                     # User is deleting first profile
@@ -924,14 +1918,91 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 self.tree.Delete(curprofile)
             else:
                 dlg=wx.MessageDialog(None,'Cannot delete all encoding profiles!','Cannot delete all profiles',wx.OK|wx.ICON_EXCLAMATION)
-                dlg.SetIcon(DV_ICON)
+                dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
         else:
             dlg=wx.MessageDialog(None,'Please choose a profile to delete from the profile list.','No profile selected',wx.OK|wx.ICON_EXCLAMATION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
+    def onLoad(self,event):
+        if self.tree.GetSelection()!=self.modulelistitem:
+            return
+        info=event.GetInfo()
+        mod=info['module']['name']
+        modtitle=info['module']['title']
+        desc=self.moduledescs[mod]
+        if type(info['result']) is type(''):
+            if info['result']=='error':
+                desc[0].SetLabel('There was an error while checking for updates to '+modtitle+'.')
+                desc[0].Wrap(desc[1])
+            elif info['result']=='uptodate':
+                desc[0].SetLabel(modtitle+' is up-to-date.')
+                desc[0].Wrap(desc[1])
+            elif info['result']=='cannot':
+                desc[0].SetLabel(modtitle+' has no update mechanism.')
+                desc[0].Wrap(desc[1])
+        elif type(info['result']) is type(()):
+            self.buildTree()
+            self.forceSelect(self.modulelistitem)
+            wx.Yield()
+            desc=self.moduledescs[mod]
+            desc[0].SetLabel(modtitle+' has been updated to version '+str(info['result'][0])+'.')
+            desc[0].Wrap(desc[1])
+        self.modulelist.Layout()
+    def onModuleUpdate(self,module=None,event=None):
+        if not DV.modules.has_key(module):
+            return
+        module=DV.modules[module]
+        desc=self.moduledescs[module['name']]
+        if not module['about'].has_key('url'):
+            desc[0].SetLabel(module['title']+' has no update mechanism.')
+            desc[0].Wrap(desc[1])
+            return
+        desc[0].SetLabel('Checking for updates...')
+        desc[0].Wrap(desc[1])
+        updatecheck=DamnModuleUpdateCheck(self,module)
+        updatecheck.start()
+    def onModuleAllUpdate(self,event):
+        modlist=[]
+        for i in self.moduledescs.iterkeys():
+            if DV.modules.has_key(i):
+                modlist.append(DV.modules[i])
+                self.moduledescs[i][0].SetLabel('Checking for updates...')
+                self.moduledescs[i][0].Wrap(self.moduledescs[i][1])
+        updatecheck=DamnModuleUpdateCheck(self,modlist)
+        updatecheck.start()
+    def onModuleAllReset(self,event):
+        dlg=wx.MessageDialog(None,'Are you sure you want to reset all the default modules and their preferences?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg.SetIcon(DV.icon)
+        if dlg.ShowModal()==wx.ID_YES:
+            for i in DV.prefs.listsections():
+                if i[0:15]=='damnvid-module-':
+                    DV.prefs.rems(i)
+            DV.prefs.save()
+            DamnLoadConfig(forcemodules=True)
+            DV.prefs=DamnVidPrefs()
+            self.buildTree()
+            self.forceSelect(self.modulelistitem)
+        dlg.Destroy()
+    def onModuleInstall(self,event=None):
+        pass
+    def onModuleUninstall(self,module=None,event=None):
+        if not DV.modules.has_key(module):
+            return
+        dlg=wx.MessageDialog(None,'Are you sure you want to uninstall the '+module+' module?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg.SetIcon(DV.icon)
+        if dlg.ShowModal()==wx.ID_YES:
+            del DV.modules[module]
+            try:
+                shutil.rmtree(DV.modules_path+module)
+            except:
+                pass
+            DV.prefs.rems('damnvid-module-'+module)
+            self.buildTree()
+            self.forceSelect(self.modulelistitem)
+        dlg.Destroy()
     def makeList(self,strict,choices,panel,value):
         if strict:
             cont=wx.Choice(panel,-1,choices=choices)
@@ -963,7 +2034,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         self.Bind(wx.EVT_SLIDER,DamnCurry(self.updateSlider,slider,tmplabel),slider)
         sizer.Add(tmppanel,position[0],position[1],wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
         return slider
-    def updateSlider(self,slider,label,event):
+    def updateSlider(self,slider,label,event=None):
         label.SetLabel(str(slider.GetValue()))
         self.onPrefChange(event)
     def getListValue(self,name,strict):
@@ -973,8 +2044,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             val=self.controls[name].GetValue()
         if val=='(default)':
             val=''
-        elif type(DV_PREFERENCE_TYPE[name]['kind']) is type({}):
-            for key,i in DV_PREFERENCE_TYPE[name]['kind'].iteritems():
+        elif type(DV.preference_type[name]['kind']) is type({}):
+            for key,i in DV.preference_type[name]['kind'].iteritems():
                 if i==val:
                     return key
         return val
@@ -986,8 +2057,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 self.controls[name].SetValue('(default)')
         else:
             if strict:
-                if type(DV_PREFERENCE_TYPE[name]['kind']) is type({}):
-                    value=DV_PREFERENCE_TYPE[name]['kind'][value]
+                if type(DV.preference_type[name]['kind']) is type({}):
+                    value=DV.preference_type[name]['kind'][value]
                 c=0
                 for i in self.listvalues[name]:
                     if i==value:
@@ -996,43 +2067,34 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             else:
                 self.controls[name].SetValue(value)
     def onOK(self,event):
-        self.prefs.save()
-        del self.prefs,self.parent.prefs
-        self.parent.prefs=DamnVidPrefs()
+        DV.prefs.save()
         self.Close(True)
     def onReset(self,event):
         dlg=wx.MessageDialog(None,'All changes to DamnVid\'s configuration will be lost. Continue?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
-        dlg.SetIcon(DV_ICON)
+        dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_YES:
             dlg.Destroy()
-            checkupdates=self.prefs.get('checkforupdates')
-            del self.prefs,self.parent.prefs
-            os.remove(DV_CONF_FILE)
-            shutil.copyfile(DV_CURDIR+'conf'+os.sep+'conf.ini',DV_CONF_FILE)
-            self.parent.prefs=DamnVidPrefs()
-            self.parent.prefs.set('checkforupdates',checkupdates)
-            self.parent.prefs.save()
-            self.prefs=self.parent.prefs
-            self.tree.SelectItem(self.treeroot,True)
-            self.tree.DeleteChildren(self.profileroot)
-            self.profiles=[]
-            for i in range(0,self.prefs.profiles):
-                self.profiles.append(self.tree.AppendItem(self.profileroot,self.prefs.getp(i,'name')))
-            self.tree.ExpandAll()
+            checkupdates=DV.prefs.get('checkforupdates')
+            DV.prefs=None
+            os.remove(DV.conf_file)
+            shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
+            DamnLoadConfig(forcemodules=True)
+            DV.prefs=DamnVidPrefs()
+            DV.prefs.set('checkforupdates',checkupdates)
+            DV.prefs.save()
+            self.buildTree()
             dlg=wx.MessageDialog(None,'DamnVid\'s configuration has been successfully reset.','Configuration reset',wx.OK|wx.ICON_INFORMATION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
-            dlg.Destroy()
-        else:
-            dlg.Destroy()
+        dlg.Destroy()
     def onImport(self,event):
-        dlg=wx.FileDialog(None,'Where is located the configuration file to import?',self.prefs.get('lastprefdir'),'DamnVid-'+DV_VERSION+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_OPEN)
-        dlg.SetIcon(DV_ICON)
+        dlg=wx.FileDialog(None,'Where is located the configuration file to import?',DV.prefs.get('lastprefdir'),'DamnVid-'+DV.version+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_OPEN)
+        dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_OK:
             self.tree.SelectItem(self.treeroot,True)
             path=dlg.GetPath()
             dlg.Destroy()
-            self.prefs.set('lastprefdir',path)
+            DV.prefs.set('lastprefdir',path)
             f=open(path,'r')
             testprefs=ConfigParser.SafeConfigParser()
             allOK=False
@@ -1046,32 +2108,32 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 except:
                     pass
                 dlg=wx.MessageDialog(None,'Invalid configuration file.','Invalid file',wx.OK|wx.ICON_ERROR)
-                dlg.SetIcon(DV_ICON)
+                dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
             if allOK:
                 keepgoing=True
                 while keepgoing:
-                    keepgoing=(self.prefs.remp(0)!=None)
+                    keepgoing=DV.prefs.remp(0) is not None
                 for i in testprefs.sections():
                     try:
-                        self.prefs.ini.add_section(i)
+                        DV.prefs.ini.add_section(i)
                     except:
                         pass
                     for j in testprefs.options(i):
-                        self.prefs.sets(i,j,testprefs.get(i,j))
+                        DV.prefs.sets(i,j,testprefs.get(i,j))
                 self.parent.reopenprefs=True
                 self.onOK(None)
         else:
             dlg.Destroy()
     def onExport(self,event):
-        dlg=wx.FileDialog(None,'Where do you want to export DamnVid '+DV_VERSION+'\'s configuration?',self.prefs.get('lastprefdir'),'DamnVid-'+DV_VERSION+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
-        dlg.SetIcon(DV_ICON)
+        dlg=wx.FileDialog(None,'Where do you want to export DamnVid '+DV.version+'\'s configuration?',DV.prefs.get('lastprefdir'),'DamnVid-'+DV.version+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_OK:
             path=dlg.GetPath()
-            self.prefs.set('lastprefdir',path)
+            DV.prefs.set('lastprefdir',path)
             f=open(path,'w')
-            self.prefs.ini.write(f)
+            DV.prefs.ini.write(f)
             f.close()
         dlg.Destroy()
     def onKeyDown(self,event):
@@ -1080,84 +2142,115 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         elif event.GetKeyCode() in (wx.WXK_NUMPAD_ENTER,wx.WXK_RETURN,wx.WXK_EXECUTE):
             self.onOK(event)
     def onClose(self,event):
-        del self.prefs,self.parent.prefs # Delete modified object
-        self.parent.prefs=DamnVidPrefs() # Reload from ini
+        DV.prefs=DamnVidPrefs() # Reload from ini
         self.Close(True)
 class DamnVideoLoader(thr.Thread):
-    def __init__(self,parent,uris):
+    def __init__(self,parent,uris,thengo=False,feedback=True):
         thr.Thread.__init__(self)
         self.uris=uris
         self.parent=parent
+        self.thengo=thengo
+        self.feedback=feedback
+        self.done=False
+        self.result=None
     def run(self):
-        self.parent.toggleLoading(True)
+        if self.feedback:
+            self.parent.toggleLoading(True)
         self.vidLoop(self.uris)
-        self.parent.toggleLoading(False)
+        self.done=True
+        if self.feedback:
+            self.parent.toggleLoading(False)
+        else:
+            while self.done:
+                time.sleep(.1)
     def postEvent(self,info):
-        wx.PostEvent(self.parent,DamnLoadingEvent(DV_EVT_LOADING,-1,info))
+        if self.feedback:
+            wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,info))
     def getVidName(self,uri):
         return self.parent.getVidName(uri)
     def addValid(self,meta):
-        self.postEvent({'meta':meta})
+        meta['original']=self.originaluri
+        self.result=meta
+        self.postEvent({'meta':meta,'go':self.thengo})
     def SetStatusText(self,status):
         self.postEvent({'status':status})
     def showDialog(self,title,content,icon):
         self.postEvent({'dialog':(title,content,icon)})
-    def noHtmlEnt(self,html):
-        return self.parent.noHtmlEnt(html)
     def getDefaultProfile(self,profile):
-        return int(self.parent.prefs.getd(profile))
+        return int(DV.prefs.getd(profile))
     def vidLoop(self,uris):
         for uri in uris:
-            if self.parent.validURI(uri):
+            self.originaluri=uri
+            bymodule=False
+            for module in DV.modules.itervalues():
+                mod=module['class'](uri)
+                if mod.validURI():
+                    mod.addVid(self)
+                    bymodule=True
+                    break
+            if not bymodule:
                 if REGEX_HTTP_GENERIC.match(uri):
-                    # It's a URL
-                    match=REGEX_HTTP_YOUTUBE.search(uri)
-                    if match:
-                        uri='yt:'+match.group(1)
-                        name=self.getVidName(uri)
-                        profile='youtube'
-                        icon=self.parent.ID_ICON_YOUTUBE
-                        if type(name) is not type(''):
-                            if len(name)>1 and name[1]=='HD':
-                                profile='youtubehd'
-                                icon=self.parent.ID_ICON_YOUTUBEHD
-                            name=name[0]
-                        self.addValid({'name':name,'profile':self.getDefaultProfile(profile),'profilemodified':False,'fromfile':name,'dirname':'http://www.youtube.com/watch?v='+match.group(1),'uri':uri,'status':'Pending.','icon':icon})
-                    elif REGEX_HTTP_GVIDEO.search(uri):
+                    if REGEX_HTTP_GVIDEO.search(uri):
                         match=REGEX_HTTP_GVIDEO.search(uri)
                         uri='gv:'+match.group(1)
                         name=self.getVidName(uri)
                         self.addValid({'name':name,'profile':self.getDefaultProfile('googlevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_GVIDEO})
-                    elif REGEX_HTTP_VEOH.search(uri):
-                        html=urllib2.urlopen(uri) # Gotta download it right there instead of downloading it twice with the getVidName function
-                        name='Unknown title'
-                        Id=''
-                        for i in html:
-                            match=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
-                            if match:
-                                name=self.noHtmlEnt(match.group(1))
-                            else:
-                                match=REGEX_HTTP_VEOH_ID_EXTRACT.search(i)
-                                if match:
-                                    Id=match.group(1)
-                        if Id:
-                            uri='vh:'+Id
-                            self.addValid({'name':name,'profile':self.getDefaultProfile('veoh'),'profilemodified':False,'fromfile':name,'dirname':'http://www.veoh.com/videos/'+Id,'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_VEOH})
-                        else:
-                            self.SetStatusText('Couldn\'t detect Veoh video.')
                     elif REGEX_HTTP_DAILYMOTION.search(uri):
                         uri='dm:'+uri
                         name=self.getVidName(uri)
                         self.addValid({'name':name,'profile':self.getDefaultProfile('dailymotion'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_DAILYMOTION})
+                    elif REGEX_HTTP_BLIPTV.search(uri):
+                        res=REGEX_HTTP_BLIPTV.search(uri)
+                        uri='bl:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('bliptv'),'profilemodified':False,'fromfile':name,'dirname':'http://www.blip.tv/file/'+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_BLIPTV})
+                    elif REGEX_HTTP_METACAFE.search(uri):
+                        res=REGEX_HTTP_METACAFE.search(uri)
+                        uri='mc:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('metacafe'),'profilemodified':False,'fromfile':name,'dirname':'http://www.metacafe.com/watch/'+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_METACAFE})
+                    elif REGEX_HTTP_CRUNCHYROLL.search(uri):
+                        res=REGEX_HTTP_CRUNCHYROLL.search(uri)
+                        uri='cr:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('crunchyroll'),'profilemodified':False,'fromfile':name,'dirname':'http://www.crunchyroll.com/media-'+res.group(1)+'/','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_CRUNCHYROLL})
+                    elif REGEX_HTTP_MEGAVIDEO.search(uri):
+                        res=REGEX_HTTP_MEGAVIDEO.search(uri)
+                        uri='mv:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('megavideo'),'profilemodified':False,'fromfile':name,'dirname':'http://megavideo.com/?v='+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_MEGAVIDEO})
+                    elif REGEX_HTTP_REVVER.search(uri):
+                        res=REGEX_HTTP_REVVER.search(uri)
+                        uri='rv:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('revver'),'profilemodified':False,'fromfile':name,'dirname':'http://revver.com/video/'+res.group(1)+'/','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_REVVER})
+                    elif REGEX_HTTP_BREAK.search(uri):
+                        uri='br:'+uri
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('break'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_BREAK})
+                    elif REGEX_HTTP_FLICKR.search(uri):
+                        uri='fl:'+uri
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('flickr'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_FLICKR})
+                    elif REGEX_HTTP_LIVEVIDEO.search(uri):
+                        res=REGEX_HTTP_LIVEVIDEO.search(uri)
+                        uri='lv:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('livevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://www.livevideo.com/video/'+res.group(1)+'/.aspx','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_LIVEVIDEO})
+                    elif REGEX_HTTP_YOUKU.search(uri):
+                        res=REGEX_HTTP_YOUKU.search(uri)
+                        uri='yk:'+res.group(1)
+                        name=self.getVidName(uri)
+                        self.addValid({'name':name,'profile':self.getDefaultProfile('youku'),'profilemodified':False,'fromfile':name,'dirname':'http://v.youku.com/v_show/id_'+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_YOUKU})
                     else:
                         name=self.getVidName(uri)
                         if name=='Unknown title':
                             name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('web'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_ONLINE})
+                        self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_ONLINE})
                 else:
                     # It's a file or a directory
                     if os.path.isdir(uri):
-                        if self.parent.prefs.get('DirRecursion')=='True':
+                        if DV.prefs.get('DirRecursion')=='True':
                             for i in os.listdir(uri):
                                 self.vidLoop([uri+os.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
                         else:
@@ -1172,34 +2265,27 @@ class DamnVideoLoader(thr.Thread):
                             if len(uris)==1: # There's only one file, so an alert here is tolerable
                                 self.showDialog('Duplicate found','This video is already in the list!',wx.ICON_EXCLAMATION|wx.OK)
                         else:
-                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':self.getDefaultProfile('file'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.parent.ID_ICON_LOCAL})
-            else:
-                if len(uris)==1: # There's only one URI, so an alert here is tolerable
-                    self.showDialog('Invalid video','This is not a valid video!',wx.ICON_EXCLAMATION|wx.OK)
-                self.SetStatusText('Skipped '+uri+' (invalid video).')
+                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':DV.prefs.get('defaultprofile'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.parent.ID_ICON_LOCAL})
 class DamnConverter(thr.Thread): # The actual converter
     def __init__(self,parent):
         self.parent=parent
-        self.uris=self.getURI(parent.videos[self.parent.converting])
+        self.sourceid=self.parent.converting
+        self.sourceuri=parent.videos[parent.converting]
+        self.outdir=None
         thr.Thread.__init__(self)
     def getURI(self,uri):
-        if uri[0:3]=='yt:':
-            # YouTube video, must grab download ticket before continuing.
-            html=urllib2.urlopen('http://www.youtube.com/watch?v='+uri[3:])
-            for i in html:
-                res=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
-                if res:
-                    return ['http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res.group(3)] # If there's no match, ffmpeg will error by itself.
-        elif uri[0:3]=='gv:':
+        if self.parent.meta[self.sourceuri].has_key('module'):
+            if self.parent.meta[self.sourceuri]['module'] is not None:
+                uri=self.parent.meta[self.sourceuri]['module'].getDownload()
+                if not self.parent.meta[self.sourceuri]['profilemodified']:
+                    self.outdir=self.parent.meta[self.sourceuri]['module'].getOutdir()
+                if type(uri) in (type(''),type(u'')):
+                    uri=[uri]
+                return uri
+        if uri[0:3]=='gv:':
             html=urllib2.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
             for i in html:
                 res=REGEX_HTTP_GVIDEO_TICKET_EXTRACT.search(i)
-                if res:
-                    return [res.group(1)]
-        elif uri[0:3]=='vh:':
-            html=urllib2.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findById&videoId='+REGEX_HTTP_VEOH_SUBID_EXTRACT.sub('\\1',uri[3:])+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
-            for i in html:
-                res=REGEX_HTTP_VEOH_TICKET_EXTRACT.search(i)
                 if res:
                     return [res.group(1)]
         elif uri[0:3]=='dm:':
@@ -1226,11 +2312,114 @@ class DamnConverter(thr.Thread): # The actual converter
                                     finalurls.append('http://www.dailymotion.com'+l)
                         finalurls.reverse() # From best to worst quality. Note: this doesn't return a new reverse'd, array, it actually modifies the array itself
                         return finalurls
+        elif uri[0:3]=='bl:':
+            html=urllib2.urlopen('http://blip.tv/file/'+uri[3:]+'?skin=api')
+            urls=[]
+            for i in html:
+                res=REGEX_HTTP_BLIPTV_TICKET_EXTRACT.search(i)
+                if res:
+                    urls.append(urllib2.unquote(res.group(1)))
+            return urls
+        elif uri[0:3]=='mc:':
+            html=urllib2.urlopen('http://www.metacafe.com/watch/'+uri[3:])
+            for i in html:
+                res=REGEX_HTTP_METACAFE_TICKET_EXTRACT.search(i)
+                if res:
+                    return [urllib2.unquote(res.group(1))+'?__gda__='+res.group(2)]
+        elif uri[0:3]=='cr:':
+            html=urllib2.urlopen('http://www.crunchyroll.com/media-'+uri[3:]+'/?h264=1')
+            for i in html:
+                res=REGEX_HTTP_CRUNCHYROLL_TICKET_EXTRACT.search(i)
+                if res:
+                    return ['http://www.crunchyroll.com/getitem?videoid='+res.group(1)+'&mediaid='+res.group(2)]
+        elif uri[0:3]=='mv:':
+            html=urllib2.urlopen('http://megavideo.com/?v='+uri[3:])
+            k1=0
+            k2=0
+            un=''
+            s=''
+            for i in html:
+                res1,res2,res3,res4=REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[0].search(i),REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[1].search(i),REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[2].search(i),REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[3].search(i)
+                if res1:
+                    k1=int(res1.group(1))
+                if res2:
+                    k2=int(res2.group(1))
+                if res3:
+                    un=res3.group(1)
+                if res4:
+                    s=int(res4.group(1))
+            if k1 and k2 and s and un:
+                return ['http://www'+str(s)+'.megavideo.com/files/'+DamnMegaVideoDecrypt(un,k1,k2)+'/']
+        elif uri[0:3]=='rv:':
+            res=DV.revver_api.video.find({'ids':[int(uri[3:])]},['quicktimeDownloadUrl','quicktimeMediaUrl'],{'limit':1})[0]
+            return [res['quicktimeDownloadUrl'],res['quicktimeMediaUrl']]
+        elif uri[0:3]=='br:':
+            html=urllib2.urlopen(uri[3:])
+            for i in html:
+                res=REGEX_HTTP_BREAK_TICKET_EXTRACT.search(i)
+                if res:
+                    return ['http://media1.break.com/dnet/media/'+res.group(2)+'/'+res.group(1)+'.wmv','http://media1.break.com/dnet/media/'+res.group(2)+'/'+res.group(1)+'.flv']
+        elif uri[0:3]=='fl:':
+            html=urllib2.urlopen(uri[3:])
+            pageid=''
+            secret=''
+            for i in html:
+                res1,res2=REGEX_HTTP_FLICKR_TICKET_EXTRACT[0].search(i),REGEX_HTTP_FLICKR_TICKET_EXTRACT[1].search(i)
+                if res1:
+                    pageid=res1.group(1)+'-'+res1.group(2)
+                if res2:
+                    secret=res2.group(1)
+            if pageid and secret:
+                html=urllib2.urlopen('http://www.flickr.com/video_playlist.gne?node_id='+pageid+'&secret='+secret)
+                for i in html:
+                    res=REGEX_HTTP_FLICKR_TICKET_EXTRACT[2].search(i)
+                    if res:
+                        return [DamnHtmlEntities(res.group(1)+res.group(2)),DamnHtmlEntities(res.group(1)+res.group(2))] # Return it twice because sometimes Flickr fails (it does the same on the actual site, too (Says "Playback of this video failed"). It's a server-side error)
+        elif uri[0:3]=='lv:':
+            html=urllib2.urlopen('http://www.livevideo.com/video/'+uri[3:]+'/.aspx')
+            secret=''
+            for i in html:
+                res=REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT[0].search(i)
+                if res:
+                    secret=urllib2.unquote(res.group(1))+'&flash=flashundefined&h='+hashlib.md5(secret+'&flash=flashundefinedLVX*7x8yzwe').hexdigest()
+            if secret:
+                html=urllib2.urlopen(secret)
+                for i in html:
+                    res=REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT[1].search(i)
+                    if res:
+                        return [urllib2.unquote(res.group(1))]
+        elif uri[0:3]=='yk:':
+            html=urllib2.urlopen('http://v.youku.com/v_show/id_'+uri[3:])
+            longid=''
+            shortid=''
+            key1=''
+            key2=''
+            for i in html:
+                res1,res2=REGEX_HTTP_YOUKU_TICKET_EXTRACT[0].search(i),REGEX_HTTP_YOUKU_TICKET_EXTRACT[1].search(i)
+                if res1:
+                    shortid=res1.group(1)
+                if res2:
+                    longid=res2.group(1)
+            if shortid and longid:
+                html=urllib2.urlopen('http://v.youku.com/player/getPlayList/VideoIDS/'+shortid)
+                for i in html:
+                    res=REGEX_HTTP_YOUKU_TICKET_EXTRACT[2].search(i)
+                    if res:
+                        key1=res.group(1)
+                        key2=res.group(2)
+                if key1 and key2:
+                    try:
+                        return ['http://f.youku.com/player/getFlvPath/'+longid+'?k='+key2+hex(int(key1,16)^0xA55AA5A5)[2:]]
+                    except:
+                        pass
         return [uri]
     def cmd2str(self,cmd):
         s=''
         for i in cmd:
-            i=i.replace('?DAMNVID_VIDEO_STREAM?',self.stream).replace('?DAMNVID_VIDEO_PASS?',str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?',DV_TMP_PATH+self.tmpfilename)
+            stream=self.stream
+            if self.sourceuri[0:3]=='gv:':
+                stream=self.uri # Let ffmpeg download Google Videos directly
+            i=i.replace('?DAMNVID_VIDEO_STREAM?',stream).replace('?DAMNVID_VIDEO_PASS?',str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?',DV.tmp_path+self.tmpfilename)
             if i.find(' ')!=-1 or i.find('&')!=-1 or i.find('|')!=-1 or i.find('<')!=-1 or i.find('>')!=-1:
                 s+='"'+i.replace('"','\'\'')+'" '
             else:
@@ -1257,23 +2446,31 @@ class DamnConverter(thr.Thread): # The actual converter
         if progress is not None:
             info['progress']=float(progress)
         if statustext is not None:
-            info['statustext']=str(statustext)
+            info['statustext']=unicode(statustext)
         if status is not None:
-            info['status']=str(status)
+            info['status']=unicode(status)
         if dialog is not None:
             info['dialog']=dialog
         if go is not None:
             info['go']=go
-        wx.PostEvent(self.parent,DamnProgressEvent(DV_EVT_PROGRESS,-1,info))
+        wx.PostEvent(self.parent,DamnProgressEvent(DV.evt_progress,-1,info))
     def run(self):
+        self.uris=self.getURI(self.sourceuri)
         self.abort=False
         if not self.abort:
             self.uri=self.uris[0]
             self.update(0)
             self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
-            self.filename=REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name'])
+            self.filename=unicodedata.normalize('NFKD',unicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip() # Gotta convert to utf-8, because subprocess doesn't handle unicode strings very nicely
             self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
-            self.outdir=self.parent.prefs.getp(self.profile,'Outdir')
+            if os.path.lexists(self.uri):
+                self.stream=self.uri # It's a file stream, ffmpeg will take care of it
+                if self.outdir is None:
+                    self.outdir=DV.prefs.get('defaultoutdir')
+            else:
+                self.stream='-' # It's another stream, spawn a downloader thread to take care of it and pipe the content to ffmpeg via stdin
+                if self.outdir is None:
+                    self.outdir=DV.prefs.get('defaultweboutdir')
             if self.outdir[-1:]==os.sep:
                 self.outdir=self.outdir[0:-1]
             if not os.path.lexists(self.outdir):
@@ -1282,10 +2479,6 @@ class DamnConverter(thr.Thread): # The actual converter
                 os.remove(self.outdir)
                 os.makedirs(self.outdir)
             self.outdir=self.outdir+os.sep
-            if os.path.lexists(self.uri):
-                self.stream=self.uri # It's a file stream, ffmpeg will take care of it
-            else:
-                self.stream='-' # It's another stream, spawn a downloader thread to take care of it and feed the content to ffmpeg via stdin
             if self.profile==-1: # Do not encode, just copy
                 try:
                     failed=False
@@ -1311,16 +2504,16 @@ class DamnConverter(thr.Thread): # The actual converter
                     lasttime=0.0
                     self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
                     while keepgoing and not self.abort:
-                        i=src.read(1024)
+                        i=src.read(32768)
                         if len(i):
                             dst.write(i)
-                            copied+=1024.0
+                            copied+=32768.0
                         else:
                             copied=float(total)
                             keepgoing=False
                         progress=min((100.0,copied/total*100.0))
                         nowtime=float(time.time())
-                        if lasttime+.25<nowtime: # Do not send a progress update more than 4 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 4 times, which is acceptable.
+                        if lasttime+.5<nowtime: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
                             self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
                             lasttime=nowtime
                 except:
@@ -1336,19 +2529,19 @@ class DamnConverter(thr.Thread): # The actual converter
                 self.update(go=self.abort)
                 return
             os_exe_ext=''
-            if DV_OS_NAME=='nt':
+            if DV.os=='nt':
                 os_exe_ext='.exe'
-            elif DV_OS_NAME=='mac':
+            elif DV.os=='mac':
                 os_exe_ext='osx'
             self.passes=1
-            cmd=[DV_BIN_PATH+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-deinterlace','-passlogfile',DV_TMP_PATH+'pass']
-            for i in DV_PREFERENCES.keys():
+            cmd=[DV.bin_path+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-deinterlace','-passlogfile',DV.tmp_path+'pass']
+            for i in DV.preferences.keys():
                 if i[0:25]=='damnvid-profile:encoding_':
                     i=i[16:]
-                    pref=self.parent.prefs.getp(self.profile,i)
+                    pref=DV.prefs.getp(self.profile,i)
                     if pref:
-                        if type(DV_PREFERENCES['damnvid-profile:'+i]['kind']) is type(''):
-                            if DV_PREFERENCES['damnvid-profile:'+i]['kind'][0]=='%':
+                        if type(DV.preferences['damnvid-profile:'+i]['kind']) in (type(''),type(u'')):
+                            if DV.preferences['damnvid-profile:'+i]['kind'][0]=='%':
                                 pref=str(round(float(pref),0)) # Round
                         if i=='encoding_pass':
                             pref='?DAMNVID_VIDEO_PASS?'
@@ -1356,36 +2549,36 @@ class DamnConverter(thr.Thread): # The actual converter
                             cmd.append('-sameq')
                         else:
                             cmd.extend(['-'+i[9:],pref])
-            self.encodevideo=self.parent.prefs.getp(self.profile,'video')
-            self.encodeaudio=self.parent.prefs.getp(self.profile,'audio')
+            self.encodevideo=DV.prefs.getp(self.profile,'video')
+            self.encodeaudio=DV.prefs.getp(self.profile,'audio')
             if not self.encodevideo:
                 cmd.append('-vn')
             if not self.encodeaudio:
                 cmd.append('-an')
-            vidformat=self.parent.prefs.getp(self.profile,'Encoding_f')
-            self.vcodec=self.parent.prefs.getp(self.profile,'Encoding_vcodec')
-            self.acodec=self.parent.prefs.getp(self.profile,'Encoding_acodec')
-            self.totalpasses=self.parent.prefs.getp(self.profile,'Encoding_pass')
+            vidformat=DV.prefs.getp(self.profile,'Encoding_f')
+            self.vcodec=DV.prefs.getp(self.profile,'Encoding_vcodec')
+            self.acodec=DV.prefs.getp(self.profile,'Encoding_acodec')
+            self.totalpasses=DV.prefs.getp(self.profile,'Encoding_pass')
             if not self.totalpasses:
                 self.totalpasses=1
             else:
                 self.totalpasses=int(self.totalpasses)
-            if vidformat and DV_FILE_EXT.has_key(vidformat):
-                ext='.'+DV_FILE_EXT[vidformat]
+            if vidformat and DV.file_ext.has_key(vidformat):
+                ext='.'+DV.file_ext[vidformat]
             else:
-                if self.vcodec and self.encodevideo and DV_FILE_EXT_BY_CODEC.has_key(self.vcodec):
-                    ext='.'+DV_FILE_EXT_BY_CODEC[self.vcodec]
+                if self.vcodec and self.encodevideo and DV.file_ext_by_codec.has_key(self.vcodec):
+                    ext='.'+DV.file_ext_by_codec[self.vcodec]
                 elif self.encodeaudio and not self.encodevideo:
-                    if DV_FILE_EXT_BY_CODEC.has_key(self.acodec):
-                        ext='.'+DV_FILE_EXT_BY_CODEC[self.acodec]
+                    if DV.file_ext_by_codec.has_key(self.acodec):
+                        ext='.'+DV.file_ext_by_codec[self.acodec]
                     else:
                         ext='.mp3'
                 else:
                     ext='.avi'
             flags=[]
-            if self.vcodec and DV_CODEC_ADVANCED_CL.has_key(self.vcodec):
-                for o in DV_CODEC_ADVANCED_CL[self.vcodec]:
-                    if type(o) is type(''):
+            if self.vcodec and DV.codec_advanced_cl.has_key(self.vcodec):
+                for o in DV.codec_advanced_cl[self.vcodec]:
+                    if type(o) in (type(''),type(u'')):
                         if o not in flags: # If the flag is already there, don't add it again
                             flags.append(o)
                     else:
@@ -1395,24 +2588,26 @@ class DamnConverter(thr.Thread): # The actual converter
                 cmd.extend(['-flags',''.join(flags)])
             self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
             self.filenamenoext=self.filename
-            self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
+            self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
             cmd.append('?DAMNVID_OUTPUT_FILE?')
+            if self.sourceuri[0:3]=='rv:':
+                cmd.extend(['-map','0:6','-map','0:7']) # Revver videos have lots of streams, the sixth one is actually the video stream, and the seventh one is the audio stream
             self.filename=self.filenamenoext+ext
             self.duration=None
-            self.update(statustext='Converting '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+'...')
+            self.update(statustext=u'Converting '+unicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+unicode(self.filename.decode('utf8'))+u'...')
             while int(self.passes)<=int(self.totalpasses) and not self.abort:
                 if self.totalpasses!=1:
                     self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
                     self.update(status='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
                     if self.stream=='-':
                         if self.passes==1:
-                            self.tmppassfile=DV_TMP_PATH+self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
+                            self.tmppassfile=DV.tmp_path+self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
                         else:
                             self.stream=self.tmppassfile
                     if self.passes!=1:
-                        self.tmpfilename=self.gettmpfilename(DV_TMP_PATH,self.filenamenoext,ext)
-                self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV_TMP_PATH))
-                if self.stream=='-':
+                        self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
+                self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV.tmp_path))
+                if self.stream=='-' and self.sourceuri[0:3]!='gv:':
                     if self.totalpasses!=1:
                         self.feeder=DamnDownloader(self.uris,self.process.stdin,self.tmppassfile)
                     else:
@@ -1422,7 +2617,7 @@ class DamnConverter(thr.Thread): # The actual converter
                 while self.process.poll()==None and not self.abort:
                     c=self.process.stderr.read(1)
                     curline+=c
-                    if c=="\r" or c=="\n":
+                    if c=='\r' or c=='\n':
                         self.parseLine(curline)
                         curline=''
                 self.passes+=1
@@ -1430,35 +2625,35 @@ class DamnConverter(thr.Thread): # The actual converter
             result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
             time.sleep(.25) # Wait a bit
             self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
-            if result and os.path.lexists(DV_TMP_PATH+self.tmpfilename):
-                os.remove(DV_TMP_PATH+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
-            for i in os.listdir(os.path.dirname(DV_TMP_PATH)):
+            if result and os.path.lexists(DV.tmp_path+self.tmpfilename):
+                os.remove(DV.tmp_path+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
+            for i in os.listdir(os.path.dirname(DV.tmp_path)):
                 if i[0:8]=='damnvid-':
                     i=i[8:]
-                    if i==self.tmpfilename and not result:
+                    if i==self.tmpfilename and not result and not self.abort:
                         try:
-                            os.rename(DV_TMP_PATH+i,self.outdir+self.filename)
+                            os.rename(DV.tmp_path+i,self.outdir+self.filename)
                         except: # Maybe the file still isn't unlocked, it happens... Wait moar and retry
                             try:
                                 time.sleep(2)
-                                os.rename(DV_TMP_PATH+i,self.outdir+self.filename)
+                                os.rename(DV.tmp_path+i,self.outdir+self.filename)
                             except: # Now this is really bad, alert the user
                                 try: # Manual copy, might be needed if we're working on two different filesystems on a non-Windows platform
-                                    src=open(DV_TMP_PATH+i,'rb')
+                                    src=open(DV.tmp_path+i,'rb')
                                     dst=open(self.outdir+self.filename,'wb')
                                     for fileline in src.readlines():
                                         dst.write(fileline)
                                     try: # Another try block in order to avoid raising the huge except block with the dialog
                                         src.close()
                                         dst.close()
-                                        os.remove(DV_TMP_PATH+i)
+                                        os.remove(DV.tmp_path+i)
                                     except:
                                         pass
                                 except:
-	                            self.update(dialog=('Cannot move file!','DamnVid successfully converted the file but something (File permissions? Disconnected removable device?) prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV_TMP_PATH+i,wx.OK|wx.ICON_EXCLAMATION))
+	                            self.update(dialog=('Cannot move file!','DamnVid successfully converted the file but something (File permissions? Disconnected removable device?) prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV.tmp_path+i,wx.OK|wx.ICON_EXCLAMATION))
                     else:
                         try:
-                            os.remove(DV_TMP_PATH+i)
+                            os.remove(DV.tmp_path+i)
                         except:
                             pass
             if not result and not self.abort:
@@ -1476,16 +2671,16 @@ class DamnConverter(thr.Thread): # The actual converter
         else:
             res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
             if res:
-                wx.PostEvent(self.parent,DamnProgressEvent(DV_EVT_PROGRESS,-1,{
+                wx.PostEvent(self.parent,DamnProgressEvent(DV.evt_progress,-1,{
                     'progress':float(float(res.group(1))/self.duration/float(self.totalpasses)+float(float(self.passes-1)/float(self.totalpasses)))*100.0,
                     'status':self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(100.0*float(res.group(1))/self.duration))+'%]'
                 }))
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
-            if DV_OS_NAME=='nt':
-                DamnSpawner(DV_BIN_PATH+'taskkill.exe /PID '+str(self.process.pid)+' /F').wait()
-            elif DV_OS_NAME=='mac':
+            if DV.os=='nt':
+                DamnSpawner(DV.bin_path+'taskkill.exe /PID '+str(self.process.pid)+' /F').wait()
+            elif DV.os=='mac':
                 DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # From http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
             else:
                 os.kill(self.process.pid,signal.SIGTERM)
@@ -1549,42 +2744,7 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
             pass
 class DamnMainFrame(wx.Frame): # The main window
     def __init__(self,parent,id,title):
-        global DV_ICON
         wx.Frame.__init__(self,parent,wx.ID_ANY,title,size=(780,580),style=wx.DEFAULT_FRAME_STYLE)
-        if os.path.lexists(DV_CONF_FILE_DIRECTORY+'lastversion.damnvid'):
-            lastversion=open(DV_CONF_FILE_DIRECTORY+'lastversion.damnvid','r')
-            dvversion=lastversion.readline().strip()
-            lastversion.close()
-            del lastversion
-        else:
-            dvversion='old' # This is not an arbitrary erroneous value, it's handy in the concatenation on the wx.FileDialog line below
-        if dvversion!=DV_VERSION: # Just updated to new version, ask what to do about the preferences
-            dlg=wx.MessageDialog(self,'DamnVid was updated to '+DV_VERSION+'.\nIf anything fails, try to uninstall DamnVid before updating it again.\n\nFrom a version to another, DamnVid\'s default preferences may vary, and their structure may change.\nIf that is the case, your current preferences may not work anymore.\nAdditionally, new versions of DamnVid often come with new or updated encoding profiles. That is why DamnVid is going to overwrite your current configuration.\nDo you want to export your current preferences, before they get overwritten? You might then try to import them back using the "Import" button in the Preferences pane.','DamnVid was successfully updated',wx.YES|wx.NO|wx.ICON_QUESTION)
-            tmpprefs=DamnVidPrefs()
-            checkupdates=tmpprefs.get('CheckForUpdates')
-            if dlg.ShowModal()==wx.ID_YES:
-                dlg.Destroy()
-                dlg=wx.FileDialog(self,'Where do you want to export DamnVid\'s configuration?',tmpprefs.get('lastprefdir'),'DamnVid-'+dvversion+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
-                if dlg.ShowModal()==wx.ID_OK:
-                    path=dlg.GetPath()
-                    f=open(path,'w')
-                    tmpprefs.ini.write(f)
-                    f.close()
-                dlg.Destroy()
-            else:
-                dlg.Destroy()
-            # Now, overwrite the preferences!
-            del tmpprefs
-            os.remove(DV_CONF_FILE)
-            shutil.copyfile(DV_CURDIR+'conf'+os.sep+'conf.ini',DV_CONF_FILE)
-            lastversion=open(DV_CONF_FILE_DIRECTORY+'lastversion.damnvid','w')
-            lastversion.write(DV_VERSION)
-            lastversion.close()
-            del lastversion
-            tmpprefs=DamnVidPrefs()
-            tmpprefs.set('CheckForUpdates',checkupdates)
-            tmpprefs.save()
-            del tmpprefs
         self.CreateStatusBar()
         filemenu=wx.Menu()
         filemenu.Append(ID_MENU_ADD_FILE,'&Add files...','Adds damn videos from local files.')
@@ -1592,7 +2752,7 @@ class DamnMainFrame(wx.Frame): # The main window
         filemenu.Append(ID_MENU_ADD_URL,'Add &URL...','Adds a damn video from a URL.')
         self.Bind(wx.EVT_MENU,self.onAddURL,id=ID_MENU_ADD_URL)
         filemenu.AppendSeparator()
-        filemenu.Append(ID_MENU_EXIT,'E&xit','Terminates DamnVid '+DV_VERSION+'.')
+        filemenu.Append(ID_MENU_EXIT,'E&xit','Terminates DamnVid '+DV.version+'.')
         self.Bind(wx.EVT_MENU,self.onExit,id=ID_MENU_EXIT)
         vidmenu=wx.Menu()
         vidmenu.Append(ID_MENU_GO,'Let\'s &go!','Processes all the videos in the list.')
@@ -1608,7 +2768,7 @@ class DamnMainFrame(wx.Frame): # The main window
         halpmenu.Append(ID_MENU_UPDATE,'Check for updates...','Checks if a new version of DamnVid is available.')
         self.Bind(wx.EVT_MENU,self.onCheckUpdates,id=ID_MENU_UPDATE)
         halpmenu.AppendSeparator()
-        halpmenu.Append(ID_MENU_ABOUT,'&About DamnVid '+DV_VERSION+'...','Displays information about DamnVid.')
+        halpmenu.Append(ID_MENU_ABOUT,'&About DamnVid '+DV.version+'...','Displays information about DamnVid.')
         self.Bind(wx.EVT_MENU,self.onAboutDV,id=ID_MENU_ABOUT)
         self.menubar=wx.MenuBar()
         self.menubar.Append(filemenu,'&File')
@@ -1617,21 +2777,21 @@ class DamnMainFrame(wx.Frame): # The main window
         self.SetMenuBar(self.menubar)
         vbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
-        vbox.Add((0,DV_BORDER_PADDING))
+        #vbox.Add((0,DV.border_padding)) Actually, do NOT add a padding there, it looks better when stuck on the edge
         panel=wx.Panel(self,-1)
         vbox.Add(panel,1,wx.EXPAND)
         grid=wx.FlexGridSizer(2,2,8,8)
         panel1=wx.Panel(panel,-1)
-        grid.Add(panel1,0,wx.EXPAND)
+        grid.Add(panel1,1,wx.EXPAND)
         panel2=wx.Panel(panel,-1)
-        grid.Add(panel2,0)
+        grid.Add(panel2,0,wx.EXPAND)
         panel3=wx.Panel(panel,-1)
         grid.Add(panel3,0,wx.EXPAND)
         panel4=wx.Panel(panel,-1)
-        grid.Add(panel4,0)
+        grid.Add(panel4,0,wx.EXPAND)
         panel.SetSizer(grid)
         hbox1=wx.BoxSizer(wx.HORIZONTAL)
-        hbox1.Add((DV_BORDER_PADDING,0))
+        #hbox1.Add((DV.border_padding,0)) Ditto
         panel1.SetSizer(hbox1)
         self.list=DamnList(panel1,window=self)
         self.list.InsertColumn(ID_COL_VIDNAME,'Video name')
@@ -1643,64 +2803,93 @@ class DamnMainFrame(wx.Frame): # The main window
         self.list.InsertColumn(ID_COL_VIDPATH,'Source')
         self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
         self.list.Bind(wx.EVT_KEY_DOWN,self.onListKeyDown)
-        il=wx.ImageList(16,16,True)
-        self.ID_ICON_LOCAL=il.Add(wx.Bitmap(DV_IMAGES_PATH+'video.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_ONLINE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'online.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_YOUTUBE=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtube.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_YOUTUBEHD=il.Add(wx.Bitmap(DV_IMAGES_PATH+'youtubehd.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_GVIDEO=il.Add(wx.Bitmap(DV_IMAGES_PATH+'googlevideo.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_VEOH=il.Add(wx.Bitmap(DV_IMAGES_PATH+'veoh.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_DAILYMOTION=il.Add(wx.Bitmap(DV_IMAGES_PATH+'dailymotion.png',wx.BITMAP_TYPE_PNG))
-        self.list.AssignImageList(il,wx.IMAGE_LIST_SMALL)
+        self.list.Bind(wx.EVT_LIST_ITEM_SELECTED,self.onListSelect)
+        self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED,self.onListSelect)
+        DV.listicons_imagelist=wx.ImageList(16,16,True)
+        for icon in DV.listicons_order:
+            DV.listicons_imagelist.Add(wx.Bitmap(DV.listicons[icon]))
+        self.ID_ICON_LOCAL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'video.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_ONLINE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'online.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_YOUTUBE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'youtube.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_YOUTUBEHD=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'youtubehd.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_GVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'googlevideo.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_VEOH=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'veoh.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_DAILYMOTION=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'dailymotion.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_BLIPTV=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'bliptv.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_METACAFE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'metacafe.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_CRUNCHYROLL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'crunchyroll.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_MEGAVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'megavideo.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_REVVER=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'revver.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_BREAK=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'break.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_FLICKR=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'flickr.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_LIVEVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'livevideo.png',wx.BITMAP_TYPE_PNG))
+        self.ID_ICON_YOUKU=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'youku.png',wx.BITMAP_TYPE_PNG))
+        self.list.AssignImageList(DV.listicons_imagelist,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
         hbox1.Add(self.list,1,wx.EXPAND)
         vboxwrap2=wx.BoxSizer(wx.HORIZONTAL)
         sizer2=wx.BoxSizer(wx.VERTICAL)
         vboxwrap2.Add(sizer2)
-        vboxwrap2.Add((DV_BORDER_PADDING,0))
-        sizer2.Add((0,DV_BORDER_PADDING))
+        vboxwrap2.Add((DV.border_padding,0))
+        sizer2.Add((0,DV.border_padding))
         panel2.SetSizer(vboxwrap2)
-        self.droptarget=wx.animate.GIFAnimationCtrl(panel2,-1,DV_IMAGES_PATH+'droptarget.gif')
+        self.droptarget=wx.animate.GIFAnimationCtrl(panel2,-1,DV.images_path+'droptarget.gif')
+        self.droptarget.Bind(wx.EVT_LEFT_UP,self.onDropTargetClick)
         sizer2.Add(self.droptarget,0,wx.ALIGN_CENTER)
         self.droptarget.SetDropTarget(DamnDropHandler(self))
         # Extra forced gap here
-        sizer2.Add((0,DV_CONTROL_GAP+4))
+        sizer2.Add((0,DV.control_vgap+4))
         self.addByFile=wx.Button(panel2,-1,'Add Files')
-        sizer2.Add(self.addByFile,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.addByFile,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onAddFile,self.addByFile)
         self.addByURL=wx.Button(panel2,-1,'Add URL')
-        sizer2.Add(self.addByURL,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.addByURL,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onAddURL,self.addByURL)
+        self.btnSearch=wx.Button(panel2,-1,'Search...')
+        sizer2.Add(self.btnSearch,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
+        self.Bind(wx.EVT_BUTTON,self.onSearch,self.btnSearch)
         self.btnRename=wx.Button(panel2,-1,'Rename')
-        sizer2.Add(self.btnRename,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.btnRename,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onRename,self.btnRename)
+        self.profilepanel=wx.Panel(panel2,-1)
+        profilepanelsizer=wx.BoxSizer(wx.VERTICAL)
+        self.profilepanel.SetSizer(profilepanelsizer)
+        profilepanelsizer.Add(wx.StaticText(self.profilepanel,-1,'Profile:'),0,wx.ALIGN_CENTER)
+        self.profiledropdown=wx.Choice(self.profilepanel,-1,choices=['(None)'])
+        profilepanelsizer.Add((0,DV.control_vgap))
+        profilepanelsizer.Add(self.profiledropdown,0,wx.ALIGN_CENTER)
+        sizer2.Add(self.profilepanel)
+        tmplistheight=self.profiledropdown.GetSizeTuple()[1]
+        self.profilepanel.Hide()
+        sizer2.Add((0,DV.control_vgap))
         self.btnMoveUp=wx.Button(panel2,-1,'Move up')
-        sizer2.Add(self.btnMoveUp,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.btnMoveUp,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onMoveUp,self.btnMoveUp)
         self.btnMoveDown=wx.Button(panel2,-1,'Move down')
-        sizer2.Add(self.btnMoveDown,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.btnMoveDown,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onMoveDown,self.btnMoveDown)
         self.delSelection=wx.Button(panel2,-1,'Remove')
-        sizer2.Add(self.delSelection,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.delSelection,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onDelSelection,self.delSelection)
         self.delAll=wx.Button(panel2,-1,'Remove all')
-        sizer2.Add(self.delAll,0)
-        sizer2.Add((0,DV_CONTROL_GAP))
+        sizer2.Add(self.delAll,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
         self.gobutton1=wx.Button(panel2,-1,'Let\'s go!')
-        sizer2.Add(self.gobutton1,0)
-        sizer2.Add((0,DV_BORDER_PADDING))
+        sizer2.Add(self.gobutton1,0,wx.ALIGN_CENTER)
+        sizer2.Add((0,DV.border_padding))
         buttonwidth=sizer2.GetMinSizeTuple()[0]
         self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton1)
         hbox3=wx.BoxSizer(wx.HORIZONTAL)
-        hbox3.Add((DV_BORDER_PADDING,0))
+        hbox3.Add((DV.border_padding,0))
         panel3.SetSizer(hbox3)
         hbox3.Add(wx.StaticText(panel3,-1,'Current video: '),0,wx.ALIGN_CENTER_VERTICAL)
         self.gauge1=wx.Gauge(panel3,-1)
@@ -1716,61 +2905,134 @@ class DamnMainFrame(wx.Frame): # The main window
         hboxwrapper4=wx.BoxSizer(wx.HORIZONTAL)
         hbox4=wx.BoxSizer(wx.VERTICAL)
         hboxwrapper4.Add(hbox4)
-        hboxwrapper4.Add((0,DV_BORDER_PADDING))
+        hboxwrapper4.Add((0,DV.border_padding))
         panel4.SetSizer(hboxwrapper4)
         self.stopbutton=wx.Button(panel4,-1,'Stop')
         for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.delSelection,self.delAll,self.gobutton1,self.stopbutton):
             button.SetMinSize((buttonwidth,button.GetSizeTuple()[1]))
+        self.profiledropdown.SetMinSize((buttonwidth,tmplistheight))
+        self.profiledropdown.Bind(wx.EVT_CHOICE,self.onChangeProfileDropdown)
+        self.profilepanel.Show()
         hbox4.Add(self.stopbutton)
-        hbox4.Add((0,DV_BORDER_PADDING))
-        vbox.Add((0,DV_BORDER_PADDING))
+        hbox4.Add((0,DV.border_padding))
+        #vbox.Add((0,DV.border_padding)) Ditto
         self.stopbutton.Disable()
         self.Bind(wx.EVT_BUTTON,self.onStop,self.stopbutton)
         grid.AddGrowableRow(0,1)
         grid.AddGrowableCol(0,1)
         self.Bind(wx.EVT_CLOSE,self.onClose,self)
         self.Bind(wx.EVT_SIZE,self.onResize,self)
-        self.Bind(DV_EVT_PROG,self.onProgress)
-        self.Bind(DV_EVT_LOAD,self.onLoading)
-        DV_ICON=wx.Icon(DV_IMAGES_PATH+'icon.ico',wx.BITMAP_TYPE_ICO)
-        self.SetIcon(DV_ICON)
+        self.Bind(DV.evt_prog,self.onProgress)
+        self.Bind(DV.evt_load,self.onLoading)
+        self.clipboardtimer=wx.Timer(self,-1)
+        self.clipboardtimer.Start(1000)
+        self.Bind(wx.EVT_TIMER,self.onClipboardTimer,self.clipboardtimer)
+        DV.icon=wx.Icon(DV.images_path+'icon.ico',wx.BITMAP_TYPE_ICO)
+        self.SetIcon(DV.icon)
+    def init2(self):
+        if os.path.lexists(DV.conf_file_directory+'lastversion.damnvid'):
+            lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
+            dvversion=lastversion.readline().strip()
+            lastversion.close()
+            del lastversion
+        else:
+            dvversion='old' # This is not an arbitrary erroneous value, it's handy in the concatenation on the wx.FileDialog line below
+        if dvversion!=DV.version: # Just updated to new version, ask what to do about the preferences
+            dlg=wx.MessageDialog(self,'DamnVid was updated to '+DV.version+'.\nIf anything fails, try to uninstall DamnVid before updating it again.\n\nFrom a version to another, DamnVid\'s default preferences may vary, and their structure may change.\nIf that is the case, your current preferences may not work anymore.\nAdditionally, new versions of DamnVid often come with new or updated encoding profiles. That is why DamnVid is going to overwrite your current configuration.\nDo you want to export your current preferences, before they get overwritten? You might then try to import them back using the "Import" button in the Preferences pane.','DamnVid was successfully updated',wx.YES|wx.NO|wx.ICON_QUESTION)
+            tmpprefs=DamnVidPrefs()
+            checkupdates=tmpprefs.get('CheckForUpdates')
+            if dlg.ShowModal()==wx.ID_YES:
+                dlg.Destroy()
+                dlg=wx.FileDialog(self,'Where do you want to export DamnVid\'s configuration?',tmpprefs.get('lastprefdir'),'DamnVid-'+dvversion+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+                if dlg.ShowModal()==wx.ID_OK:
+                    path=dlg.GetPath()
+                    f=open(path,'w')
+                    tmpprefs.ini.write(f)
+                    f.close()
+                dlg.Destroy()
+            else:
+                dlg.Destroy()
+            # Now, overwrite the preferences!
+            del tmpprefs
+            os.remove(DV.conf_file)
+            shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
+            lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
+            lastversion.write(DV.version)
+            lastversion.close()
+            del lastversion
+            tmpprefs=DamnVidPrefs()
+            tmpprefs.set('CheckForUpdates',checkupdates)
+            tmpprefs.save()
+            del tmpprefs
         self.videos=[]
+        self.clippedvideos=[]
         self.resultlist=[]
         self.thisbatch=0
         self.thisvideo=[]
         self.meta={}
-        self.prefs=DamnVidPrefs()
+        DV.prefs=DamnVidPrefs()
         self.converting=-1
         self.isclosing=False
+        self.searchopen=False
+        self.addurl=None
         self.loadingvisible=0
-        self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
-        if DV_FIRST_RUN:
-            dlg=wx.MessageDialog(self,'Welcome to DamnVid '+DV_VERSION+'!\nWould you like DamnVid to check for updates every time it starts?','Welcome to DamnVid '+DV_VERSION+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
+        self.onListSelect()
+        if DV.first_run:
+            dlg=wx.MessageDialog(self,'Welcome to DamnVid '+DV.version+'!\nWould you like DamnVid to check for updates every time it starts?','Welcome to DamnVid '+DV.version+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
             if dlg.ShowModal()==wx.ID_YES:
-                self.prefs.set('CheckForUpdates','True')
+                DV.prefs.set('CheckForUpdates','True')
             else:
-                self.prefs.set('CheckForUpdates','False')
-        if self.prefs.get('CheckForUpdates')=='True':
+                DV.prefs.set('CheckForUpdates','False')
+        if DV.prefs.get('CheckForUpdates')=='True':
             self.onCheckUpdates(None)
+        self.SetStatusText('DamnVid ready.')
     def onExit(self,event):
         self.Close(True)
+    def onListSelect(self,event=None):
+        sel=self.list.getAllSelectedItems()
+        gotstuff=bool(len(sel))
+        self.btnRename.Enable(len(sel)==1)
+        self.delSelection.Enable(gotstuff)
+        self.delAll.Enable(gotstuff)
+        self.profiledropdown.Enable(gotstuff)
+        if gotstuff:
+            self.btnMoveUp.Enable(sel[0])
+            self.btnMoveDown.Enable(sel[-1]!=self.list.GetItemCount()-1)
+            choices=[]
+            uniprofile=int(self.meta[self.videos[sel[0]]]['profile'])
+            for i in sel:
+                if int(self.meta[self.videos[i]]['profile'])!=uniprofile:
+                    uniprofile=-2
+            for p in range(-1,DV.prefs.profiles):
+                choices.append(DV.prefs.getp(p,'name'))
+            if uniprofile==-2:
+                choices.insert(0,'(Multiple)')
+            self.profiledropdown.SetItems(choices)
+            if uniprofile==-2:
+                self.profiledropdown.SetSelection(0)
+            else:
+                self.profiledropdown.SetSelection(uniprofile+1)
+        else:
+            self.btnMoveUp.Disable()
+            self.btnMoveDown.Disable()
+            self.profiledropdown.SetItems(['(None)'])
     def onListKeyDown(self,event):
         if (event.GetKeyCode()==8 or event.GetKeyCode()==127) and self.list.GetSelectedItemCount(): # Backspace or delete, but only when there's at least one selected video
             self.onDelSelection(None)
     def onAddFile(self,event):
         d=os.getcwd()
-        if os.path.lexists(self.prefs.get('LastFileDir')):
-            if os.path.isdir(self.prefs.get('LastFileDir')):
-                d=self.prefs.get('LastFileDir')
-        elif os.path.lexists(self.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
-            if os.path.isdir(self.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
-                d=self.prefs.expandPath('?DAMNVID_MY_VIDEOS?')
+        if os.path.lexists(DV.prefs.get('LastFileDir')):
+            if os.path.isdir(DV.prefs.get('LastFileDir')):
+                d=DV.prefs.get('LastFileDir')
+        elif os.path.lexists(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
+            if os.path.isdir(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
+                d=DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')
         dlg=wx.FileDialog(self,'Choose a damn video.',d,'','All files|*.*|AVI files (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',wx.OPEN|wx.FD_MULTIPLE)
-        dlg.SetIcon(DV_ICON)
+        dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_OK:
             vids=dlg.GetPaths()
-            self.prefs.set('LastFileDir',os.path.dirname(vids[0]))
-            self.prefs.save()
+            DV.prefs.set('LastFileDir',os.path.dirname(vids[0]))
+            DV.prefs.save()
             self.addVid(vids)
         dlg.Destroy()
     def onAddURL(self,event):
@@ -1781,7 +3043,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 wx.TheClipboard.GetData(dataobject)
                 default=dataobject.GetText()
                 wx.TheClipboard.Close()
-                if not REGEX_HTTP_GENERIC.match(default):
+                if not self.validURI(default):
                     default='' # Only set that as default text if the clipboard's text content is not a URL
         except:
             default=''
@@ -1789,35 +3051,35 @@ class DamnMainFrame(wx.Frame): # The main window
             wx.TheClipboard.Close() # In case there's been an error before the clipboard could be closed, try to close it now
         except:
             pass # There's probably wasn't any error, just pass
-        dlg=wx.TextEntryDialog(self,'Enter the URL of the video you wish to download.','Enter URL.',default)
-        dlg.SetIcon(DV_ICON)
-        if dlg.ShowModal()==wx.ID_OK:
-            self.addVid([dlg.GetValue()])
-        dlg.Destroy()
+        self.addurl=DamnAddURLDialog(self,default)
+        self.addurl.SetIcon(DV.icon)
+        self.addurl.ShowModal()
+        self.addurl.Destroy()
+        self.addurl=None
     def validURI(self,uri):
         if REGEX_HTTP_GENERIC.match(uri):
-            if REGEX_HTTP_YOUTUBE.match(uri):
-                return 'YouTube Video'
-            else:
-                # Add elif's?
-                return 'Online video' # Not necessarily true, but ffmpeg will tell
+            regexes=(REGEX_HTTP_YOUTUBE,REGEX_HTTP_YOUTUBE_PLAYLIST,REGEX_HTTP_GVIDEO,REGEX_HTTP_VEOH,REGEX_HTTP_DAILYMOTION,REGEX_HTTP_BLIPTV,REGEX_HTTP_METACAFE,REGEX_HTTP_CRUNCHYROLL,REGEX_HTTP_MEGAVIDEO,REGEX_HTTP_REVVER,REGEX_HTTP_BREAK,REGEX_HTTP_FLICKR,REGEX_HTTP_LIVEVIDEO,REGEX_HTTP_YOUKU)
+            popularsite=False
+            for regex in regexes:
+                if regex.search(uri):
+                    return 'Popular site'
+            return 'Online video' # Not necessarily true, but ffmpeg will tell
         elif os.path.lexists(uri):
             return 'Local file'
         return None
     def getVidName(self,uri):
-        # Veoh is not in this list because it's taken directly from the addVid function in order to prevent redownloading the page
-        if uri[0:3]=='yt:':
+        """if uri[0:3]=='yt:':
             try:
                 ret=[]
                 html=urllib2.urlopen('http://www.youtube.com/watch?v='+uri[3:])
                 for i in html:
                     res=REGEX_HTTP_YOUTUBE_TITLE_EXTRACT.search(i)
                     if res:
-                        ret.append(self.noHtmlEnt(res.group(1)))
+                        ret.append(DamnHtmlEntities(res.group(1)))
                     else:
                         res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
                         if res:
-                            ret.append(self.noHtmlEnt(res.group(1)))
+                            ret.append(DamnHtmlEntities(res.group(1)))
                     res2=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
                     if res2:
                         url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)],True)
@@ -1825,87 +3087,157 @@ class DamnMainFrame(wx.Frame): # The main window
                             ret.append('HD')
                 return ret
             except:
-                pass # Can't grab this? Return Unknown title
-        elif uri[0:3]=='gv:':
+                pass # Can't grab this? Return Unknown title"""
+        if uri[0:3]=='gv:':
             try:
                 html=urllib2.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
                 for i in html:
                     res=REGEX_HTTP_GVIDEO_TITLE_EXTRACT.search(i)
                     if res:
-                        return self.noHtmlEnt(res.group(1))
+                        return DamnHtmlEntities(res.group(1))
                     else:
                         res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
                         if res:
-                            return self.noHtmlEnt(res.group(1))
+                            return DamnHtmlEntities(res.group(1))
                         else:
                             pass # Return Unknown title
             except:
                 pass # Can't grab this? Return Unknown title
+        elif uri[0:3]=='vh:':
+            html=urllib2.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findByPermalink&permalink=v'+uri[3:]+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key again
+            for i in html:
+                res=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
+                if res:
+                    return DamnHtmlEntities(res.group(1))
         elif uri[0:3]=='dm:':
             try:
                 html=urllib2.urlopen(uri[3:])
+                page=[]
                 for i in html:
+                    page.append(i)
+                for i in page:
                     res=REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT.search(i)
                     if res:
-                        return self.noHtmlEnt(res.group(1))
+                        res.group(0)
+                        return DamnHtmlEntities(res.group(1))
+                for i in page:
+                    res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
+                    if res:
+                        return DamnHtmlEntities(res.group(1))
                     else:
-                        res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
-                        if res:
-                            return self.noHtmlEnt(res.group(1))
-                        else:
-                            pass # Return Unknown title
+                        pass # Return Unknown title
             except:
                 pass # Can't grab this? Return Unknown title
+        elif uri[0:3]=='bl:':
+            html=urllib2.urlopen('http://www.blip.tv/file/'+uri[3:]+'?skin=api')
+            for i in html:
+                match=REGEX_HTTP_BLIPTV_TITLE_EXTRACT.search(i)
+                if match:
+                    return DamnHtmlEntities(match.group(1))
+        elif uri[0:3]=='mc:':
+            html=urllib2.urlopen('http://www.metacafe.com/watch/'+uri[3:])
+            for i in html:
+                match=REGEX_HTTP_METACAFE_TITLE_EXTRACT.search(i)
+                if match:
+                    return DamnHtmlEntities(match.group(1))
+        elif uri[0:3]=='cr:':
+            html=urllib2.urlopen('http://www.crunchyroll.com/media-'+uri[3:]+'/')
+            for i in html:
+                match=REGEX_HTTP_CRUNCHYROLL_TITLE_EXTRACT.search(i)
+                if match:
+                    return DamnHtmlEntities(match.group(1))
+        elif uri[0:3]=='mv:':
+            html=urllib2.urlopen('http://megavideo.com/?v='+uri[3:])
+            for i in html:
+                match=REGEX_HTTP_MEGAVIDEO_TITLE_EXTRACT.search(i)
+                if match:
+                    return DamnHtmlEntities(urllib2.unquote(match.group(1).replace('+',' '))).title()
+        elif uri[0:3]=='rv:':
+            return DV.revver_api.video.find({'ids':[int(uri[3:])]},['title'],{'limit':1})[0]['title']
+        elif uri[0:3]=='br:':
+            html=urllib2.urlopen(uri[3:])
+            for i in html:
+                match=REGEX_HTTP_BREAK_TITLE_EXTRACT.search(i)
+                if match:
+                    return DamnHtmlEntities(match.group(1))
+        elif uri[0:3]=='fl:':
+            html=urllib2.urlopen(uri[3:])
+            for i in html:
+                match=REGEX_HTTP_FLICKR_TITLE_EXTRACT.search(i)
+                if match:
+                    return DamnHtmlEntities(match.group(1))
+        elif uri[0:3]=='lv:':
+            html=urllib2.urlopen('http://www.livevideo.com/video/'+uri[3:]+'/.aspx')
+            page=''
+            for i in html:
+                page+=i
+            match=REGEX_HTTP_LIVEVIDEO_TITLE_EXTRACT.search(page)
+            if match:
+                return DamnHtmlEntities(match.group(1))
+        elif uri[0:3]=='yk:':
+            html=urllib2.urlopen('http://v.youku.com/v_show/id_'+uri[3:])
+            page=''
+            for i in html:
+                page+=i
+            match=REGEX_HTTP_YOUKU_TITLE_EXTRACT.search(page)
+            if match:
+                return DamnHtmlEntities(match.group(1))
         else:
             try:
                 html=urllib2.urlopen(uri[3:])
                 for i in html:
                     res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
                     if res:
-                        return self.noHtmlEnt(res.group(1))
+                        return DamnHtmlEntities(res.group(1)).strip()
             except:
                 pass # Can't grab this? Return Unknown title
-        return 'Unknown title'
-    def noHtmlEnt(self,html): # Replaces HTML entities from html
-        html=html.encode('ascii','ignore')
-        for i in htmlentitydefs.entitydefs.iterkeys():
-            html=html.replace('&'+str(i)+';',htmlentitydefs.entitydefs[i])
-        return html
+        return u'Unknown title'
+    def onDropTargetClick(self,event):
+        dlg=wx.MessageDialog(self,'This is a droptarget: You may drop video files and folders here (or in the big list as well).','DamnVid Droptarget',wx.ICON_INFORMATION)
+        dlg.SetIcon(DV.icon)
+        dlg.ShowModal()
+        dlg.Destroy()
     def toggleLoading(self,show):
         isvisible=self.loadingvisible>0
         self.loadingvisible=max((0,self.loadingvisible+int(show)*2-1))
         if (isvisible and not self.loadingvisible) or (not isvisible and self.loadingvisible):
-            wx.PostEvent(self,DamnLoadingEvent(DV_EVT_LOADING,-1,{'show':bool(self.loadingvisible)}))
+            wx.PostEvent(self,DamnLoadingEvent(DV.evt_loading,-1,{'show':bool(self.loadingvisible)}))
     def onLoading(self,event):
         info=event.GetInfo()
         if info.has_key('show'):
             if info['show']:
-                self.droptarget.LoadFile(DV_IMAGES_PATH+'droptargetloading.gif')
+                self.droptarget.LoadFile(DV.images_path+'droptargetloading.gif')
                 self.droptarget.Play()
             else:
                 self.droptarget.Stop()
-                self.droptarget.LoadFile(DV_IMAGES_PATH+'droptarget.gif')
+                self.droptarget.LoadFile(DV.images_path+'droptarget.gif')
         if info.has_key('status'):
             self.SetStatusText(info['status'])
         if info.has_key('dialog'):
             dlg=wx.MessageDialog(self,info['dialog'][1],info['dialog'][0],info['dialog'][2])
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         if info.has_key('meta'):
             self.addValid(info['meta'])
-    def addVid(self,uris):
-        DamnVideoLoader(self,uris).start()
+        if info.has_key('go') and self.converting==-1:
+            if info['go']:
+                self.onGo()
+    def addVid(self,uris,thengo=False):
+        DamnVideoLoader(self,uris,thengo).start()
     def addValid(self,meta):
         curvid=len(self.videos)
         self.list.InsertStringItem(curvid,meta['name'])
-        self.list.SetStringItem(curvid,ID_COL_VIDPROFILE,self.prefs.getp(meta['profile'],'name'))
+        self.list.SetStringItem(curvid,ID_COL_VIDPROFILE,DV.prefs.getp(meta['profile'],'name'))
         self.list.SetStringItem(curvid,ID_COL_VIDPATH,meta['dirname'])
         self.list.SetStringItem(curvid,ID_COL_VIDSTAT,meta['status'])
         self.list.SetItemImage(curvid,meta['icon'],meta['icon'])
         self.videos.append(meta['uri'])
         self.meta[meta['uri']]=meta
         self.SetStatusText('Added '+meta['name']+'.')
+        if self.addurl is not None:
+            self.addurl.update(meta['original'],meta['name'],meta['icon'])
+        self.onListSelect()
     def onProgress(self,event):
         info=event.GetInfo()
         if info.has_key('progress'):
@@ -1916,7 +3248,7 @@ class DamnMainFrame(wx.Frame): # The main window
             self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,info['status'])
         if info.has_key('dialog'):
             dlg=wx.MessageDialog(self,dialog[0],dialog[1],dialog[2])
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         if info.has_key('go'):
@@ -1936,7 +3268,7 @@ class DamnMainFrame(wx.Frame): # The main window
             self.thread.start()
         else:
             if not self.isclosing:
-                self.SetStatusText('DamnVid '+DV_VERSION+', waiting for instructions.')
+                self.SetStatusText('DamnVid '+DV.version+', waiting for instructions.')
                 if not aborted:
                     message='Done.'
                     if len(self.resultlist):
@@ -1964,7 +3296,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     dlg=wx.MessageDialog(self,message,'Done!',wx.OK|wx.ICON_INFORMATION)
                 else:
                     dlg=wx.MessageDialog(self,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
-                dlg.SetIcon(DV_ICON)
+                dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
                 self.converting=-1
@@ -1972,15 +3304,15 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.gobutton1.Enable()
                 self.prefmenuitem.Enable()
                 self.gauge1.SetValue(0.0)
-    def onGo(self,event):
+    def onGo(self,event=None):
         if not len(self.videos):
             dlg=wx.MessageDialog(None,'Put some videos in the list first!','No videos!',wx.ICON_EXCLAMATION|wx.OK)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         elif self.converting!=-1:
-            dlg=wx.MessageDialog(None,'DamnVid '+DV_VERSION+' is already converting!','Already converting!',wx.ICON_EXCLAMATION|wx.OK)
-            dlg.SetIcon(DV_ICON)
+            dlg=wx.MessageDialog(None,'DamnVid '+DV.version+' is already converting!','Already converting!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         else:
@@ -1990,7 +3322,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     success=success+1
             if success==len(self.videos):
                 dlg=wx.MessageDialog(None,'All videos in the list have already been processed!','Already done',wx.OK|wx.ICON_INFORMATION)
-                dlg.SetIcon(DV_ICON)
+                dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
             else:
@@ -2006,22 +3338,29 @@ class DamnMainFrame(wx.Frame): # The main window
         item=self.list.getAllSelectedItems()
         if len(item)>1:
             dlg=wx.MessageDialog(None,'You can only rename one video at a time.','Multiple videos selected.',wx.ICON_EXCLAMATION|wx.OK)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         elif not len(item):
             dlg=wx.MessageDialog(None,'Select a video in order to rename it.','No videos selected',wx.ICON_EXCLAMATION|wx.OK)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         else:
             item=item[0]
             dlg=wx.TextEntryDialog(None,'Enter the new name for "'+self.meta[self.videos[item]]['name']+'".','Rename',self.meta[self.videos[item]]['name'])
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             self.meta[self.videos[item]]['name']=dlg.GetValue()
             self.list.SetStringItem(item,ID_COL_VIDNAME,dlg.GetValue())
             dlg.Destroy()
+    def onSearch(self,event):
+        if not self.searchopen:
+            self.searchopen=True
+            self.searchdialog=DamnVidBrowser(self)
+            self.searchdialog.Show()
+        else:
+            self.searchdialog.Raise()
     def invertVids(self,i1,i2):
         tmp=self.videos[i1]
         self.videos[i1]=self.videos[i2]
@@ -2034,6 +3373,7 @@ class DamnMainFrame(wx.Frame): # The main window
             self.converting=i2
         elif i2==self.converting:
             self.converting=i1
+        self.onListSelect()
     def onMoveUp(self,event):
         items=self.list.getAllSelectedItems()
         if len(items):
@@ -2042,14 +3382,15 @@ class DamnMainFrame(wx.Frame): # The main window
                     self.invertVids(i,i-1)
             else:
                 dlg=wx.MessageDialog(None,'You\'ve selected the first item in the list, which cannot be moved further up!','Invalid selection',wx.OK|wx.ICON_EXCLAMATION)
-                dlg.SetIcon(DV_ICON)
+                dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
         else:
             dlg=wx.MessageDialog(None,'Select some videos in the list first.','No videos selected!',wx.OK|wx.ICON_EXCLAMATION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
+        self.onListSelect()
     def onMoveDown(self,event):
         items=self.list.getAllSelectedItems()
         if len(items):
@@ -2058,21 +3399,29 @@ class DamnMainFrame(wx.Frame): # The main window
                     self.invertVids(i,i+1)
             else:
                 dlg=wx.MessageDialog(None,'You\'ve selected the last item in the list, which cannot be moved further down!','Invalid selection',wx.OK|wx.ICON_EXCLAMATION)
-                dlg.SetIcon(DV_ICON)
+                dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
         else:
             dlg=wx.MessageDialog(None,'Select some videos in the list first.','No videos selected!',wx.OK|wx.ICON_EXCLAMATION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
+        self.onListSelect()
+    def onChangeProfileDropdown(self,event):
+        sel=self.profiledropdown.GetCurrentSelection()
+        if self.profiledropdown.GetItems()[0]=='(Multiple)':
+            sel=sel-1
+        if sel!=-1:
+            self.onChangeProfile(sel-1,event)
     def onChangeProfile(self,profile,event):
         items=self.list.getAllSelectedItems()
         for i in items:
             if self.meta[self.videos[i]]['profile']!=profile:
                 self.meta[self.videos[i]]['profile']=profile
                 self.meta[self.videos[i]]['profilemodified']=True
-                self.list.SetStringItem(i,ID_COL_VIDPROFILE,self.prefs.getp(profile,'name'))
+                self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(profile,'name'))
+        self.onListSelect()
     def onPrefs(self,event):
         self.reopenprefs=False
         prefs=DamnVidPrefEditor(self,-1,'DamnVid preferences',main=self)
@@ -2082,59 +3431,74 @@ class DamnMainFrame(wx.Frame): # The main window
             self.onPrefs(event)
         else:
             for i in range(len(self.videos)):
-                if self.meta[self.videos[i]]['profile']>=self.prefs.profiles or not self.meta[self.videos[i]]['profilemodified']:
+                if self.meta[self.videos[i]]['profile']>=DV.prefs.profiles or not self.meta[self.videos[i]]['profilemodified']:
                     # Yes, using icons as source identifiers, why not? Lol
-                    if self.meta[self.videos[i]]['icon']==self.ID_ICON_LOCAL:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('file')
+                    if self.meta[self.videos[i]].has_key('module'):
+                        self.meta[self.videos[i]]['profile']=self.meta[self.videos[i]]['module'].getProfile()
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_LOCAL:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultprofile')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_ONLINE:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('web')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_VEOH:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('veoh')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUTUBE:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('youtube')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUTUBEHD:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('youtubehd')
+                        self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultwebprofile')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_DAILYMOTION:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('dailymotion')
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('dailymotion')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_GVIDEO:
-                        self.meta[self.videos[i]]['profile']=self.prefs.getd('googlevideo')
-                self.list.SetStringItem(i,ID_COL_VIDPROFILE,self.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('googlevideo')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_BLIPTV:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('bliptv')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_METACAFE:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('metacafe')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_CRUNCHYROLL:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('crunchyroll')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_MEGAVIDEO:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('megavideo')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_REVVER:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('revver')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_BREAK:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('break')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_FLICKR:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('flickr')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_LIVEVIDEO:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('livevideo')
+                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUKU:
+                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('youku')
+                self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
         try:
             del self.reopenprefs
         except:
             pass
+        self.onListSelect()
     def onOpenOutDir(self,event):
-        if DV_OS_NAME=='nt':
-            os.system('explorer.exe "'+self.prefs.get('Outdir').replace('%CWD%',DV_CURDIR[0:-1]).replace('/',OS_+_SEPARATOR)+'"')
+        if DV.os=='nt':
+            os.system('explorer.exe "'+DV.prefs.get('outdir')+'"')
         else:
             pass # Halp here?
     def onHalp(self,event):
-        webbrowser.open(DV_URL_HALP,2)
+        webbrowser.open(DV.url_halp,2)
     def onCheckUpdates(self,event):
         msg=False
         try:
-            html=urllib2.urlopen(DV_URL_UPDATE)
+            html=urllib2.urlopen(DV.url_update)
             for i in html:
                 if REGEX_DAMNVID_VERSION_CHECK.search(i):
                     v=REGEX_DAMNVID_VERSION_CHECK.search(i).group(1)
-                    if v==DV_VERSION:
-                        msg='No new version available. You are running the latest version of DamnVid ('+DV_VERSION+').'
+                    if v==DV.version:
+                        msg='No new version available. You are running the latest version of DamnVid ('+DV.version+').'
                         if event!=None: # event = None when checking for updates at startup
                             dlg=wx.MessageDialog(None,msg,'Already running latest version.',wx.ICON_INFORMATION|wx.OK)
-                            dlg.SetIcon(DV_ICON)
+                            dlg.SetIcon(DV.icon)
                             dlg.ShowModal()
                     else:
-                        msg='A new version ('+v+') is available! You are running DamnVid '+DV_VERSION+'.\nDo you want want to go to the download page?'
+                        msg='A new version ('+v+') is available! You are running DamnVid '+DV.version+'.\nDo you want want to go to the download page?'
                         dlg=wx.MessageDialog(None,msg,'New version available!',wx.ICON_QUESTION|wx.YES_NO|wx.YES_DEFAULT)
-                        dlg.SetIcon(DV_ICON)
+                        dlg.SetIcon(DV.icon)
                         if dlg.ShowModal()==wx.ID_YES:
-                            webbrowser.open(DV_URL_DOWNLOAD,2)
+                            webbrowser.open(DV.url_download,2)
                     raise IOError # Raise dummy error just to skip to the rest of the loop
         except:
             pass
         if not msg:
             dlg=wx.MessageDialog(None,'Could not retrieve latest version. Make sure you are connected to the Internet, and that no firewall is blocking DamnVid from the Internet.','Error',wx.ICON_ERROR|wx.OK)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
         try:
             dlg.Destroy()
@@ -2143,7 +3507,7 @@ class DamnMainFrame(wx.Frame): # The main window
         return None
     def onAboutDV(self,event):
         dlg=DamnAboutDamnVid(None,-1,main=self)
-        dlg.SetIcon(DV_ICON)
+        dlg.SetIcon(DV.icon)
         dlg.ShowModal()
         dlg.Destroy()
     def delVid(self,i):
@@ -2152,23 +3516,30 @@ class DamnMainFrame(wx.Frame): # The main window
             if self.thisvideo[vid]==self.videos[i]:
                 self.thisvideo.pop(vid)
                 self.thisbatch=self.thisbatch-1
+        del self.meta[self.videos[i]]
         self.videos.pop(i)
         if self.converting>i:
             self.converting=self.converting-1
     def onDelSelection(self,event):
         items=self.list.getAllSelectedItems()
         if len(items):
-            for i in reversed(items): # Sequence MUST be reversed, otherwise the first items get deleted first, which changes the indexes of the following items
-                self.delVid(i)
+            if self.converting in items:
+                dlg=wx.MessageDialog(None,'Stop the video conversion before deleting the video being converted.','Cannot delete this video',wx.ICON_EXCLAMATION|wx.OK)
+                dlg.SetIcon(DV.icon)
+                dlg.ShowModal()
+                dlg.Destroy()
+            else:
+                for i in reversed(items): # Sequence MUST be reversed, otherwise the first items get deleted first, which changes the indexes of the following items
+                    self.delVid(i)
         else:
             dlg=wx.MessageDialog(None,'You must select some videos from the list first!','Select some videos!',wx.ICON_EXCLAMATION|wx.OK)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
     def onDelAll(self,event):
         if len(self.videos):
             dlg=wx.MessageDialog(None,'Are you sure? (This will not delete any files, it will just remove them from the list.)','Confirmation',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             if dlg.ShowModal()==wx.ID_YES:
                 if self.converting!=-1:
                     self.onStop(None) # Stop conversion if it's in progress
@@ -2176,30 +3547,65 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.videos=[]
                 self.thisvideo=[]
                 self.thisbatch=0
+                self.meta={}
         else:
             dlg=wx.MessageDialog(None,'Add some videos in the list first.','No videos!',wx.OK|wx.ICON_EXCLAMATION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
         dlg.Destroy()
     def onResize(self,event):
         self.Layout()
+    def onClipboardTimer(self,event):
+        self.clipboardtimer.Stop()
+        try:
+            if DV.gui_ok and DV.prefs.get('clipboard')=='True':
+                if wx.TheClipboard.Open():
+                    dataobject=wx.TextDataObject()
+                    wx.TheClipboard.GetData(dataobject)
+                    clip=dataobject.GetText()
+                    wx.TheClipboard.Close()
+                    if self.validURI(clip)=='Popular site' and clip not in self.clippedvideos:
+                        self.clippedvideos.append(clip)
+                        if self.addurl is not None:
+                            self.addurl.onAdd(val=clip)
+                        else:
+                            self.addVid([clip],DV.prefs.get('autoconvert')=='True')
+        except:
+            pass # The clipboard might not get opened properly, or the prefs object might not exist yet. Just silently pass, gonna catch up at next timer event.
+        try:
+            wx.TheClipboard.Close() # Try to close it, just in case it's left open.
+        except:
+            pass
+        self.clipboardtimer.Start(5)
     def onClose(self,event):
         if self.converting!=-1:
             dlg=wx.MessageDialog(None,'DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.\r\nContinue?','Conversion in progress',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_EXCLAMATION)
-            dlg.SetIcon(DV_ICON)
+            dlg.SetIcon(DV.icon)
             if dlg.ShowModal()==wx.ID_YES:
-                self.isclosing=True
-                self.onStop(None)
-                self.Destroy()
+                self.shutdown()
         else:
-            self.isclosing=True
-            self.Destroy()
+            self.shutdown()
+    def shutdown(self):
+        self.isclosing=True
+        self.clipboardtimer.Stop()
+        self.Destroy()
 class DamnVid(wx.App):
     def OnInit(self):
+        splash=DamnSplashScreen()
+        clock=time.clock()
+        splash.Show()
         frame=DamnMainFrame(None,-1,'DamnVid')
+        while clock+.5>time.clock():
+            time.sleep(.025) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
+        splash.Hide()
+        splash.Destroy()
+        del clock,splash
+        frame.init2()
         frame.Show(True)
         frame.Center()
         return True
     def MacReopenApp(self):
         self.GetTopWindow().Raise()
 app=DamnVid(0)
+DV.gui_ok=True
 app.MainLoop()
+DV.prefs.save()

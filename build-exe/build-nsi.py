@@ -1,7 +1,6 @@
 import os
 
 path2src='./../../'
-print os.listdir(path2src)
 requiredfiles=open(path2src+'required-files.txt','r')
 delete=[]
 rmdirs=[]
@@ -21,6 +20,15 @@ for f in requiredfiles.readlines():
                 rmdirs.append('rmDir "'+newdir[0:-1]+'"')
     files.append('file "'+curfile+'"')
     delete.append('delete "$INSTDIR'+os.sep+curfile+'"')
+newdirs=True
+while newdirs:
+    somethingchanged=False
+    for i in rmdirs:
+        if i[0:i.rfind(os.sep)]!='rmDir "$INSTDIR' and i[0:i.rfind(os.sep)]+'"' not in rmdirs:
+            rmdirs.append(i[0:i.rfind(os.sep)]+'"')
+            somethingchanged=True
+    if not somethingchanged:
+        newdirs=False
 requiredfiles.close()
 nsi=open(path2src+'build-exe'+os.sep+'NSIS-win32.nsi','r')
 newnsi=open(path2src+'NSIS-win32.nsi','w')

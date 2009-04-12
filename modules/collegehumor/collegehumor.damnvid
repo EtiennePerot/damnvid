@@ -1,0 +1,78 @@
+#~DamnVid-module:collegehumor
+
+class DamnModule_CollegeHumor(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='collegehumor'
+        self.regex={
+            'url':re.compile('collegehumor\.com/.*?(?:video:|#)(\d+)',re.IGNORECASE),
+            'title':re.compile('<h1[^<>]+item_title[^<>]*>\s*([^<>]+?)\s*</h1>',re.IGNORECASE),
+            'ticket':re.compile('<file>\s*([^<>]+?)\s*</file>',re.IGNORECASE)
+        }
+        self.valid=self.regex['url'].search(uri)
+        if self.valid:
+            self.id='ch:'+self.valid.group(1)
+            self.link='http://www.collegehumor.com/video:'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen('http://www.collegehumor.com/video:'+self.id[3:])
+            for i in html:
+                res=self.regex['title'].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=urllib2.urlopen('http://www.collegehumor.com/moogaloop/video:'+self.id[3:])
+        for i in html:
+            res=self.regex['ticket'].search(i)
+            if res:
+                self.newTicket(DamnHtmlEntities(res.group(1)))
+    def getDownload(self):
+        self.renewTicket()
+        return self.ticket
+DamnRegisterModule({
+    'name':'collegehumor',
+    'title':'CollegeHumor',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'WindPower',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'collegehumor.png',
+        'large':'collegehumor-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for CollegeHumor.',
+        'long':"""This is a video plugin for DamnVid that adds CollegeHumor video downloading capabilities.
+CHTV originals are supported, as well as user-submitted videos.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'class':DamnModule_CollegeHumor,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/CollegeHumor/'
+        }
+    },
+    'preferences_order':['profile','outdir'],
+    'register':{
+        'listicons':{
+            'collegehumor':'collegehumor.png'
+        }
+    }
+})

@@ -7,11 +7,11 @@ caption "${APP} installation"
 outFile "..\..\${APP}-setup.exe"
 installDir "$PROGRAMFILES\${APP}\"
 RequestExecutionLevel admin
-!define MUI_ICON "img\installer.ico"
-!define MUI_UNICON "img\uninstaller.ico"
+!define MUI_ICON "..\..\img\installer.noinclude.ico"
+!define MUI_UNICON "..\..\img\uninstaller.noinclude.ico"
 !define MUI_HEADERIMAGE
-!define MUI_HEADERIMAGE_BITMAP "img\installheader.bmp"
-!define MUI_HEADERIMAGE_UNBITMAP "img\uninstallheader.bmp"
+!define MUI_HEADERIMAGE_BITMAP "..\..\img\installheader.bmp"
+!define MUI_HEADERIMAGE_UNBITMAP "..\..\img\uninstallheader.bmp"
 !define MUI_ABORTWARNING
 !define MUI_COMPONENTSPACE_SMALLDESC
 !define MUI_HEADERIMAGE_BITMAP_NOSTRETCH
@@ -56,7 +56,12 @@ WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" 
 WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "NoRepair" 1
 sectionEnd
 section "Uninstall"
+delete "$INSTDIR\gdiplus.dll"
+delete "$INSTDIR\unicows.dll"
+delete "$INSTDIR\MSVCR71.dll"
+delete "$INSTDIR\MSVCP71.dll"
 <delete>
+delete "$INSTDIR\uninstall.exe"
 rmDir "$INSTDIR"
 !insertmacro MUI_STARTMENU_GETFOLDER Application $StartMenuFolder
 delete "$SMPROGRAMS\$StartMenuFolder\${APP}.lnk"

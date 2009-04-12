@@ -1,0 +1,88 @@
+#~DamnVid-module:veoh
+
+class DamnModule_Veoh(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='veoh'
+        self.regex={
+            'url':re.compile('veoh\.com/.*(?:%3D|[?&=/#])v(\w+)(?:[#/]|$)?',re.IGNORECASE),
+            'title':re.compile('title\s*=\s*"([^"]+)"',re.IGNORECASE),
+            'ticket':(re.compile('fullPreviewHashPath\s*=\s*"([^"]+)"',re.IGNORECASE),re.compile('isExternalMedia\s*=\s*"true"',re.IGNORECASE),re.compile('aowPermalink\s*=\s*"([^"]+)"',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.external=None
+        self.extlink=''
+        self.extid=None
+        if self.valid:
+            self.id='vh:'+self.valid.group(1)
+            self.link='http://www.veoh.com/browse/videos/watch/v'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findByPermalink&permalink=v'+self.id[3:]+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
+            for i in html:
+                res,res1,res2,res3=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+                if res1:
+                    self.newTicket(DamnHtmlEntities(res1.group(1)))
+                if res2:
+                    self.external=True
+                if res3:
+                    self.extlink=DamnHtmlEntities(res3.group(1))
+        if self.external is None:
+            self.external=False
+        return DamnVideoModule.getTitle(self)
+    def getDownload(self):
+        if self.external and self.extlink:
+            urlgrabber=DamnVideoLoader(self,[self.extlink],feedback=False)
+            urlgrabber.start()
+            time.sleep(.1)
+            while not urlgrabber.done:
+                time.sleep(.05)
+            res=urlgrabber.result
+            urlgrabber.done=False
+            return res['module'].getDownload()
+        return self.ticket
+DamnRegisterModule({
+    'name':'veoh',
+    'title':'Veoh',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'WindPower',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'veoh.png',
+        'large':'veoh-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for Veoh.',
+        'long':"""This is a video plugin for DamnVid that adds Veoh video downloading capabilities.
+Only some of the videos from external sites embedded on Veoh are supported, though.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'class':DamnModule_Veoh,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':-1
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Veoh/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'veoh':'veoh.png'
+        }
+    }
+})
