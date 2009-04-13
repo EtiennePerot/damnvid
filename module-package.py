@@ -63,14 +63,14 @@ except:
     exit()
 out('Module name is',moduleinfo['name'],'and version is',moduleinfo['version'])
 out('Packaging module...')
-name='Module-'+moduleinfo['name']+'-'+moduleinfo['version']+'.module.damnvid'
+name=moduleinfo['name']+'-'+moduleinfo['version']+'.module.damnvid'
 out('File name is',name)
 out('Building files list.')
 files=[]
 def parseDir(d):
     global files
     for i in os.listdir(d):
-        if i.find('.svn')==-1:
+        if i.find('.svn')==-1 and i[0]!='.':
             if os.path.isdir(d+os.sep+i):
                 parseDir(d+os.sep+i)
             else:

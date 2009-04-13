@@ -15,12 +15,7 @@ class DamnModule_EscapistMagazine(DamnVideoModule):
             self.id='em:'+self.valid.group(1)
             self.link='http://www.escapistmagazine.com/videos/view/'+self.valid.group(1)
     def getTitle(self):
-        if self.title is None:
-            html=urllib2.urlopen('http://www.escapistmagazine.com/videos/view/'+self.id[3:])
-            for i in html:
-                res=self.regex['title'].search(i)
-                if res:
-                    self.title=DamnHtmlEntities(res.group(1))
+        DamnVideoModule.getTitle(self)
         if self.title is not None:
             if self.title.find('Zero Punctuation')!=-1:
                 self.zp=True
@@ -56,10 +51,23 @@ DamnRegisterModule({
     },
     'about':{
         'short':'DamnVid module for The Escapist.',
-        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from The Escapist (and Zero Punctuation!).
-Some parts by WindPower.""",
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities
+from The Escapist (and Zero Punctuation!).
+Some parts by Etienne Perot.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
+    'sites':[
+        {
+            'title':'The Escapist',
+            'icon':'escapistmagazine.png',
+            'url':'http://www.escapistmagazine.com/videos/'
+        },
+        {
+            'title':'Zero Punctuation',
+            'icon':'zeropunctuation.png',
+            'url':'http://www.escapistmagazine.com/videos/view/zero-punctuation'
+        }
+    ],
     'class':DamnModule_EscapistMagazine,
     'preferences':{
         'profile':{

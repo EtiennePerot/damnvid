@@ -49,7 +49,7 @@ DamnRegisterModule({
     'type':'video',
     'version':'1.0',
     'author':{
-        'name':'WindPower',
+        'name':'Etienne Perot',
         'email':'admin@biringa.com',
         'url':'http://biringa.com/'
     },
@@ -63,6 +63,13 @@ DamnRegisterModule({
 Only some of the videos from external sites embedded on Veoh are supported, though.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
+    'sites':[
+        {
+            'title':'Veoh',
+            'icon':'veoh.png',
+            'url':'http://www.veoh.com/browse/videos/'
+        }
+    ],
     'class':DamnModule_Veoh,
     'preferences':{
         'profile':{

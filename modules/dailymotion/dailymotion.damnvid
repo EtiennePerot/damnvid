@@ -13,14 +13,6 @@ class DamnModule_Dailymotion(DamnVideoModule):
         if self.valid:
             self.id='dm:'+self.valid.group(1)
             self.link='http://www.dailymotion.com/video/'+self.valid.group(1)
-    def getTitle(self):
-        if self.title is None:
-            html=urllib2.urlopen(self.link)
-            for i in html:
-                res=self.regex['title'].search(i)
-                if res:
-                    self.title=DamnHtmlEntities(res.group(1))
-        return DamnVideoModule.getTitle(self)
     def renewTicket(self):
         if self.ticket is not None:
             return
@@ -52,7 +44,7 @@ DamnRegisterModule({
     'type':'video',
     'version':'1.0',
     'author':{
-        'name':'WindPower',
+        'name':'Etienne Perot',
         'email':'admin@biringa.com',
         'url':'http://biringa.com/'
     },
@@ -65,6 +57,13 @@ DamnRegisterModule({
         'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Dailymotion.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
+    'sites':[
+        {
+            'title':'Dailymotion',
+            'icon':'dailymotion.png',
+            'url':'http://www.dailymotion.com/'
+        }
+    ],
     'class':DamnModule_Dailymotion,
     'preferences':{
         'profile':{

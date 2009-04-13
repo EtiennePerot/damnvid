@@ -13,14 +13,6 @@ class DamnModule_CollegeHumor(DamnVideoModule):
         if self.valid:
             self.id='ch:'+self.valid.group(1)
             self.link='http://www.collegehumor.com/video:'+self.valid.group(1)
-    def getTitle(self):
-        if self.title is None:
-            html=urllib2.urlopen('http://www.collegehumor.com/video:'+self.id[3:])
-            for i in html:
-                res=self.regex['title'].search(i)
-                if res:
-                    self.title=DamnHtmlEntities(res.group(1))
-        return DamnVideoModule.getTitle(self)
     def renewTicket(self):
         if self.ticket is not None:
             return
@@ -35,7 +27,7 @@ DamnRegisterModule({
     'type':'video',
     'version':'1.0',
     'author':{
-        'name':'WindPower',
+        'name':'Etienne Perot',
         'email':'admin@biringa.com',
         'url':'http://biringa.com/'
     },
@@ -49,6 +41,13 @@ DamnRegisterModule({
 CHTV originals are supported, as well as user-submitted videos.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
+    'sites':[
+        {
+            'title':'CollegeHumor',
+            'icon':'collegehumor.png',
+            'url':'http://www.collegehumor.com/videos'
+        }
+    ],
     'class':DamnModule_CollegeHumor,
     'preferences':{
         'profile':{

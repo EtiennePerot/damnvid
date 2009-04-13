@@ -1,0 +1,103 @@
+#~DamnVid-module:flickr
+
+class DamnModule_Flickr(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='flickr'
+        self.regex={
+            'url':re.compile('^https?://.*flickr\.com/.*$',re.IGNORECASE), # Flickr video URL start with /photos/ right now, I'm pretty sure it's going to change soon, so I'm making this one pretty loose as well
+            'title':re.compile('<h1\s+id="title[^<>]+>\s*([^<>"]+)\s*</h1>',re.IGNORECASE),
+            'ticket':(re.compile('<div\s+id="tagdiv(\d+-\d+)',re.IGNORECASE),re.compile('p.secret\s*=\s*[\'"](\w+)[\'"]',re.IGNORECASE),re.compile('<STREAM\s*APP="([^"<>]+)"\s*FULLPATH="([^"<>]+)"',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.secret=None
+        self.secretdate=None
+        if self.valid:
+            self.id='fl:'+self.valid.group(0)
+            self.link=self.valid.group(0)
+    def flickr_newSecret(self,secret):
+        self.secret=secret
+        self.secretdate=time.time()
+    def flickr_renewSecret(self):
+        if self.secretdate is None:
+            self.secretdate=0
+        if self.secretdate+15>time.time():
+            return
+        html=urllib2.urlopen(self.link)
+        for i in html:
+            res=self.regex['ticket'][1].search(i)
+            if res:
+                self.flickr_newSecret(res.group(1))
+    def getTitle(self):
+        if self.title is not None:
+            return self.title
+        html=urllib2.urlopen(self.link)
+        for i in html:
+            res1,res2,res3=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i)
+            if res1:
+                self.title=DamnHtmlEntities(res1.group(1))
+            if res2:
+                self.pageid=res2.group(1)
+            if res3:
+                self.flickr_newSecret(res3.group(1))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None and self.ticketdate+15>time.time():
+            return
+        self.flickr_renewSecret()
+        if self.pageid is None:
+            return
+        html=urllib2.urlopen('http://www.flickr.com/video_playlist.gne?node_id='+self.pageid+'&secret='+self.secret)
+        for i in html:
+            res=self.regex['ticket'][2].search(i)
+            if res:
+                self.newTicket([DamnHtmlEntities(res.group(1)+res.group(2)),DamnHtmlEntities(res.group(1)+res.group(2))]) # Return it twice because sometimes Flickr fails (it does the same on the actual site, too (Says "Playback of this video failed"). It's a server-side error)
+DamnRegisterModule({
+    'name':'flickr',
+    'title':'Flickr',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'flickr.png',
+        'large':'flickr-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for Flickr.',
+        'long':"""This is a video plugin for DamnVid that adds Flickr video downloading capabilities.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'Flickr',
+            'icon':'flickr.png',
+            'url':'http://www.flickr.com/explore/video/'
+        }
+    ],
+    'class':DamnModule_Flickr,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Flickr/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'flickr':'flickr.png'
+        }
+    }
+})

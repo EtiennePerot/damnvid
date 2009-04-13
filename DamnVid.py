@@ -37,7 +37,7 @@ import ConfigParser # INI file parsing and writing
 import base64 # Base64 encoding/decoding
 import gdata.youtube # YouTube API client
 import gdata.youtube.service # YouTube service
-import xmlrpclib # Required for the Revver API
+import xmlrpclib # XML RPC server communication
 import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
 import unicodedata # Unicode normalization
 import hashlib # MD5 hashes
@@ -166,10 +166,7 @@ DV.codec_advanced_cl={
     'mpeg4':[('g','300'),('cmp','2'),('subcmp','2'),('trellis','2'),'+4mv'],
     'libx264':[('coder','1'),'+loop',('cmp','+chroma'),('partitions','+parti4x4+partp8x8+partb8x8'),('g','250'),('subq','6'),('me_range','16'),('keyint_min','25'),('sc_threshold','40'),('i_qfactor','0.71'),('b_strategy','1')]
 }
-# Begin APIs
 DV.youtube_service=gdata.youtube.service.YouTubeService()
-DV.revver_api=xmlrpclib.Server('https://api.revver.com/xml/1.0?login=DamnVid&passwd=oc83Y8XYaIiSTTj3CHKt') # O noes it's a password
-# End APIs
 def DamnGetListIcon(icon):
     if type(icon) is type(1):
         return icon
@@ -245,8 +242,16 @@ class DamnVideoModule:
         return self.id
     def getTitle(self):
         if self.title is None:
-            return u'Unknown title'
-        return self.title
+            html=urllib2.urlopen(self.link)
+            total=''
+            for i in html:
+                total+=i
+            res=self.regex['title'].search(total)
+            if res:
+                self.title=DamnHtmlEntities(res.group(1))
+        if self.title is not None:
+            return self.title
+        return u'Unknown title'
     def getIcon(self):
         return DamnGetListIcon(self.name)
     def pref(self,pref,value=None):
@@ -261,10 +266,13 @@ class DamnVideoModule:
     def getOutdir(self):
         return self.pref('outdir')
     def renewTicket(self):
-        self.newTicket(self.uri)
+        if self.ticket is None:
+            self.newTicket(self.uri)
     def getDownload(self):
         self.renewTicket()
         return self.ticket
+    def getFFmpegArgs(self):
+        return []
     def addVid(self,parent):
         parent.addValid(self.getVidObject())
     def getVidObject(self):
@@ -313,20 +321,14 @@ class DamnModuleUpdateCheck(thr.Thread):
                                 self.postEvent(module2,'error')
                             else:
                                 try:
-                                    print 'opening',url
                                     http=urllib2.urlopen(url)
-                                    print 'opened, getting temp file'
                                     tmpname=DamnTempFile()
-                                    print 'writing to',tmpname
                                     tmp=open(tmpname,'wb')
                                     for i in http:
                                         tmp.write(i)
-                                    print 'finished'
                                     tmp.close()
                                     http.close()
-                                    print 'installing',tmpname
-                                    print 'result',DamnInstallModule(tmpname)
-                                    print 'installed',url
+                                    DamnInstallModule(tmpname)
                                     self.postEvent(module2,(vers,url))
                                 except:
                                     self.postEvent(module2,'error')
@@ -391,10 +393,10 @@ def DamnLoadConfig(forcemodules=False):
     }
     DV.listicons_order=['damnvid','generic']
     DV.listicons_imagelist=None # Will be loaded later
-    if forcemodules: # Fixme: DEBUG ONLY
+    if forcemodules or True: # Fixme: DEBUG ONLY
         shutil.rmtree(DV.modules_path)
         os.makedirs(DV.modules_path)
-        """if True: # Fixme: DEBUG ONLY; rebuilds all modules
+        if True: # Fixme: DEBUG ONLY; rebuilds all modules
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
                     os.remove(i)
@@ -407,7 +409,7 @@ def DamnLoadConfig(forcemodules=False):
                     os.popen('python module-package.py modules/'+i).close()
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
-                    os.rename(i,'modules/'+i)"""
+                    os.rename(i,'modules/'+i)
         for i in os.listdir(DV.curdir+'modules'):
             if i[-15:]=='.module.damnvid':
                 print 'Installing',i
@@ -437,47 +439,17 @@ REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration:\\s*(\\d+):(\\d\\d):([.\
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
 REGEX_HTTP_GENERIC=re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}#\w]*)?$',re.IGNORECASE)
 REGEX_HTTP_GENERIC_LOOSE=re.compile('https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}\w]*)?',re.IGNORECASE)
-REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE)
-REGEX_HTTP_YOUTUBE_PLAYLIST=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*p(?:laylist)?[/=]([-_\w]{6,})',re.IGNORECASE)
-REGEX_HTTP_GVIDEO=re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE)
-REGEX_HTTP_VEOH=re.compile('^https?://(?:[-_\w]+\.)*veoh\.com/videos/',re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
 REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
 REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
 REGEX_URI_EXTENSION_EXTRACT=re.compile('^(?:[^?|<>]+[/\\\\])?[^/\\\\|?<>#]+\\.(\\w{1,3})(?:$|[^/\\\\\\w].*?$)')
 REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
-REGEX_HTTP_YOUTUBE_TITLE_EXTRACT=re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE)
-REGEX_HTTP_YOUTUBE_TICKET_EXTRACT=re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2')
-REGEX_HTTP_GVIDEO_TITLE_EXTRACT=REGEX_HTTP_GENERIC_TITLE_EXTRACT
-REGEX_HTTP_GVIDEO_TICKET_EXTRACT=re.compile('If the download does not start automatically, right-click <a href="?([^"<>]+)"?>',re.IGNORECASE)
-REGEX_HTTP_VEOH=re.compile('veoh\.com/.*?(?:%3D|[?&=/#])v(\w+)',re.IGNORECASE)
-REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('title\s*=\s*"([^"]+)"',re.IGNORECASE)
-REGEX_HTTP_VEOH_TICKET_EXTRACT=(re.compile('fullPreviewHashPath\s*=\s*"([^"]+)"',re.IGNORECASE),re.compile('isExternalMedia\s*=\s*"true"',re.IGNORECASE),re.compile('aowPermalink\s*=\s*"([^"]+)"',re.IGNORECASE))
-REGEX_HTTP_BLIPTV=re.compile('blip\.tv/(?:file/|.*#)(\d+)',re.IGNORECASE)
-REGEX_HTTP_BLIPTV_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
-REGEX_HTTP_BLIPTV_TICKET_EXTRACT=re.compile('<link type="video[^"]*" href="([^"]+)"',re.IGNORECASE)
-REGEX_HTTP_METACAFE=re.compile('metacafe\.com/+(?:watch/)?(\d+)/?',re.IGNORECASE)
-REGEX_HTTP_METACAFE_TITLE_EXTRACT=re.compile('\s*[^"<>\w]*([^<>"]+?)\s*</h1>',re.IGNORECASE)
-REGEX_HTTP_METACAFE_TICKET_EXTRACT=re.compile('mediaURL=([^&<>]+)&gdaKey=([-_\w]+)',re.IGNORECASE)
-REGEX_HTTP_CRUNCHYROLL=re.compile('crunchyroll\.com/media-(\d+)/?',re.IGNORECASE)
-REGEX_HTTP_CRUNCHYROLL_TITLE_EXTRACT=re.compile('<title>[^-<>"]*-\s*([^"<>]+)</title>',re.IGNORECASE)
-REGEX_HTTP_CRUNCHYROLL_TICKET_EXTRACT=re.compile('crunchyroll.com%2Fgetitem%3Fvideoid%3D(\w+)%26amp%3Bmediaid%3D(\w+)%3C%2Ffile%3E',re.IGNORECASE)
 REGEX_HTTP_MEGAVIDEO=re.compile('megavideo\.com/(?:\?v=)(\w+)',re.IGNORECASE)
 REGEX_HTTP_MEGAVIDEO_TITLE_EXTRACT=re.compile('\.title\s*=\s*[\'"]([^\s"\']+)[\'"]',re.IGNORECASE)
 REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT=(re.compile('\.k1\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.k2\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.un\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.s\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE))
-REGEX_HTTP_REVVER=re.compile('revver\.com/(?:video/)(\d+)/?',re.IGNORECASE)
-REGEX_HTTP_BREAK=re.compile('break\.com/',re.IGNORECASE) # Break URLs seem to be very loose, and so is this regex
-REGEX_HTTP_BREAK_TITLE_EXTRACT=re.compile('="hd_player_title">([^<>"]+)</div>',re.IGNORECASE)
-REGEX_HTTP_BREAK_TICKET_EXTRACT=re.compile('sGlobalFileName\s*=\s*[\'"]([^\'"]+)[\'"].*sGlobalContentFilePath\s*=\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE)
-REGEX_HTTP_FLICKR=re.compile('flickr\.com/',re.IGNORECASE) # Flickr video URL start with /photos/ right now, I'm pretty sure it's going to change soon, so I'm making this one pretty loose as well
-REGEX_HTTP_FLICKR_TITLE_EXTRACT=re.compile('<h1\s+id="title[^<>]+>\s*([^<>"]+)\s*</h1>',re.IGNORECASE)
-REGEX_HTTP_FLICKR_TICKET_EXTRACT=(re.compile('<div\s+id="tagdiv(\d+)-(\d+)',re.IGNORECASE),re.compile('p.secret\s*=\s*[\'"](\w+)[\'"]',re.IGNORECASE),re.compile('<STREAM\s*APP="([^"<>]+)"\s*FULLPATH="([^"<>]+)"',re.IGNORECASE))
 REGEX_HTTP_LIVEVIDEO=re.compile('livevideo\.com/video/(\w+)/?',re.IGNORECASE)
 REGEX_HTTP_LIVEVIDEO_TITLE_EXTRACT=re.compile('class="videotitle">\s*([^<>]+)?\s*',re.IGNORECASE)
 REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT=(re.compile('swf[?&]+video=([^\'"]+)',re.IGNORECASE),re.compile('(?:^|[?&])+video_id=([^?&]+)(?:$|[?&])+',re.IGNORECASE))
-REGEX_HTTP_YOUKU=re.compile('youku\.com/(?:v_show/id_)?([-+_\w]+)=+\.html',re.IGNORECASE)
-REGEX_HTTP_YOUKU_TITLE_EXTRACT=re.compile('</span>\s*(.*?)\s*</h1>',re.IGNORECASE)
-REGEX_HTTP_YOUKU_TICKET_EXTRACT=(re.compile('addVariable\s*\(\s*[\'"]VideoIDS[\'"]\s*,\s*(\d+)\s*\)',re.IGNORECASE),re.compile('sendVideoLink\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('[\'"\s]+?key1[\'"\s]+?:\s*[\'"]([^\'"]+)[\'"]\s*,\s*[\'"\s]+?key2[\'"\s]+?:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE))
 REGEX_THOUSAND_SEPARATORS=re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 # End regex constants
 # End constants
@@ -786,19 +758,10 @@ class DamnAddURLDialog(wx.Dialog):
         bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'Go ahead, add some videos!'))
         bottomleftsizer.Add((0,DV.control_vgap))
         bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'The following sites are suported:'))
-        supportedsites=(
-            ('Google Video','http://video.google.com/','googlevideo.png'),
-            ('Veoh','http://www.veoh.com/','veoh.png'),
-            ('Metacafe','http://www.metacafe.com/','metacafe.png'),
-            ('Break.com','http://www.break.com/','break.png'),
-            ('Flickr','http://www.flickr.com/','flickr.png'),
-            ('Youku','http://www.youku.com/','youku.png'),
-            ('Revver','http://revver.com/','revver.png'),
+        supportedsites=[
             ('Megavideo','http://megavideo.com/','megavideo.png'),
-            ('Livevideo','http://www.livevideo.com/','livevideo.png'),
-            ('Crunchyroll','http://www.crunchyroll.com/','crunchyroll.png'),
-            ('Blip.tv','http://blip.tv/','bliptv.png')
-        )
+            ('Livevideo','http://www.livevideo.com/','livevideo.png')
+        ]
         for i in supportedsites:
             bottomleftsizer.Add((0,DV.control_vgap))
             sitesizer=wx.BoxSizer(wx.HORIZONTAL)
@@ -954,7 +917,7 @@ class DamnAboutDamnVid(wx.Dialog):
         title=wx.StaticText(panel,-1,'DamnVid '+DV.version)
         title.SetFont(wx.Font(24,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
         vbox2.Add(title,1)
-        author=wx.StaticText(panel,-1,'By WindPower')
+        author=wx.StaticText(panel,-1,'By Etienne Perot')
         author.SetFont(wx.Font(16,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL))
         vbox2.Add(author,1)
         vbox2.Add(DamnHyperlink(panel,-1,DV.url,DV.url))
@@ -2328,54 +2291,16 @@ class DamnVideoLoader(thr.Thread):
                     break
             if not bymodule:
                 if REGEX_HTTP_GENERIC.match(uri):
-                    if REGEX_HTTP_GVIDEO.search(uri):
-                        match=REGEX_HTTP_GVIDEO.search(uri)
-                        uri='gv:'+match.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('googlevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_GVIDEO})
-                    elif REGEX_HTTP_BLIPTV.search(uri):
-                        res=REGEX_HTTP_BLIPTV.search(uri)
-                        uri='bl:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('bliptv'),'profilemodified':False,'fromfile':name,'dirname':'http://www.blip.tv/file/'+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_BLIPTV})
-                    elif REGEX_HTTP_METACAFE.search(uri):
-                        res=REGEX_HTTP_METACAFE.search(uri)
-                        uri='mc:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('metacafe'),'profilemodified':False,'fromfile':name,'dirname':'http://www.metacafe.com/watch/'+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_METACAFE})
-                    elif REGEX_HTTP_CRUNCHYROLL.search(uri):
-                        res=REGEX_HTTP_CRUNCHYROLL.search(uri)
-                        uri='cr:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('crunchyroll'),'profilemodified':False,'fromfile':name,'dirname':'http://www.crunchyroll.com/media-'+res.group(1)+'/','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_CRUNCHYROLL})
-                    elif REGEX_HTTP_MEGAVIDEO.search(uri):
+                    if REGEX_HTTP_MEGAVIDEO.search(uri):
                         res=REGEX_HTTP_MEGAVIDEO.search(uri)
                         uri='mv:'+res.group(1)
                         name=self.getVidName(uri)
                         self.addValid({'name':name,'profile':self.getDefaultProfile('megavideo'),'profilemodified':False,'fromfile':name,'dirname':'http://megavideo.com/?v='+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_MEGAVIDEO})
-                    elif REGEX_HTTP_REVVER.search(uri):
-                        res=REGEX_HTTP_REVVER.search(uri)
-                        uri='rv:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('revver'),'profilemodified':False,'fromfile':name,'dirname':'http://revver.com/video/'+res.group(1)+'/','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_REVVER})
-                    elif REGEX_HTTP_BREAK.search(uri):
-                        uri='br:'+uri
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('break'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_BREAK})
-                    elif REGEX_HTTP_FLICKR.search(uri):
-                        uri='fl:'+uri
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('flickr'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_FLICKR})
                     elif REGEX_HTTP_LIVEVIDEO.search(uri):
                         res=REGEX_HTTP_LIVEVIDEO.search(uri)
                         uri='lv:'+res.group(1)
                         name=self.getVidName(uri)
                         self.addValid({'name':name,'profile':self.getDefaultProfile('livevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://www.livevideo.com/video/'+res.group(1)+'/.aspx','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_LIVEVIDEO})
-                    elif REGEX_HTTP_YOUKU.search(uri):
-                        res=REGEX_HTTP_YOUKU.search(uri)
-                        uri='yk:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('youku'),'profilemodified':False,'fromfile':name,'dirname':'http://v.youku.com/v_show/id_'+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_YOUKU})
                     else:
                         name=self.getVidName(uri)
                         if name=='Unknown title':
@@ -2406,43 +2331,19 @@ class DamnConverter(thr.Thread): # The actual converter
         self.sourceid=self.parent.converting
         self.sourceuri=parent.videos[parent.converting]
         self.outdir=None
+        self.moduleextraargs=[]
         thr.Thread.__init__(self)
     def getURI(self,uri):
         if self.parent.meta[self.sourceuri].has_key('module'):
             if self.parent.meta[self.sourceuri]['module'] is not None:
                 uri=self.parent.meta[self.sourceuri]['module'].getDownload()
+                self.moduleextraargs=self.parent.meta[self.sourceuri]['module'].getFFmpegArgs()
                 if not self.parent.meta[self.sourceuri]['profilemodified']:
                     self.outdir=self.parent.meta[self.sourceuri]['module'].getOutdir()
                 if type(uri) in (type(''),type(u'')):
                     uri=[uri]
                 return uri
-        if uri[0:3]=='gv:':
-            html=urllib2.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
-            for i in html:
-                res=REGEX_HTTP_GVIDEO_TICKET_EXTRACT.search(i)
-                if res:
-                    return [res.group(1)]
-        elif uri[0:3]=='bl:':
-            html=urllib2.urlopen('http://blip.tv/file/'+uri[3:]+'?skin=api')
-            urls=[]
-            for i in html:
-                res=REGEX_HTTP_BLIPTV_TICKET_EXTRACT.search(i)
-                if res:
-                    urls.append(urllib2.unquote(res.group(1)))
-            return urls
-        elif uri[0:3]=='mc:':
-            html=urllib2.urlopen('http://www.metacafe.com/watch/'+uri[3:])
-            for i in html:
-                res=REGEX_HTTP_METACAFE_TICKET_EXTRACT.search(i)
-                if res:
-                    return [urllib2.unquote(res.group(1))+'?__gda__='+res.group(2)]
-        elif uri[0:3]=='cr:':
-            html=urllib2.urlopen('http://www.crunchyroll.com/media-'+uri[3:]+'/?h264=1')
-            for i in html:
-                res=REGEX_HTTP_CRUNCHYROLL_TICKET_EXTRACT.search(i)
-                if res:
-                    return ['http://www.crunchyroll.com/getitem?videoid='+res.group(1)+'&mediaid='+res.group(2)]
-        elif uri[0:3]=='mv:':
+        if uri[0:3]=='mv:':
             html=urllib2.urlopen('http://megavideo.com/?v='+uri[3:])
             k1=0
             k2=0
@@ -2460,31 +2361,6 @@ class DamnConverter(thr.Thread): # The actual converter
                     s=int(res4.group(1))
             if k1 and k2 and s and un:
                 return ['http://www'+str(s)+'.megavideo.com/files/'+DamnMegaVideoDecrypt(un,k1,k2)+'/']
-        elif uri[0:3]=='rv:':
-            res=DV.revver_api.video.find({'ids':[int(uri[3:])]},['quicktimeDownloadUrl','quicktimeMediaUrl'],{'limit':1})[0]
-            return [res['quicktimeDownloadUrl'],res['quicktimeMediaUrl']]
-        elif uri[0:3]=='br:':
-            html=urllib2.urlopen(uri[3:])
-            for i in html:
-                res=REGEX_HTTP_BREAK_TICKET_EXTRACT.search(i)
-                if res:
-                    return ['http://media1.break.com/dnet/media/'+res.group(2)+'/'+res.group(1)+'.wmv','http://media1.break.com/dnet/media/'+res.group(2)+'/'+res.group(1)+'.flv']
-        elif uri[0:3]=='fl:':
-            html=urllib2.urlopen(uri[3:])
-            pageid=''
-            secret=''
-            for i in html:
-                res1,res2=REGEX_HTTP_FLICKR_TICKET_EXTRACT[0].search(i),REGEX_HTTP_FLICKR_TICKET_EXTRACT[1].search(i)
-                if res1:
-                    pageid=res1.group(1)+'-'+res1.group(2)
-                if res2:
-                    secret=res2.group(1)
-            if pageid and secret:
-                html=urllib2.urlopen('http://www.flickr.com/video_playlist.gne?node_id='+pageid+'&secret='+secret)
-                for i in html:
-                    res=REGEX_HTTP_FLICKR_TICKET_EXTRACT[2].search(i)
-                    if res:
-                        return [DamnHtmlEntities(res.group(1)+res.group(2)),DamnHtmlEntities(res.group(1)+res.group(2))] # Return it twice because sometimes Flickr fails (it does the same on the actual site, too (Says "Playback of this video failed"). It's a server-side error)
         elif uri[0:3]=='lv:':
             html=urllib2.urlopen('http://www.livevideo.com/video/'+uri[3:]+'/.aspx')
             secret=''
@@ -2498,38 +2374,11 @@ class DamnConverter(thr.Thread): # The actual converter
                     res=REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT[1].search(i)
                     if res:
                         return [urllib2.unquote(res.group(1))]
-        elif uri[0:3]=='yk:':
-            html=urllib2.urlopen('http://v.youku.com/v_show/id_'+uri[3:])
-            longid=''
-            shortid=''
-            key1=''
-            key2=''
-            for i in html:
-                res1,res2=REGEX_HTTP_YOUKU_TICKET_EXTRACT[0].search(i),REGEX_HTTP_YOUKU_TICKET_EXTRACT[1].search(i)
-                if res1:
-                    shortid=res1.group(1)
-                if res2:
-                    longid=res2.group(1)
-            if shortid and longid:
-                html=urllib2.urlopen('http://v.youku.com/player/getPlayList/VideoIDS/'+shortid)
-                for i in html:
-                    res=REGEX_HTTP_YOUKU_TICKET_EXTRACT[2].search(i)
-                    if res:
-                        key1=res.group(1)
-                        key2=res.group(2)
-                if key1 and key2:
-                    try:
-                        return ['http://f.youku.com/player/getFlvPath/'+longid+'?k='+key2+hex(int(key1,16)^0xA55AA5A5)[2:]]
-                    except:
-                        pass
         return [uri]
     def cmd2str(self,cmd):
         s=''
         for i in cmd:
-            stream=self.stream
-            if self.sourceuri[0:3]=='gv:':
-                stream=self.uri # Let ffmpeg download Google Videos directly
-            i=i.replace('?DAMNVID_VIDEO_STREAM?',stream).replace('?DAMNVID_VIDEO_PASS?',str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?',DV.tmp_path+self.tmpfilename)
+            i=i.replace('?DAMNVID_VIDEO_STREAM?',self.stream).replace('?DAMNVID_VIDEO_PASS?',str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?',DV.tmp_path+self.tmpfilename)
             if i.find(' ')!=-1 or i.find('&')!=-1 or i.find('|')!=-1 or i.find('<')!=-1 or i.find('>')!=-1:
                 s+='"'+i.replace('"','\'\'')+'" '
             else:
@@ -2700,8 +2549,8 @@ class DamnConverter(thr.Thread): # The actual converter
             self.filenamenoext=self.filename
             self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
             cmd.append('?DAMNVID_OUTPUT_FILE?')
-            if self.sourceuri[0:3]=='rv:':
-                cmd.extend(['-map','0:6','-map','0:7']) # Revver videos have lots of streams, the sixth one is actually the video stream, and the seventh one is the audio stream
+            if len(self.moduleextraargs):
+                cmd.extend(self.moduleextraargs)
             self.filename=self.filenamenoext+ext
             self.duration=None
             self.update(statustext=u'Converting '+unicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+unicode(self.filename.decode('utf8'))+u'...')
@@ -2920,17 +2769,8 @@ class DamnMainFrame(wx.Frame): # The main window
             DV.listicons_imagelist.Add(wx.Bitmap(DV.listicons[icon]))
         self.ID_ICON_LOCAL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'video.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_ONLINE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'online.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_GVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'googlevideo.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_VEOH=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'veoh.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_BLIPTV=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'bliptv.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_METACAFE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'metacafe.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_CRUNCHYROLL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'crunchyroll.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_MEGAVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'megavideo.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_REVVER=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'revver.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_BREAK=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'break.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_FLICKR=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'flickr.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_LIVEVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'livevideo.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_YOUKU=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'youku.png',wx.BITMAP_TYPE_PNG))
         self.list.AssignImageList(DV.listicons_imagelist,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
@@ -3173,99 +3013,18 @@ class DamnMainFrame(wx.Frame): # The main window
             return 'Local file'
         return None
     def getVidName(self,uri):
-        """if uri[0:3]=='yt:':
-            try:
-                ret=[]
-                html=urllib2.urlopen('http://www.youtube.com/watch?v='+uri[3:])
-                for i in html:
-                    res=REGEX_HTTP_YOUTUBE_TITLE_EXTRACT.search(i)
-                    if res:
-                        ret.append(DamnHtmlEntities(res.group(1)))
-                    else:
-                        res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
-                        if res:
-                            ret.append(DamnHtmlEntities(res.group(1)))
-                    res2=REGEX_HTTP_YOUTUBE_TICKET_EXTRACT.search(i)
-                    if res2:
-                        url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)],True)
-                        if url=='http://www.youtube.com/get_video?video_id='+uri[3:]+'&t='+res2.group(3)+'&fmt=22':
-                            ret.append('HD')
-                return ret
-            except:
-                pass # Can't grab this? Return Unknown title"""
-        if uri[0:3]=='gv:':
-            try:
-                html=urllib2.urlopen('http://video.google.com/videoplay?docid='+uri[3:])
-                for i in html:
-                    res=REGEX_HTTP_GVIDEO_TITLE_EXTRACT.search(i)
-                    if res:
-                        return DamnHtmlEntities(res.group(1))
-                    else:
-                        res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
-                        if res:
-                            return DamnHtmlEntities(res.group(1))
-                        else:
-                            pass # Return Unknown title
-            except:
-                pass # Can't grab this? Return Unknown title
-        elif uri[0:3]=='vh:':
-            html=urllib2.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findByPermalink&permalink=v'+uri[3:]+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key again
-            for i in html:
-                res=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
-                if res:
-                    return DamnHtmlEntities(res.group(1))
-        elif uri[0:3]=='bl:':
-            html=urllib2.urlopen('http://www.blip.tv/file/'+uri[3:]+'?skin=api')
-            for i in html:
-                match=REGEX_HTTP_BLIPTV_TITLE_EXTRACT.search(i)
-                if match:
-                    return DamnHtmlEntities(match.group(1))
-        elif uri[0:3]=='mc:':
-            html=urllib2.urlopen('http://www.metacafe.com/watch/'+uri[3:])
-            for i in html:
-                match=REGEX_HTTP_METACAFE_TITLE_EXTRACT.search(i)
-                if match:
-                    return DamnHtmlEntities(match.group(1))
-        elif uri[0:3]=='cr:':
-            html=urllib2.urlopen('http://www.crunchyroll.com/media-'+uri[3:]+'/')
-            for i in html:
-                match=REGEX_HTTP_CRUNCHYROLL_TITLE_EXTRACT.search(i)
-                if match:
-                    return DamnHtmlEntities(match.group(1))
-        elif uri[0:3]=='mv:':
+        if uri[0:3]=='mv:':
             html=urllib2.urlopen('http://megavideo.com/?v='+uri[3:])
             for i in html:
                 match=REGEX_HTTP_MEGAVIDEO_TITLE_EXTRACT.search(i)
                 if match:
                     return DamnHtmlEntities(urllib2.unquote(match.group(1).replace('+',' '))).title()
-        elif uri[0:3]=='rv:':
-            return DV.revver_api.video.find({'ids':[int(uri[3:])]},['title'],{'limit':1})[0]['title']
-        elif uri[0:3]=='br:':
-            html=urllib2.urlopen(uri[3:])
-            for i in html:
-                match=REGEX_HTTP_BREAK_TITLE_EXTRACT.search(i)
-                if match:
-                    return DamnHtmlEntities(match.group(1))
-        elif uri[0:3]=='fl:':
-            html=urllib2.urlopen(uri[3:])
-            for i in html:
-                match=REGEX_HTTP_FLICKR_TITLE_EXTRACT.search(i)
-                if match:
-                    return DamnHtmlEntities(match.group(1))
         elif uri[0:3]=='lv:':
             html=urllib2.urlopen('http://www.livevideo.com/video/'+uri[3:]+'/.aspx')
             page=''
             for i in html:
                 page+=i
             match=REGEX_HTTP_LIVEVIDEO_TITLE_EXTRACT.search(page)
-            if match:
-                return DamnHtmlEntities(match.group(1))
-        elif uri[0:3]=='yk:':
-            html=urllib2.urlopen('http://v.youku.com/v_show/id_'+uri[3:])
-            page=''
-            for i in html:
-                page+=i
-            match=REGEX_HTTP_YOUKU_TITLE_EXTRACT.search(page)
             if match:
                 return DamnHtmlEntities(match.group(1))
         else:
@@ -3568,26 +3327,10 @@ class DamnMainFrame(wx.Frame): # The main window
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultprofile')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_ONLINE:
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultwebprofile')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_GVIDEO:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('googlevideo')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_BLIPTV:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('bliptv')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_METACAFE:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('metacafe')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_CRUNCHYROLL:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('crunchyroll')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_MEGAVIDEO:
                         self.meta[self.videos[i]]['profile']=DV.prefs.getd('megavideo')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_REVVER:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('revver')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_BREAK:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('break')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_FLICKR:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('flickr')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_LIVEVIDEO:
                         self.meta[self.videos[i]]['profile']=DV.prefs.getd('livevideo')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_YOUKU:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('youku')
                 self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
         try:
             del self.reopenprefs
