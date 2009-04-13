@@ -7,6 +7,8 @@ if OSNAME=='posix' and sys.platform=='darwin':
 required_files=[]
 while not os.path.lexists('./DamnVid.py'):
     os.chdir('./..')
+if os.path.lexists('./required-files.txt'):
+    os.remove('./required-files.txt')
 ext='py'
 if OSNAME=='nt':
     ext='exe'
@@ -14,7 +16,7 @@ required_files.extend(['DamnVid.'+ext,'version.damnvid','COPYING'])
 del ext
 if OSNAME=='nt':
     required_files.append('DamnVid.exe.manifest')
-required_dirs=['img','conf','modules']
+required_dirs=['img','conf']
 def addDir(d):
     global required_files
     for f in os.listdir(d):
@@ -25,6 +27,17 @@ def addDir(d):
                 required_files.append(d+os.sep+f)
 for d in required_dirs:
     addDir(d)
+for f in os.listdir('./'):
+    if f[-15:]=='.module.damnvid':
+        os.remove(f)
+for f in os.listdir('modules'):
+    os.popen('python module-package.py modules/'+f).close()
+for f in os.listdir('./'):
+    if f[-15:]=='.module.damnvid':
+        if os.path.lexists('modules/'+f):
+            os.remove('modules/'+f)
+        os.rename(f,'modules/'+f)
+        required_files.append('modules'+os.sep+f)
 if OSNAME=='nt':
     required_files.extend(['bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll'])
 elif OSNAME=='mac':

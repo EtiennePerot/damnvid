@@ -288,6 +288,30 @@ DV.preferences={
         'strict':False,
         'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
     },
+    'damnvid:lastfiledir':{
+        'name':'Last file directory',
+        'type':DV.preference_type_misc,
+        'kind':'dir',
+        'noedit':True,
+        'strict':False,
+        'default':'?DAMNVID_MY_VIDEOS?/'
+    },
+    'damnvid:lastprefdir':{
+        'name':'Last preference file directory',
+        'type':DV.preference_type_misc,
+        'kind':'dir',
+        'noedit':True,
+        'strict':False,
+        'default':'?DAMNVID_CWD?/'
+    },
+    'damnvid:lastmoduledir':{
+        'name':'Last module file directory',
+        'type':DV.preference_type_misc,
+        'kind':'dir',
+        'noedit':True,
+        'strict':False,
+        'default':'?DAMNVID_CWD?/modules/'
+    },
     'damnvid:defaultweboutdir':{
         'name':'Directly-downloaded videos directory',
         'type':DV.preference_type_misc,

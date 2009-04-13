@@ -53,10 +53,8 @@ class DamnModule_YouTube(DamnVideoModule):
         return self.pref('profile')
     def getOutdir(self):
         if self.playlist:
-            print 'outdir none'
             return None
         if self.hd:
-            print 'outdir',self.pref('outdirhd')
             return self.pref('outdirhd')
         return self.pref('outdir')
     def getIcon(self):
@@ -94,7 +92,7 @@ DamnRegisterModule({
     'name':'youtube',
     'title':'YouTube',
     'type':'video',
-    'version':'1.0',
+    'version':'1',
     'author':{
         'name':'WindPower',
         'email':'admin@biringa.com',

@@ -1,0 +1,91 @@
+#~DamnVid-module:escapistmagazine
+
+class DamnModule_Dailymotion(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='dailymotion'
+        self.regex={
+            'url':re.compile('dailymotion\.com/.*?video/(\w+)_?',re.IGNORECASE),
+            'title':re.compile('<h1(?: class="nav")?>\s*([^<>]+)\s*</h1>',re.IGNORECASE),
+            'ticket':(re.compile('\\.addVariable\\s*\\(\\s*([\'"])video\\1\\s*,\\s*([\'"])((?:(?!\\2).)+)\\2\\s*\\)',re.IGNORECASE),re.compile('(\d+)x(\d+)',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        if self.valid:
+            self.id='dm:'+self.valid.group(1)
+            self.link='http://www.dailymotion.com/video/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen(self.link)
+            for i in html:
+                res=self.regex['title'].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=urllib2.urlopen(self.link)
+        for i in html:
+            res=self.regex['ticket'][0].search(i)
+            if res:
+                urls=urllib2.unquote(res.group(3)).split('||')
+                qualitys={}
+                for j in urls:
+                    res2=self.regex['ticket'][1].search(j)
+                    if res2:
+                        qualitys[j]=int(res2.group(1))*int(res2.group(2))
+                if len(qualitys):
+                    keys=qualitys.values()
+                    keys.sort()
+                    finalurls=[]
+                    for j in keys:
+                        for l in qualitys.keys():
+                            if qualitys[l]==j:
+                                if l.find('@@')!=-1:
+                                    l=l[0:l.find('@@')]
+                                finalurls.append('http://www.dailymotion.com'+l)
+                    finalurls.reverse() # From best to worst quality
+                    self.newTicket(finalurls)
+DamnRegisterModule({
+    'name':'dailymotion',
+    'title':'Dailymotion',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'WindPower',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'dailymotion.png',
+        'large':'dailymotion-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for Dailymotion.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Dailymotion.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'class':DamnModule_Dailymotion,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Dailymotion/'
+        }
+    },
+    'preferences_order':['profile','outdir'],
+    'register':{
+        'listicons':{
+            'dailymotion':'dailymotion.png'
+        }
+    }
+})

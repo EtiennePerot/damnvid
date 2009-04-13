@@ -26,6 +26,7 @@ import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg)
 import time # Sleepin'
 import urllib2 # Fetch data from the tubes, encode/decode URLs
+import urllib # Sadly required as well, for its urlencode function
 import htmlentitydefs # HTML entities dictionaries
 import signal # Process signals
 import webbrowser # Open a page in default browser
@@ -39,7 +40,8 @@ import gdata.youtube.service # YouTube service
 import xmlrpclib # Required for the Revver API
 import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
 import unicodedata # Unicode normalization
-import hashlib # MD5 hashes, required to grab Livevideo backend pages
+import hashlib # MD5 hashes
+import tarfile # Tar/gz file reading/writing (used for modules)
 try:
     import threading as thr # Threads
 except ImportError:
@@ -71,10 +73,12 @@ if DV.os=='posix' and sys.platform=='darwin':
     DV.border_padding=12
     DV.control_hgap=10
     DV.control_vgap=4
+    DV.scroll_factor=2
 else:
     DV.border_padding=8
     DV.control_hgap=8
     DV.control_vgap=4
+    DV.scroll_factor=3
 if DV.os=='nt':
     import win32process
     # Need to determine the location of the "My Videos" and "Application Data" folder.
@@ -120,7 +124,7 @@ else:
     lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
     version=lastversion.readline().strip()
     lastversion.close()
-    DV.updated=version==DV.version
+    DV.updated=version!=DV.version
     del lastversion,version
 DV.images_path=DV.curdir+'img/'.replace('/',os.sep)
 DV.bin_path=DV.curdir+'bin/'.replace('/',os.sep)
@@ -172,6 +176,31 @@ def DamnGetListIcon(icon):
     if icon in DV.listicons_order:
         return DV.listicons_order.index(icon)
     return 0 # Damnvid generic video icon
+def DamnInstallModule(module):
+    if not os.path.lexists(module):
+        return 'nofile'
+    if not tarfile.is_tarfile(module):
+        return 'nomodule'
+    mod=tarfile.open(module,'r')
+    files=mod.getnames()
+    if not len(files):
+        return 'nomodule'
+    if files[0].find('/') in (-1,0):
+        return 'nomodule'
+    prefix=files[0][0:files[0].find('/')+1]
+    for i in files:
+        if i.find('/') in (-1,0):
+            return 'nomodule'
+        if i[0:i.find('/')+1]!=prefix:
+            return 'nomodule'
+    if os.path.lexists(DV.modules_path+prefix):
+        if os.path.isdir(DV.modules_path+prefix):
+            shutil.rmtree(DV.modules_path+prefix)
+        else:
+            os.remove(DV.modules_path+prefix)
+    mod.extractall(DV.modules_path)
+    DamnLoadModule(DV.modules_path+prefix[0:-1])
+    return 'success'
 def DamnRegisterModule(module):
     DV.modules[module['name']]=module
     if module.has_key('register'):
@@ -231,23 +260,31 @@ class DamnVideoModule:
         return self.pref('profile')
     def getOutdir(self):
         return self.pref('outdir')
+    def renewTicket(self):
+        self.newTicket(self.uri)
     def getDownload(self):
-        return self.uri
+        self.renewTicket()
+        return self.ticket
     def addVid(self,parent):
         parent.addValid(self.getVidObject())
     def getVidObject(self):
         return {'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self}
 class DamnModuleUpdateCheck(thr.Thread):
-    def __init__(self,parent,modules):
+    def __init__(self,parent,modules,byevent=True):
         self.parent=parent
         if type(modules) is not type([]):
             modules=[modules]
         self.modules=modules
         self.done={}
         self.downloaded=[]
+        self.byevent=byevent
         thr.Thread.__init__(self)
     def postEvent(self,module,result):
-        wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,{'module':module,'result':result}))
+        info={'module':module,'result':result}
+        if self.byevent:
+            wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,info))
+        else:
+            self.parent.onLoad(info)
     def run(self):
         for module in self.modules:
             if not module['about'].has_key('url'):
@@ -269,10 +306,62 @@ class DamnModuleUpdateCheck(thr.Thread):
                     if not res:
                         self.postEvent(module2,'error')
                     else:
-                        if DamnHtmlEntities(res.group(1))!=unicode(module2['version']):
-                            self.postEvent(module2,(DamnHtmlEntities(res.group(1)),DamnHtmlEntities(res.group(2))))
+                        vers=DamnHtmlEntities(res.group(1))
+                        if vers!=unicode(module2['version']):
+                            url=DamnHtmlEntities(res.group(2)).strip()
+                            if not REGEX_HTTP_GENERIC.match(url):
+                                self.postEvent(module2,'error')
+                            else:
+                                try:
+                                    print 'opening',url
+                                    http=urllib2.urlopen(url)
+                                    print 'opened, getting temp file'
+                                    tmpname=DamnTempFile()
+                                    print 'writing to',tmpname
+                                    tmp=open(tmpname,'wb')
+                                    for i in http:
+                                        tmp.write(i)
+                                    print 'finished'
+                                    tmp.close()
+                                    http.close()
+                                    print 'installing',tmpname
+                                    print 'result',DamnInstallModule(tmpname)
+                                    print 'installed',url
+                                    self.postEvent(module2,(vers,url))
+                                except:
+                                    self.postEvent(module2,'error')
                         else:
                             self.postEvent(module2,'uptodate')
+class DamnVidUpdater(thr.Thread):
+    def __init__(self,parent,verbose=False,main=True,modules=True):
+        self.parent=parent
+        self.todo={'main':main,'modules':modules}
+        self.info={'main':None,'modules':{},'verbose':verbose}
+        thr.Thread.__init__(self)
+    def postEvent(self):
+        wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,{'updateinfo':self.info}))
+    def onLoad(self,info):
+        if not info.has_key('module'):
+            return
+        self.info['modules'][info['module']['name']]=info['result']
+    def run(self):
+        if self.todo['main']:
+            regex=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
+            try:
+                html=urllib2.urlopen(DV.url_update)
+                for i in html:
+                    if regex.search(i):
+                        self.info['main']=regex.search(i).group(1).strip()
+            except:
+                pass
+        if self.todo['modules']:
+            updater=DamnModuleUpdateCheck(self,DV.modules.values(),False)
+            updater.run() # Yes, run(), not start(), this way we're waiting for it to complete.
+        self.postEvent()
+def DamnLoadModule(module):
+    for i in os.listdir(module):
+        if not os.path.isdir(module+os.sep+i) and i[-8:]=='.damnvid':
+            execfile(module+os.sep+i)
 def DamnLoadConfig(forcemodules=False):
     DV.preferences=None
     try:
@@ -291,11 +380,9 @@ def DamnLoadConfig(forcemodules=False):
             DV.path_prefs.append(i)
     DV.prefs=None # Will be loaded later
     # Load modules
-    if DV.first_run or DV.updated or True or forcemodules: # Fixme: Remove "or True", is is only used for debugging
-        if os.path.lexists(DV.conf_file_directory+'modules'):
-            shutil.rmtree(DV.conf_file_directory+'modules')
-        shutil.copytree(DV.curdir+'modules',DV.conf_file_directory+'modules')
     DV.modules_path=DV.conf_file_directory+'modules'+os.sep
+    if not os.path.lexists(DV.modules_path):
+        os.makedirs(DV.modules_path)
     DV.modules={}
     DV.generic_title_extract=re.compile('<title>\s*([^<>]+?)\s*</title>',re.IGNORECASE)
     DV.listicons={
@@ -304,13 +391,32 @@ def DamnLoadConfig(forcemodules=False):
     }
     DV.listicons_order=['damnvid','generic']
     DV.listicons_imagelist=None # Will be loaded later
+    if forcemodules: # Fixme: DEBUG ONLY
+        shutil.rmtree(DV.modules_path)
+        os.makedirs(DV.modules_path)
+        """if True: # Fixme: DEBUG ONLY; rebuilds all modules
+            for i in os.listdir('./'):
+                if i[-15:]=='.module.damnvid':
+                    os.remove(i)
+            for i in os.listdir('./modules/'):
+                if i[-15:]=='.module.damnvid':
+                    os.remove('modules/'+i)
+            for i in os.listdir('modules'):
+                if os.path.isdir('modules/'+i) and i.find('svn')==-1:
+                    print 'Building module '+i
+                    os.popen('python module-package.py modules/'+i).close()
+            for i in os.listdir('./'):
+                if i[-15:]=='.module.damnvid':
+                    os.rename(i,'modules/'+i)"""
+        for i in os.listdir(DV.curdir+'modules'):
+            if i[-15:]=='.module.damnvid':
+                print 'Installing',i
+                print DamnInstallModule(DV.curdir+'modules'+os.sep+i)
     for i in os.listdir(DV.modules_path):
         if os.path.isdir(DV.modules_path+i):
-            for j in os.listdir(DV.modules_path+i):
-                if not os.path.isdir(DV.modules_path+i+os.sep+j) and j[-8:]=='.damnvid':
-                    execfile(DV.modules_path+i+os.sep+j)
+            DamnLoadModule(DV.modules_path+i)
     # End load modules
-DamnLoadConfig()
+DamnLoadConfig(DV.first_run or DV.updated)
 # Begin ID constants
 ID_MENU_EXIT=wx.ID_EXIT
 ID_MENU_ADD_FILE=102
@@ -326,7 +432,6 @@ ID_COL_VIDPROFILE=1
 ID_COL_VIDSTAT=2
 ID_COL_VIDPATH=3
 # Begin regex constants
-REGEX_DAMNVID_VERSION_CHECK=re.compile('<tt>([^<>]+)</tt>',re.IGNORECASE)
 REGEX_PATH_MULTI_SEPARATOR_CHECK=re.compile('/+')
 REGEX_FFMPEG_DURATION_EXTRACT=re.compile('^\\s*Duration:\\s*(\\d+):(\\d\\d):([.\\d]+)',re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT=re.compile('time=([.\\d]+)',re.IGNORECASE)
@@ -336,7 +441,6 @@ REGEX_HTTP_YOUTUBE=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:vid
 REGEX_HTTP_YOUTUBE_PLAYLIST=re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*p(?:laylist)?[/=]([-_\w]{6,})',re.IGNORECASE)
 REGEX_HTTP_GVIDEO=re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE)
 REGEX_HTTP_VEOH=re.compile('^https?://(?:[-_\w]+\.)*veoh\.com/videos/',re.IGNORECASE)
-REGEX_HTTP_DAILYMOTION=re.compile('^https?://(?:[-_\w]+\.)*dailymotion\.com/',re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME=re.compile('^.*/|[?#].*$')
 REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
 REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
@@ -349,9 +453,6 @@ REGEX_HTTP_GVIDEO_TICKET_EXTRACT=re.compile('If the download does not start auto
 REGEX_HTTP_VEOH=re.compile('veoh\.com/.*?(?:%3D|[?&=/#])v(\w+)',re.IGNORECASE)
 REGEX_HTTP_VEOH_TITLE_EXTRACT=re.compile('title\s*=\s*"([^"]+)"',re.IGNORECASE)
 REGEX_HTTP_VEOH_TICKET_EXTRACT=(re.compile('fullPreviewHashPath\s*=\s*"([^"]+)"',re.IGNORECASE),re.compile('isExternalMedia\s*=\s*"true"',re.IGNORECASE),re.compile('aowPermalink\s*=\s*"([^"]+)"',re.IGNORECASE))
-REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT=re.compile('<h1(?: class="nav")?>([^<>]+)</h1>',re.IGNORECASE)
-REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT=re.compile('\\.addVariable\\s*\\(\\s*([\'"])video\\1\\s*,\\s*([\'"])((?:(?!\\2).)+)\\2\\s*\\)',re.IGNORECASE)
-REGEX_HTTP_DAILYMOTION_QUALITY=re.compile('(\d+)x(\d+)')
 REGEX_HTTP_BLIPTV=re.compile('blip\.tv/(?:file/|.*#)(\d+)',re.IGNORECASE)
 REGEX_HTTP_BLIPTV_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
 REGEX_HTTP_BLIPTV_TICKET_EXTRACT=re.compile('<link type="video[^"]*" href="([^"]+)"',re.IGNORECASE)
@@ -482,6 +583,11 @@ def DamnURLPicker(urls,urlonly=False):
                 return None
             pass
     return None
+def DamnTempFile():
+    name=DV.tmp_path+str(random.random())+'.tmp'
+    while os.path.lexists(name):
+        name=DV.tmp_path+str(random.random())+'.tmp'
+    return name
 def DamnFriendlyDir(d):
     if DV.os=='mac':
         myvids='Movies'
@@ -681,10 +787,7 @@ class DamnAddURLDialog(wx.Dialog):
         bottomleftsizer.Add((0,DV.control_vgap))
         bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'The following sites are suported:'))
         supportedsites=(
-            ('YouTube','http://www.youtube.com/browse','youtube.png'),
-            ('YouTube HD','http://www.youtube.com/browse?s=mphd','youtubehd.png'),
             ('Google Video','http://video.google.com/','googlevideo.png'),
-            ('Dailymotion','http://www.dailymotion.com/','dailymotion.png'),
             ('Veoh','http://www.veoh.com/','veoh.png'),
             ('Metacafe','http://www.metacafe.com/','metacafe.png'),
             ('Break.com','http://www.break.com/','break.png'),
@@ -921,7 +1024,8 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
             self.ini.add_section(section)
             self.sets(section,name,value)
             return self.gets(section,name)
-        print 'No such section:',section
+        print DV.defaultprefs.keys()
+        print 'No such pref:',section+':'+name
     def sets(self,section,name,value):
         name=name.lower()
         if self.ini.has_section(section):
@@ -1288,7 +1392,7 @@ class DamnVidBrowser(wx.Dialog):
             self.waitingpanel.Hide()
             self.scrollpanel.Show()
             self.resultpanel.Fit()
-            self.scrollpanel.SetScrollbars(0,1,0,self.resultpanel.GetSizeTuple()[1])
+            self.scrollpanel.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,self.resultpanel.GetSizeTuple()[1])
             self.toppanel.Layout()
         elif info['query'][0]=='image':
             try:
@@ -1405,7 +1509,7 @@ class DamnVidBrowser(wx.Dialog):
         panel.Fit()
         panel.Layout()
         self.resultpanel.Fit()
-        self.scrollpanel.SetScrollbars(0,1,0,self.resultpanel.GetSizeTuple()[1])
+        self.scrollpanel.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,self.resultpanel.GetSizeTuple()[1])
         self.scrollpanel.Scroll(position[0],position[1])
     def onClose(self,event=None):
         self.parent.searchopen=False
@@ -1549,10 +1653,16 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         if hyperlink is None and color is not None:
             lbl.SetForegroundColour(color)
         return lbl
-    def buildModulePanel(self,parent,module,extended=False,buttons=True):
+    def buildModulePanel(self,parent,module,extended=False,buttons=True,withscrollbars=False):
         mod=DV.modules[module]
         tmppanel=wx.Panel(parent,-1,style=wx.SIMPLE_BORDER)
         tmppanel.SetBackgroundColour(wx.WHITE)
+        panelwidth=parent.GetSizeTuple()[0]
+        if withscrollbars:
+            tmpscroll=wx.ScrollBar(tmppanel,-1,style=wx.SB_VERTICAL)
+            panelwidth-=tmpscroll.GetSizeTuple()[0]
+            tmpscroll.Destroy()
+            del tmpscroll
         tmptop3sizer=wx.BoxSizer(wx.VERTICAL)
         tmppanel.SetSizer(tmptop3sizer)
         tmptop3sizer.Add((0,DV.border_padding))
@@ -1601,7 +1711,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             desc=self.getLabel(tmppanel,mod['about']['long'])
         else:
             desc=self.getLabel(tmppanel,mod['about']['short'])
-        descwidth=parent.GetSizeTuple()[0]-2*DV.border_padding-72-DV.control_hgap
+        descwidth=tmppanel.GetSizeTuple()[0]-2*DV.border_padding-72-DV.control_hgap
         desc.Wrap(descwidth)
         self.moduledescs[mod['name']]=(desc,descwidth)
         rightcol.Add((0,DV.control_vgap))
@@ -1665,7 +1775,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 topsizer.Add(buttonsizer,0,wx.ALIGN_RIGHT)
                 # Construct module list scrollable window
                 for mod in DV.modules.iterkeys():
-                    modlistsizer.Add(self.buildModulePanel(self.modulelist,mod),0,wx.EXPAND)
+                    modlistsizer.Add(self.buildModulePanel(self.modulelist,mod,withscrollbars=True),0,wx.EXPAND)
+                self.modulelist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
                 # Construct buttons under module list
                 install=wx.Button(self.prefpane,-1,'Install...')
                 install.Bind(wx.EVT_BUTTON,self.onModuleInstall)
@@ -1696,15 +1807,17 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             availprefs=DV.prefs.lists(pane)
             for i in DV.preference_order[prefprefix[0:-1]]:
                 if prefprefix+i in DV.preferences.keys() and i in availprefs:
-                    currentprefs.append(prefprefix+i)
+                    if not DV.preferences[prefprefix+i].has_key('noedit'):
+                        currentprefs.append(prefprefix+i)
             for i in availprefs:
                 if prefprefix+i in DV.preferences.keys():
                     desc=DV.preferences[prefprefix+i]
-                    width=1
-                    if prefprefix+i not in currentprefs:
-                        currentprefs.append(prefprefix+i)
-                    maxheight[str(desc['type'])]+=1
-                    maxwidth[str(desc['type'])]=max((maxwidth[str(desc['type'])],self.getPrefWidth(prefprefix+i)))
+                    if not desc.has_key('noedit'):
+                        width=1
+                        if prefprefix+i not in currentprefs:
+                            currentprefs.append(prefprefix+i)
+                        maxheight[str(desc['type'])]+=1
+                        maxwidth[str(desc['type'])]=max((maxwidth[str(desc['type'])],self.getPrefWidth(prefprefix+i)))
             maxwidth[str(DV.preference_type_profile)]=max((maxwidth[str(DV.preference_type_misc)],maxwidth[str(DV.preference_type_profile)],maxwidth[str(DV.preference_type_video)]+maxwidth[str(DV.preference_type_audio)]))
             maxwidth[str(DV.preference_type_misc)]=maxwidth[str(DV.preference_type_profile)]
             count=0
@@ -1946,7 +2059,6 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         elif type(info['result']) is type(()):
             self.buildTree()
             self.forceSelect(self.modulelistitem)
-            wx.Yield()
             desc=self.moduledescs[mod]
             desc[0].SetLabel(modtitle+' has been updated to version '+str(info['result'][0])+'.')
             desc[0].Wrap(desc[1])
@@ -1987,7 +2099,33 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             self.forceSelect(self.modulelistitem)
         dlg.Destroy()
     def onModuleInstall(self,event=None):
-        pass
+        dlg=wx.FileDialog(None,'Where is located the module to install?',DV.prefs.get('lastmoduledir'),'','DamnVid modules (*.module.damnvid)|*.module.damnvid|All files (*.*)|*.*',wx.FD_OPEN)
+        dlg.SetIcon(DV.icon)
+        result=None
+        if dlg.ShowModal()==wx.ID_OK:
+            path=dlg.GetPath()
+            DV.prefs.set('lastmoduledir',os.path.dirname(path))
+            result=DamnInstallModule(path)
+        dlg.Destroy()
+        message=None
+        if result is not None:
+            if result=='success':
+                message=('Success!','The module was successfully installed.',wx.ICON_INFORMATION)
+            elif result=='nofile':
+                message=('Error','Error: Could not find the module file.',wx.ICON_ERROR)
+            elif result=='nomodule':
+                message=('Error','Error: This file is not a valid DamnVid module.',wx.ICON_ERROR)
+            else:
+                message=('Error','Error: Unknown error while installing module.',wx.ICON_ERROR)
+        if message is not None:
+            DamnLoadConfig()
+            DV.prefs=DamnVidPrefs()
+            self.buildTree()
+            self.forceSelect(self.modulelistitem)
+            dlg=wx.MessageDialog(None,message[1],message[0],message[2])
+            dlg.SetIcon(DV.icon)
+            dlg.ShowModal()
+            dlg.Destroy()
     def onModuleUninstall(self,module=None,event=None):
         if not DV.modules.has_key(module):
             return
@@ -2195,10 +2333,6 @@ class DamnVideoLoader(thr.Thread):
                         uri='gv:'+match.group(1)
                         name=self.getVidName(uri)
                         self.addValid({'name':name,'profile':self.getDefaultProfile('googlevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://video.google.com/videoplay?docid='+match.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_GVIDEO})
-                    elif REGEX_HTTP_DAILYMOTION.search(uri):
-                        uri='dm:'+uri
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('dailymotion'),'profilemodified':False,'fromfile':name,'dirname':uri[3:],'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_DAILYMOTION})
                     elif REGEX_HTTP_BLIPTV.search(uri):
                         res=REGEX_HTTP_BLIPTV.search(uri)
                         uri='bl:'+res.group(1)
@@ -2288,30 +2422,6 @@ class DamnConverter(thr.Thread): # The actual converter
                 res=REGEX_HTTP_GVIDEO_TICKET_EXTRACT.search(i)
                 if res:
                     return [res.group(1)]
-        elif uri[0:3]=='dm:':
-            html=urllib2.urlopen(uri[3:])
-            for i in html:
-                res=REGEX_HTTP_DAILYMOTION_TICKET_EXTRACT.search(i)
-                if res:
-                    urls=urllib2.unquote(res.group(3)).split('||')
-                    qualitys={}
-                    for j in urls:
-                        res2=REGEX_HTTP_DAILYMOTION_QUALITY.search(j)
-                        if res2:
-                            qualitys[j]=int(res2.group(1))*int(res2.group(2))
-                    if len(qualitys):
-                        # This is quite ugly but it works
-                        keys=qualitys.values()
-                        keys.sort()
-                        finalurls=[]
-                        for j in keys:
-                            for l in qualitys.keys():
-                                if qualitys[l]==j:
-                                    if l.find('@@')!=-1:
-                                        l=l[0:l.find('@@')]
-                                    finalurls.append('http://www.dailymotion.com'+l)
-                        finalurls.reverse() # From best to worst quality. Note: this doesn't return a new reverse'd, array, it actually modifies the array itself
-                        return finalurls
         elif uri[0:3]=='bl:':
             html=urllib2.urlopen('http://blip.tv/file/'+uri[3:]+'?skin=api')
             urls=[]
@@ -2810,11 +2920,8 @@ class DamnMainFrame(wx.Frame): # The main window
             DV.listicons_imagelist.Add(wx.Bitmap(DV.listicons[icon]))
         self.ID_ICON_LOCAL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'video.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_ONLINE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'online.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_YOUTUBE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'youtube.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_YOUTUBEHD=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'youtubehd.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_GVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'googlevideo.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_VEOH=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'veoh.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_DAILYMOTION=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'dailymotion.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_BLIPTV=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'bliptv.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_METACAFE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'metacafe.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_CRUNCHYROLL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'crunchyroll.png',wx.BITMAP_TYPE_PNG))
@@ -3058,11 +3165,9 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addurl=None
     def validURI(self,uri):
         if REGEX_HTTP_GENERIC.match(uri):
-            regexes=(REGEX_HTTP_YOUTUBE,REGEX_HTTP_YOUTUBE_PLAYLIST,REGEX_HTTP_GVIDEO,REGEX_HTTP_VEOH,REGEX_HTTP_DAILYMOTION,REGEX_HTTP_BLIPTV,REGEX_HTTP_METACAFE,REGEX_HTTP_CRUNCHYROLL,REGEX_HTTP_MEGAVIDEO,REGEX_HTTP_REVVER,REGEX_HTTP_BREAK,REGEX_HTTP_FLICKR,REGEX_HTTP_LIVEVIDEO,REGEX_HTTP_YOUKU)
-            popularsite=False
-            for regex in regexes:
-                if regex.search(uri):
-                    return 'Popular site'
+            for i in DV.modules.values():
+                if i['class'](uri).validURI():
+                    return 'Video site'
             return 'Online video' # Not necessarily true, but ffmpeg will tell
         elif os.path.lexists(uri):
             return 'Local file'
@@ -3109,25 +3214,6 @@ class DamnMainFrame(wx.Frame): # The main window
                 res=REGEX_HTTP_VEOH_TITLE_EXTRACT.search(i)
                 if res:
                     return DamnHtmlEntities(res.group(1))
-        elif uri[0:3]=='dm:':
-            try:
-                html=urllib2.urlopen(uri[3:])
-                page=[]
-                for i in html:
-                    page.append(i)
-                for i in page:
-                    res=REGEX_HTTP_DAILYMOTION_TITLE_EXTRACT.search(i)
-                    if res:
-                        res.group(0)
-                        return DamnHtmlEntities(res.group(1))
-                for i in page:
-                    res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
-                    if res:
-                        return DamnHtmlEntities(res.group(1))
-                    else:
-                        pass # Return Unknown title
-            except:
-                pass # Can't grab this? Return Unknown title
         elif uri[0:3]=='bl:':
             html=urllib2.urlopen('http://www.blip.tv/file/'+uri[3:]+'?skin=api')
             for i in html:
@@ -3223,6 +3309,51 @@ class DamnMainFrame(wx.Frame): # The main window
         if info.has_key('go') and self.converting==-1:
             if info['go']:
                 self.onGo()
+        if info.has_key('updateinfo'):
+            if info['updateinfo'].has_key('verbose'):
+                verbose=info['updateinfo']['verbose']
+            else:
+                verbose=True
+            if info['updateinfo'].has_key('main'):
+                msg=None
+                if info['updateinfo']['main']!=DV.version and type(info['updateinfo']['main']) is type(''):
+                    dlg=wx.MessageDialog(self,'A new version ('+info['updateinfo']['main']+') is available! You are running DamnVid '+DV.version+'.\nWant to go to the download page and download the update?','Update available!',wx.YES|wx.NO|wx.YES_DEFAULT|wx.ICON_INFORMATION)
+                    dlg.SetIcon(DV.icon)
+                    if dlg.ShowModal()==wx.ID_YES:
+                        webbrowser.open(DV.url_download,2)
+                    dlg.Destroy()
+                elif verbose and type(info['updateinfo']['main']) is type(''):
+                    msg=('DamnVid is up-to-date.','DamnVid is up-to-date! The latest version is '+DV.version+'.',wx.ICON_INFORMATION)
+                elif verbose:
+                    msg=('Error!','There was a problem while checking for updates. You are running DamnVid '+DV.version+'.\nMake sure you are connected to the Internet, and that no firewall is blocking DamnVid.',wx.ICON_INFORMATION)
+                if msg is not None:
+                    dlg=wx.MessageDialog(self,msg[1],msg[0],msg[3])
+                    dlg.SetIcon(DV.icon)
+                    dlg.ShowModal()
+                    dlg.Destroy()
+            if info['updateinfo'].has_key('modules'):
+                msg=[]
+                for i in info['updateinfo']['modules'].iterkeys():
+                    if type(info['updateinfo']['modules'][i]) is type(()):
+                        msg.append((True,DV.modules[i]['title']+' was updated to version '+info['updateinfo']['modules'][i][0]+'.'))
+                    elif type(info['updateinfo']['modules'][i]) is type('') and verbose:
+                        if info['updateinfo']['modules'][i]=='error':
+                            msg.append((False,DV.modules[i]['title']+' is up-to-date (version '+DV.modules[i]['version']+').'))
+                if len(msg):
+                    msgs=[]
+                    for i in msg:
+                        if i[0]:
+                            msgs.append(i[1])
+                    if not len(msg) and verbose:
+                        msgs=msg
+                    if len(msgs):
+                        msg='DamnVid also checked for updates to its modules.\n'
+                        for i in msgs:
+                            msg+='\n'+i
+                        dlg=wx.MessageDialog(self,msg,'Module updates',wx.ICON_INFORMATION)
+                        dlg.SetIcon(DV.icon)
+                        dlg.ShowModal()
+                        dlg.Destroy()
     def addVid(self,uris,thengo=False):
         DamnVideoLoader(self,uris,thengo).start()
     def addValid(self,meta):
@@ -3302,7 +3433,6 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.converting=-1
                 self.stopbutton.Disable()
                 self.gobutton1.Enable()
-                self.prefmenuitem.Enable()
                 self.gauge1.SetValue(0.0)
     def onGo(self,event=None):
         if not len(self.videos):
@@ -3330,7 +3460,6 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.thisvideo=[]
                 self.stopbutton.Enable()
                 self.gobutton1.Disable()
-                self.prefmenuitem.Enable(False)
                 self.go()
     def onStop(self,event):
         self.thread.abortProcess()
@@ -3439,8 +3568,6 @@ class DamnMainFrame(wx.Frame): # The main window
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultprofile')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_ONLINE:
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultwebprofile')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_DAILYMOTION:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('dailymotion')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_GVIDEO:
                         self.meta[self.videos[i]]['profile']=DV.prefs.getd('googlevideo')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_BLIPTV:
@@ -3474,37 +3601,9 @@ class DamnMainFrame(wx.Frame): # The main window
             pass # Halp here?
     def onHalp(self,event):
         webbrowser.open(DV.url_halp,2)
-    def onCheckUpdates(self,event):
-        msg=False
-        try:
-            html=urllib2.urlopen(DV.url_update)
-            for i in html:
-                if REGEX_DAMNVID_VERSION_CHECK.search(i):
-                    v=REGEX_DAMNVID_VERSION_CHECK.search(i).group(1)
-                    if v==DV.version:
-                        msg='No new version available. You are running the latest version of DamnVid ('+DV.version+').'
-                        if event!=None: # event = None when checking for updates at startup
-                            dlg=wx.MessageDialog(None,msg,'Already running latest version.',wx.ICON_INFORMATION|wx.OK)
-                            dlg.SetIcon(DV.icon)
-                            dlg.ShowModal()
-                    else:
-                        msg='A new version ('+v+') is available! You are running DamnVid '+DV.version+'.\nDo you want want to go to the download page?'
-                        dlg=wx.MessageDialog(None,msg,'New version available!',wx.ICON_QUESTION|wx.YES_NO|wx.YES_DEFAULT)
-                        dlg.SetIcon(DV.icon)
-                        if dlg.ShowModal()==wx.ID_YES:
-                            webbrowser.open(DV.url_download,2)
-                    raise IOError # Raise dummy error just to skip to the rest of the loop
-        except:
-            pass
-        if not msg:
-            dlg=wx.MessageDialog(None,'Could not retrieve latest version. Make sure you are connected to the Internet, and that no firewall is blocking DamnVid from the Internet.','Error',wx.ICON_ERROR|wx.OK)
-            dlg.SetIcon(DV.icon)
-            dlg.ShowModal()
-        try:
-            dlg.Destroy()
-        except:
-            pass
-        return None
+    def onCheckUpdates(self,event=None):
+        updater=DamnVidUpdater(self,verbose=event is not None)
+        updater.start()
     def onAboutDV(self,event):
         dlg=DamnAboutDamnVid(None,-1,main=self)
         dlg.SetIcon(DV.icon)
@@ -3563,7 +3662,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     wx.TheClipboard.GetData(dataobject)
                     clip=dataobject.GetText()
                     wx.TheClipboard.Close()
-                    if self.validURI(clip)=='Popular site' and clip not in self.clippedvideos:
+                    if self.validURI(clip)=='Video site' and clip not in self.clippedvideos:
                         self.clippedvideos.append(clip)
                         if self.addurl is not None:
                             self.addurl.onAdd(val=clip)

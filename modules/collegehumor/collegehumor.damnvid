@@ -29,9 +29,6 @@ class DamnModule_CollegeHumor(DamnVideoModule):
             res=self.regex['ticket'].search(i)
             if res:
                 self.newTicket(DamnHtmlEntities(res.group(1)))
-    def getDownload(self):
-        self.renewTicket()
-        return self.ticket
 DamnRegisterModule({
     'name':'collegehumor',
     'title':'CollegeHumor',

@@ -1,1 +1,0 @@
-In this directory lies the FFmpeg revision that DamnVid uses.
