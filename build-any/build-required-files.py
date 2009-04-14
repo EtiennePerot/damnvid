@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
@@ -9,12 +10,16 @@ while not os.path.lexists('./DamnVid.py'):
     os.chdir('./..')
 if os.path.lexists('./required-files.txt'):
     os.remove('./required-files.txt')
+if os.path.lexists('./COPYING'):
+    os.remove('./COPYING')
+shutil.copyfile('./build-any/COPYING','./COPYING')
 ext='py'
 if OSNAME=='nt':
     ext='exe'
 required_files.extend(['DamnVid.'+ext,'version.damnvid','COPYING'])
 del ext
 if OSNAME=='nt':
+    shutil.copyfile('./build-exe/DamnVid.exe.manifest','./DamnVid.exe.manifest')
     required_files.append('DamnVid.exe.manifest')
 required_dirs=['img','conf']
 def addDir(d):
@@ -31,7 +36,7 @@ for f in os.listdir('./'):
     if f[-15:]=='.module.damnvid':
         os.remove(f)
 for f in os.listdir('modules'):
-    os.popen('python module-package.py modules/'+f).close()
+    os.popen('python build-any/module-package.py modules/'+f).close()
 for f in os.listdir('./'):
     if f[-15:]=='.module.damnvid':
         if os.path.lexists('modules/'+f):

@@ -27,6 +27,7 @@ import subprocess # Spawn sub-processes (ffmpeg)
 import time # Sleepin'
 import urllib2 # Fetch data from the tubes, encode/decode URLs
 import urllib # Sadly required as well, for its urlencode function
+import cookielib # Cookie handling. Yum, warm, freshly-baked cookies.
 import htmlentitydefs # HTML entities dictionaries
 import signal # Process signals
 import webbrowser # Open a page in default browser
@@ -56,7 +57,8 @@ versionfile=open(DV.curdir+'version.damnvid','r')
 DV.version=versionfile.readline().strip()
 versionfile.close()
 del versionfile
-DV.urllib2_urlopener=urllib2.build_opener()
+DV.cookiejar=cookielib.CookieJar()
+DV.urllib2_urlopener=urllib2.build_opener(urllib2.HTTPCookieProcessor(DV.cookiejar))
 DV.urllib2_urlopener.addheaders=[('User-agent','DamnVid/'+DV.version)]
 urllib2.install_opener(DV.urllib2_urlopener) # All urllib2.urlopen() calls will have the DamnVid user-agent
 DV.url='http://code.google.com/p/damnvid/'
@@ -198,6 +200,15 @@ def DamnInstallModule(module):
     mod.extractall(DV.modules_path)
     DamnLoadModule(DV.modules_path+prefix[0:-1])
     return 'success'
+def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
+    mods=DV.modules.keys()
+    mods.sort()
+    if keys:
+        return mods
+    ret=[]
+    for i in mods:
+        ret.append(DV.modules[i])
+    return ret
 def DamnRegisterModule(module):
     DV.modules[module['name']]=module
     if module.has_key('register'):
@@ -273,10 +284,12 @@ class DamnVideoModule:
         return self.ticket
     def getFFmpegArgs(self):
         return []
+    def getDownloadGetter(self):
+        return self.getDownload
     def addVid(self,parent):
         parent.addValid(self.getVidObject())
     def getVidObject(self):
-        return {'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self}
+        return {'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self,'downloadgetter':self.getDownloadGetter()}
 class DamnModuleUpdateCheck(thr.Thread):
     def __init__(self,parent,modules,byevent=True):
         self.parent=parent
@@ -357,7 +370,7 @@ class DamnVidUpdater(thr.Thread):
             except:
                 pass
         if self.todo['modules']:
-            updater=DamnModuleUpdateCheck(self,DV.modules.values(),False)
+            updater=DamnModuleUpdateCheck(self,DamnIterModules(False),False)
             updater.run() # Yes, run(), not start(), this way we're waiting for it to complete.
         self.postEvent()
 def DamnLoadModule(module):
@@ -406,7 +419,7 @@ def DamnLoadConfig(forcemodules=False):
             for i in os.listdir('modules'):
                 if os.path.isdir('modules/'+i) and i.find('svn')==-1:
                     print 'Building module '+i
-                    os.popen('python module-package.py modules/'+i).close()
+                    os.popen('python build-any/module-package.py modules/'+i).close()
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
                     os.rename(i,'modules/'+i)
@@ -444,78 +457,9 @@ REGEX_HTTP_EXTRACT_DIRNAME=re.compile('^([^?#]*)/.*?$')
 REGEX_FILE_CLEANUP_FILENAME=re.compile('[\\/:?"|*<>]+')
 REGEX_URI_EXTENSION_EXTRACT=re.compile('^(?:[^?|<>]+[/\\\\])?[^/\\\\|?<>#]+\\.(\\w{1,3})(?:$|[^/\\\\\\w].*?$)')
 REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNORECASE)
-REGEX_HTTP_MEGAVIDEO=re.compile('megavideo\.com/(?:\?v=)(\w+)',re.IGNORECASE)
-REGEX_HTTP_MEGAVIDEO_TITLE_EXTRACT=re.compile('\.title\s*=\s*[\'"]([^\s"\']+)[\'"]',re.IGNORECASE)
-REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT=(re.compile('\.k1\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.k2\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.un\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE),re.compile('\.s\s*=\s*[\'"]?(\w+)[\'"]?',re.IGNORECASE))
-REGEX_HTTP_LIVEVIDEO=re.compile('livevideo\.com/video/(\w+)/?',re.IGNORECASE)
-REGEX_HTTP_LIVEVIDEO_TITLE_EXTRACT=re.compile('class="videotitle">\s*([^<>]+)?\s*',re.IGNORECASE)
-REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT=(re.compile('swf[?&]+video=([^\'"]+)',re.IGNORECASE),re.compile('(?:^|[?&])+video_id=([^?&]+)(?:$|[?&])+',re.IGNORECASE))
 REGEX_THOUSAND_SEPARATORS=re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 # End regex constants
 # End constants
-
-def DamnMegaVideoDecrypt(s,k1,k2): # This required a nice bit of reverse-engineering, but it works!
-    binary=''
-    assoc={
-        '0':'0000',
-        '1':'0001',
-        '2':'0010',
-        '3':'0011',
-        '4':'0100',
-        '5':'0101',
-        '6':'0110',
-        '7':'0111',
-        '8':'1000',
-        '9':'1001',
-        'a':'1010',
-        'b':'1011',
-        'c':'1100',
-        'd':'1101',
-        'e':'1110',
-        'f':'1111'
-    }
-    theotherway={
-        '0000':'0',
-        '0001':'1',
-        '0010':'2',
-        '0011':'3',
-        '0100':'4',
-        '0101':'5',
-        '0110':'6',
-        '0111':'7',
-        '1000':'8',
-        '1001':'9',
-        '1010':'a',
-        '1011':'b',
-        '1100':'c',
-        '1101':'d',
-        '1110':'e',
-        '1111':'f'
-    }
-    for i in s:
-        if assoc.has_key(i):
-            binary+=assoc[i]
-    ar2=[]
-    for i in range(384):
-        k1=(k1*11+77213)%81371
-        k2=(k2*17+92717)%192811
-        ar2.append((k1+k2)%128)
-    for i in range(256,-1,-1):
-        mi=min((ar2[i],i%128))
-        ma=max((ar2[i],i%128))
-        if mi!=ma:
-            binary=binary[0:mi]+binary[ma]+binary[mi+1:ma]+binary[mi]+binary[ma+1:]
-    for i in range(128):
-        if binary[i]=='0':
-            tmp=ar2[i+256]%2
-        else:
-            tmp=not bool(ar2[i+256]%2)
-        binary=binary[0:i]+str(int(tmp))+binary[i+1:]
-    result=''
-    for i in range(0,len(binary),4):
-        if theotherway.has_key(binary[i:i+4]):
-            result+=theotherway[binary[i:i+4]]
-    return result
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     finalcmd=[]
     oldcmd=cmd
@@ -758,17 +702,21 @@ class DamnAddURLDialog(wx.Dialog):
         bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'Go ahead, add some videos!'))
         bottomleftsizer.Add((0,DV.control_vgap))
         bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'The following sites are suported:'))
-        supportedsites=[
-            ('Megavideo','http://megavideo.com/','megavideo.png'),
-            ('Livevideo','http://www.livevideo.com/','livevideo.png')
-        ]
-        for i in supportedsites:
-            bottomleftsizer.Add((0,DV.control_vgap))
-            sitesizer=wx.BoxSizer(wx.HORIZONTAL)
-            bottomleftsizer.Add(sitesizer)
-            sitesizer.Add(wx.StaticBitmap(self.toppanel,-1,wx.Bitmap(DV.images_path+i[2])),0,wx.ALIGN_CENTER_VERTICAL)
-            sitesizer.Add((DV.control_hgap,0))
-            sitesizer.Add(DamnHyperlink(self.toppanel,-1,i[0],i[1]),0,wx.ALIGN_CENTER_VERTICAL)
+        scrollinglist=wx.ScrolledWindow(self.toppanel,-1)
+        scrollinglistsizer=wx.BoxSizer(wx.VERTICAL)
+        scrollinglist.SetSizer(scrollinglistsizer)
+        bottomleftsizer.Add(scrollinglist,1,wx.EXPAND)
+        for i in DamnIterModules(False):
+            if i.has_key('sites'):
+                for site in i['sites']:
+                    scrollinglistsizer.Add((0,DV.control_vgap))
+                    sitesizer=wx.BoxSizer(wx.HORIZONTAL)
+                    scrollinglistsizer.Add(sitesizer)
+                    sitesizer.Add(wx.StaticBitmap(scrollinglist,-1,wx.Bitmap(DV.modules_path+i['name']+os.sep+site['icon'])),0,wx.ALIGN_CENTER_VERTICAL)
+                    sitesizer.Add((DV.control_hgap,0))
+                    sitesizer.Add(DamnHyperlink(scrollinglist,-1,site['title'],site['url']),0,wx.ALIGN_CENTER_VERTICAL)
+        scrollinglist.SetMinSize((-1,220))
+        scrollinglist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
         # Now start building the bottom-right part
         self.monitorcheck=wx.CheckBox(self.toppanel,-1,'Monitor clipboard for new URLs')
         self.monitorcheck.Bind(wx.EVT_CHECKBOX,self.onMonitorCheck)
@@ -1570,7 +1518,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.tree.SetItemImage(self.modulelistitem,treeimages.Add(wx.Bitmap(DV.images_path+'modules.png')))
         self.modules={}
         self.moduledescs={}
-        for i in DV.modules.iterkeys():
+        for i in DamnIterModules():
             self.modules[i]=self.tree.AppendItem(self.modulelistitem,DV.modules[i]['title'])
             self.tree.SetItemImage(self.modules[i],treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+os.sep+DV.modules[i]['icon']['small'])))
         self.profileroot=self.tree.AppendItem(self.treeroot,'Encoding profiles')
@@ -1598,7 +1546,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         elif item in self.profiles:
             self.updatePrefPane('damnvid-profile-'+str(self.profiles.index(item)))
         elif item in self.modules.values():
-            for i in self.modules.iterkeys():
+            for i in DamnIterModules():
                 if self.modules[i]==item:
                     self.updatePrefPane('damnvid-module-'+i)
                     break
@@ -1737,7 +1685,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 buttonsizer=wx.BoxSizer(wx.HORIZONTAL)
                 topsizer.Add(buttonsizer,0,wx.ALIGN_RIGHT)
                 # Construct module list scrollable window
-                for mod in DV.modules.iterkeys():
+                for mod in DamnIterModules():
                     modlistsizer.Add(self.buildModulePanel(self.modulelist,mod,withscrollbars=True),0,wx.EXPAND)
                 self.modulelist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
                 # Construct buttons under module list
@@ -2283,7 +2231,7 @@ class DamnVideoLoader(thr.Thread):
         for uri in uris:
             self.originaluri=uri
             bymodule=False
-            for module in DV.modules.itervalues():
+            for module in DamnIterModules(False):
                 mod=module['class'](uri)
                 if mod.validURI():
                     mod.addVid(self)
@@ -2291,21 +2239,10 @@ class DamnVideoLoader(thr.Thread):
                     break
             if not bymodule:
                 if REGEX_HTTP_GENERIC.match(uri):
-                    if REGEX_HTTP_MEGAVIDEO.search(uri):
-                        res=REGEX_HTTP_MEGAVIDEO.search(uri)
-                        uri='mv:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('megavideo'),'profilemodified':False,'fromfile':name,'dirname':'http://megavideo.com/?v='+res.group(1),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_MEGAVIDEO})
-                    elif REGEX_HTTP_LIVEVIDEO.search(uri):
-                        res=REGEX_HTTP_LIVEVIDEO.search(uri)
-                        uri='lv:'+res.group(1)
-                        name=self.getVidName(uri)
-                        self.addValid({'name':name,'profile':self.getDefaultProfile('livevideo'),'profilemodified':False,'fromfile':name,'dirname':'http://www.livevideo.com/video/'+res.group(1)+'/.aspx','uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_LIVEVIDEO})
-                    else:
-                        name=self.getVidName(uri)
-                        if name=='Unknown title':
-                            name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
-                        self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_ONLINE})
+                    name=self.getVidName(uri)
+                    if name=='Unknown title':
+                        name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
+                    self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_ONLINE})
                 else:
                     # It's a file or a directory
                     if os.path.isdir(uri):
@@ -2334,9 +2271,9 @@ class DamnConverter(thr.Thread): # The actual converter
         self.moduleextraargs=[]
         thr.Thread.__init__(self)
     def getURI(self,uri):
-        if self.parent.meta[self.sourceuri].has_key('module'):
+        if self.parent.meta[self.sourceuri].has_key('downloadgetter') and self.parent.meta[self.sourceuri].has_key('module'):
             if self.parent.meta[self.sourceuri]['module'] is not None:
-                uri=self.parent.meta[self.sourceuri]['module'].getDownload()
+                uri=self.parent.meta[self.sourceuri]['downloadgetter']()
                 self.moduleextraargs=self.parent.meta[self.sourceuri]['module'].getFFmpegArgs()
                 if not self.parent.meta[self.sourceuri]['profilemodified']:
                     self.outdir=self.parent.meta[self.sourceuri]['module'].getOutdir()
@@ -2361,19 +2298,6 @@ class DamnConverter(thr.Thread): # The actual converter
                     s=int(res4.group(1))
             if k1 and k2 and s and un:
                 return ['http://www'+str(s)+'.megavideo.com/files/'+DamnMegaVideoDecrypt(un,k1,k2)+'/']
-        elif uri[0:3]=='lv:':
-            html=urllib2.urlopen('http://www.livevideo.com/video/'+uri[3:]+'/.aspx')
-            secret=''
-            for i in html:
-                res=REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT[0].search(i)
-                if res:
-                    secret=urllib2.unquote(res.group(1))+'&flash=flashundefined&h='+hashlib.md5(secret+'&flash=flashundefinedLVX*7x8yzwe').hexdigest()
-            if secret:
-                html=urllib2.urlopen(secret)
-                for i in html:
-                    res=REGEX_HTTP_LIVEVIDEO_TICKET_EXTRACT[1].search(i)
-                    if res:
-                        return [urllib2.unquote(res.group(1))]
         return [uri]
     def cmd2str(self,cmd):
         s=''
@@ -2769,8 +2693,6 @@ class DamnMainFrame(wx.Frame): # The main window
             DV.listicons_imagelist.Add(wx.Bitmap(DV.listicons[icon]))
         self.ID_ICON_LOCAL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'video.png',wx.BITMAP_TYPE_PNG))
         self.ID_ICON_ONLINE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'online.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_MEGAVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'megavideo.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_LIVEVIDEO=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'livevideo.png',wx.BITMAP_TYPE_PNG))
         self.list.AssignImageList(DV.listicons_imagelist,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
@@ -3005,7 +2927,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addurl=None
     def validURI(self,uri):
         if REGEX_HTTP_GENERIC.match(uri):
-            for i in DV.modules.values():
+            for i in DamnIterModules(False):
                 if i['class'](uri).validURI():
                     return 'Video site'
             return 'Online video' # Not necessarily true, but ffmpeg will tell
@@ -3013,29 +2935,14 @@ class DamnMainFrame(wx.Frame): # The main window
             return 'Local file'
         return None
     def getVidName(self,uri):
-        if uri[0:3]=='mv:':
-            html=urllib2.urlopen('http://megavideo.com/?v='+uri[3:])
+        try:
+            html=urllib2.urlopen(uri[3:])
             for i in html:
-                match=REGEX_HTTP_MEGAVIDEO_TITLE_EXTRACT.search(i)
-                if match:
-                    return DamnHtmlEntities(urllib2.unquote(match.group(1).replace('+',' '))).title()
-        elif uri[0:3]=='lv:':
-            html=urllib2.urlopen('http://www.livevideo.com/video/'+uri[3:]+'/.aspx')
-            page=''
-            for i in html:
-                page+=i
-            match=REGEX_HTTP_LIVEVIDEO_TITLE_EXTRACT.search(page)
-            if match:
-                return DamnHtmlEntities(match.group(1))
-        else:
-            try:
-                html=urllib2.urlopen(uri[3:])
-                for i in html:
-                    res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
-                    if res:
-                        return DamnHtmlEntities(res.group(1)).strip()
-            except:
-                pass # Can't grab this? Return Unknown title
+                res=REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
+                if res:
+                    return DamnHtmlEntities(res.group(1)).strip()
+        except:
+            pass # Can't grab this? Return Unknown title
         return u'Unknown title'
     def onDropTargetClick(self,event):
         dlg=wx.MessageDialog(self,'This is a droptarget: You may drop video files and folders here (or in the big list as well).','DamnVid Droptarget',wx.ICON_INFORMATION)
@@ -3327,10 +3234,6 @@ class DamnMainFrame(wx.Frame): # The main window
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultprofile')
                     elif self.meta[self.videos[i]]['icon']==self.ID_ICON_ONLINE:
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultwebprofile')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_MEGAVIDEO:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('megavideo')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_LIVEVIDEO:
-                        self.meta[self.videos[i]]['profile']=DV.prefs.getd('livevideo')
                 self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
         try:
             del self.reopenprefs

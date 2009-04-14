@@ -4,7 +4,7 @@
 @echo Trying to delete old setup, if any.
 @del /q DamnVid-setup*
 @echo Building list of required files.
-@python build-required-files.py
+@python build-any/build-required-files.py
 @echo Creating /package/ directory.
 @mkdir package
 @echo Switching to /package/ directory.
@@ -27,5 +27,6 @@
 @echo Renaming setup.
 @set /p version= < version.damnvid
 @ren DamnVid-setup.exe DamnVid-setup-%version%.exe
+@python build-any/cleanup.py
 @echo All done.
 @pause
