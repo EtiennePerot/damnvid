@@ -1,0 +1,97 @@
+#~DamnVid-module:wegame
+
+class DamnModule_WeGame(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='wegame'
+        self.regex={
+            'url':re.compile('wegame\.com/watch/(?:.*#)?([^/?&]+?)(?:[/?&]|$)+',re.IGNORECASE),
+            'title':self.regex['title'],
+            'ticket':(re.compile('xmlrequest\s*.*?player/video/(\d+)',re.IGNORECASE),re.compile('<url>\s*<!\[CDATA\[\s*([^<>]+)\s*\]\]>\s*</url>',re.IGNORECASE),re.compile('<embed[^<>]*src="([^"]+)"',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.wegame_external=None
+        self.wegame_id=None
+        if self.valid:
+            self.id='wg:'+self.valid.group(1)
+            self.link='http://www.wegame.com/watch/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen(self.link)
+            for i in html:
+                res,res1,res2=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][2].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+                if res1:
+                    self.wegame_id=int(res1.group(1))
+                if res2:
+                    self.wegame_external=DamnHtmlEntities(res2.group(1))
+        if self.wegame_external is None:
+            self.wegame_external=False
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.wegame_external or self.ticket is not None or not self.wegame_id:
+            return
+        html=urllib2.urlopen('http://www.wegame.com/player/video/'+str(self.wegame_id))
+        urls=[]
+        for i in html:
+            res=self.regex['ticket'][1].search(i)
+            if res:
+                urls.append(DamnHtmlEntities(res.group(1)))
+        urls.reverse()
+        self.newTicket(urls)
+    def getDownload(self):
+        if self.wegame_external:
+            return DamnGetAlternateModule(self.wegame_external).getDownload()
+        self.renewTicket()
+        return self.ticket
+DamnRegisterModule({
+    'name':'wegame',
+    'title':'WeGame',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'wegame.png',
+        'large':'wegame-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for WeGame.',
+        'long':"""This is a video plugin for DamnVid that adds WeGame video downloading capabilities.
+Both external and internal videos are supported.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'WeGame',
+            'icon':'wegame.png',
+            'url':'http://www.wegame.com/videos/'
+        }
+    ],
+    'class':DamnModule_WeGame,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/WeGame/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'wegame':'wegame.png'
+        }
+    }
+})

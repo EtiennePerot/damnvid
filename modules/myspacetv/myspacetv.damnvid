@@ -1,0 +1,72 @@
+#~DamnVid-module:myspacetv
+
+class DamnModule_MySpaceTV(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='myspacetv'
+        self.regex={
+            'url':re.compile('myspace\.com/.*?videoid=(\d+)',re.IGNORECASE),
+            'title':re.compile('id="[^"]*title">\s*([^<>]+?)\s*</h\d>',re.IGNORECASE),
+            'ticket':re.compile('<media:content[^<>]*url="([^"]+)"',re.IGNORECASE)
+        }
+        self.valid=self.regex['url'].search(uri)
+        if self.valid:
+            self.id='mz:'+self.valid.group(1) # "mz" stands for MyspaZ
+            self.link=uri
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=urllib2.urlopen('http://mediaservices.myspace.com/services/rss.ashx?videoID='+self.id[3:])
+        for i in html:
+            res=self.regex['ticket'].search(i)
+            if res:
+                self.newTicket(DamnHtmlEntities(res.group(1)))
+DamnRegisterModule({
+    'name':'myspacetv',
+    'title':'MySpace Video',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'myspacetv.png',
+        'large':'myspacetv-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for MySpace Video/MySpaceTV.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from MySpace Video/MySpaceTV.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'MySpace Video',
+            'icon':'myspacetv.png',
+            'url':'http://vids.myspace.com/'
+        }
+    ],
+    'class':DamnModule_MySpaceTV,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/MySpace/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'myspacetv':'myspacetv.png'
+        }
+    }
+})

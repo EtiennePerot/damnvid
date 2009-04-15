@@ -34,14 +34,7 @@ class DamnModule_Veoh(DamnVideoModule):
         return DamnVideoModule.getTitle(self)
     def getDownload(self):
         if self.external and self.extlink:
-            urlgrabber=DamnVideoLoader(self,[self.extlink],feedback=False)
-            urlgrabber.start()
-            time.sleep(.1)
-            while not urlgrabber.done:
-                time.sleep(.05)
-            res=urlgrabber.result
-            urlgrabber.done=False
-            return res['module'].getDownload()
+            return DamnGetAlternateModule(self.extlink).getDownload()
         return self.ticket
 DamnRegisterModule({
     'name':'veoh',

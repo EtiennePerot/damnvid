@@ -211,6 +211,7 @@ def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
     return ret
 def DamnRegisterModule(module):
     DV.modules[module['name']]=module
+    DV.modulesstorage[module['name']]={}
     if module.has_key('register'):
         module['class'].register={}
         if module['register'].has_key('listicons'):
@@ -228,6 +229,15 @@ def DamnRegisterModule(module):
             DV.preference_order['damnvid-module-'+module['name']]=module['preferences_order']
         else:
             DV.preference_order['damnvid-module-'+module['name']]=module['preferences'].keys()
+def DamnGetAlternateModule(uri):
+    urlgrabber=DamnVideoLoader(None,[uri],feedback=False)
+    urlgrabber.start()
+    time.sleep(.1)
+    while not urlgrabber.done:
+        time.sleep(.05)
+    res=urlgrabber.result
+    urlgrabber.done=False
+    return res['module']
 class DamnVideoModule:
     def __init__(self,uri):
         self.name='generic'
@@ -237,7 +247,7 @@ class DamnVideoModule:
         self.valid=None
         self.title=None
         self.ticket=None
-        self.ticketdate=None
+        self.ticketdate=0
         self.regex={
             'title':DV.generic_title_extract
         }
@@ -251,6 +261,8 @@ class DamnVideoModule:
         return self.uri
     def getID(self):
         return self.id
+    def getStorage(self):
+        return DV.modulesstorage[self.name]
     def getTitle(self):
         if self.title is None:
             html=urllib2.urlopen(self.link)
@@ -399,6 +411,7 @@ def DamnLoadConfig(forcemodules=False):
     if not os.path.lexists(DV.modules_path):
         os.makedirs(DV.modules_path)
     DV.modules={}
+    DV.modulesstorage={}
     DV.generic_title_extract=re.compile('<title>\s*([^<>]+?)\s*</title>',re.IGNORECASE)
     DV.listicons={
         'damnvid':DV.images_path+'video.png',
@@ -2265,7 +2278,6 @@ class DamnVideoLoader(thr.Thread):
 class DamnConverter(thr.Thread): # The actual converter
     def __init__(self,parent):
         self.parent=parent
-        self.sourceid=self.parent.converting
         self.sourceuri=parent.videos[parent.converting]
         self.outdir=None
         self.moduleextraargs=[]

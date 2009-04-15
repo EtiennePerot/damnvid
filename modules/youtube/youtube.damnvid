@@ -92,9 +92,9 @@ DamnRegisterModule({
     'name':'youtube',
     'title':'YouTube',
     'type':'video',
-    'version':'1',
+    'version':'1.0',
     'author':{
-        'name':'WindPower',
+        'name':'Etienne Perot',
         'email':'admin@biringa.com',
         'url':'http://biringa.com/'
     },
@@ -108,6 +108,18 @@ DamnRegisterModule({
 YouTube HD is also supported, as well as playlist batch downloading.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
+    'sites':[
+        {
+            'title':'YouTube',
+            'icon':'youtube.png',
+            'url':'http://www.youtube.com/browse'
+        },
+        {
+            'title':'YouTube HD',
+            'icon':'youtubehd.png',
+            'url':'http://www.youtube.com/browse?s=mphd'
+        }
+    ],
     'class':DamnModule_YouTube,
     'preferences':{
         'profile':{

@@ -1,0 +1,84 @@
+#~DamnVid-module:gametrailers
+
+class DamnModule_GameTrailers(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='gametrailers'
+        self.regex={
+            'url':re.compile('gametrailers\.com/player/(\d+)',re.IGNORECASE),
+            'title':re.compile('class="GameTitle"[^<>]*>\s*([^<>]+?)\s*</a>',re.IGNORECASE),
+            'ticket':(re.compile('hasHD=(\d+)',re.IGNORECASE),re.compile('<a href="([^"]+gametrailers\.com/download/\d+/[^"]+)">',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        if self.valid:
+            self.id='gt:'+self.valid.group(1)
+            self.link='http://www.gametrailers.com/player/'+self.valid.group(1)+'.html?type=flv'
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=urllib2.urlopen('http://mosii.gametrailers.com/getmediainfo4.php?mid='+self.id[3:])
+        for i in html:
+            res=self.regex['ticket'][0].search(i)
+            if res:
+                if res.group(1)!=self.id[3:]:
+                    self.__init__('http://www.gametrailers.com/player/'+res.group(1)+'.html?type=flv')
+                    self.renewTicket()
+                break
+        html.close()
+        html=urllib2.urlopen(self.link)
+        urls=[]
+        for i in html:
+            res=self.regex['ticket'][1].search(i)
+            if res:
+                urls.append(DamnHtmlEntities(res.group(1)))
+        self.newTicket(urls)
+DamnRegisterModule({
+    'name':'gametrailers',
+    'title':'GameTrailers',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'gametrailers.png',
+        'large':'gametrailers-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for GameTrailers.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from GameTrailers.
+HD is supported. If you provide a SD URL, the module will attempt to find the HD equivalent.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'GameTrailers',
+            'icon':'gametrailers.png',
+            'url':'http://www.gametrailers.com/'
+        }
+    ],
+    'class':DamnModule_GameTrailers,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/GameTrailers/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'gametrailers':'gametrailers.png'
+        }
+    }
+})

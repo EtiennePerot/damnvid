@@ -6,7 +6,7 @@ class DamnModule_CanalPlus(DamnVideoModule):
         self.name='canalplus'
         self.regex={
             'url':re.compile('canalplus\.fr/.*pid-?(\d+)',re.IGNORECASE),
-            'title':(re.compile('name="titre_video" value="([^"]+)"',re.IGNORECASE),re.compile('video_texte_\d*"[^<>]*>\s*([^<>]+?)\s*</div>',re.IGNORECASE)),
+            'title':(re.compile('name="titre_video" value="([^"]+)"',re.IGNORECASE),re.compile('^(?:(?!description).)*class="[^"<>]*txt-(?:noir|blanc)\d*[^<>]*>\s*([^<>]+?)\s*</div>',re.IGNORECASE)),
             'ticket':(re.compile('aVideos\[[\s\w]+\]\[\s*[\'"]CONTENT_ID[\'"]\s*\]\s*=\s*[\'"]?(\d+)[\'"]?',re.IGNORECASE),re.compile('bandwidth="([^"]+)"><!\[CDATA\[\s*(.*?)\s*\]\]></\w+>',re.IGNORECASE),re.compile('^https?://.*?canalplus\.fr/.+',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
