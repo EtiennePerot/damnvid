@@ -16,4 +16,5 @@ echo "Building disk image..."
 read version<version.damnvid
 mv DamnVid.dmg DamnVid-$version.dmg
 rm -rf ./DamnVid.app ./sh ./required-files.txt
+python ./build-any/cleanup.py
 echo "All done!"

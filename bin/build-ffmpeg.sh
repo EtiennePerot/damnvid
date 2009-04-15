@@ -74,8 +74,8 @@ cd ffmpeg
 make
 mv ./ffmpeg ~/ffmpeg-bin
 cd ~
-#rm -rf ./ffmpeg
-#mv ./ffmpeg-bin ./ffmpeg
-#upx --brute ./ffmpeg
-#rm -rf /ffmpeg
+rm -rf ./ffmpeg
+mv ./ffmpeg-bin ./ffmpeg
+upx --brute ./ffmpeg
+rm -rf /ffmpeg
 echo "All done! ffmpeg has been moved to $HOME."
