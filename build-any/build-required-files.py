@@ -36,7 +36,13 @@ for f in os.listdir('./'):
     if f[-15:]=='.module.damnvid':
         os.remove(f)
 for f in os.listdir('modules'):
-    os.popen('python build-any/module-package.py modules/'+f).close()
+    p=os.popen('python build-any/module-package.py modules/'+f)
+    for l in p.readlines():
+        print l
+    try:
+        p.close()
+    except:
+        pass
 for f in os.listdir('./'):
     if f[-15:]=='.module.damnvid':
         if os.path.lexists('modules/'+f):

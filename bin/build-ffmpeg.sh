@@ -67,15 +67,15 @@ make
 make install
 cd ~/ffmpeg
 libprefix="/ffmpeg"
-cp libs/compiled/lib/*.a $libprefix/
+sudo cp libs/compiled/lib/*.a $libprefix/
 svn co svn://svn.ffmpeg.org/ffmpeg/trunk ffmpeg
 cd ffmpeg
 ./configure --enable-memalign-hack --enable-libxvid --enable-libx264 --enable-libfaac --enable-libfaad --enable-libmp3lame --enable-libvorbis --enable-libtheora --enable-pthreads --enable-gpl --enable-postproc --enable-static --disable-shared --extra-cflags=--static --disable-ffplay --disable-ffserver --extra-libs=$libprefix/libfaac.a --extra-libs=$libprefix/libfaad.a --extra-libs=$libprefix/libmp3lame.a --extra-libs=$libprefix/libmp4ff.a --extra-libs=$libprefix/libogg.a --extra-libs=$libprefix/libx264.a --extra-libs=$libprefix/libxvidcore.a --extra-libs=$libprefix/libogg.a --extra-libs=$libprefix/libtheora.a --extra-libs=$libprefix/libvorbis.a
 make
 mv ./ffmpeg ~/ffmpeg-bin
 cd ~
-rm -rf ./ffmpeg
-mv ./ffmpeg-bin ./ffmpeg
-upx --brute ./ffmpeg
-rm -rf /ffmpeg
+#rm -rf ./ffmpeg
+#mv ./ffmpeg-bin ./ffmpeg
+#upx --brute ./ffmpeg
+#rm -rf /ffmpeg
 echo "All done! ffmpeg has been moved to $HOME."

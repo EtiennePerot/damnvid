@@ -1458,7 +1458,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.uppersizer.Add(self.upperleftpanel,0)
         self.uppersizer.Add((DV.control_hgap,0))
         self.upperleftsizer=wx.BoxSizer(wx.VERTICAL)
-        self.tree=wx.TreeCtrl(self.upperleftpanel,-1,size=(220,280),style=wx.TR_LINES_AT_ROOT|wx.TR_HAS_BUTTONS|wx.TR_FULL_ROW_HIGHLIGHT)
+        self.tree=wx.TreeCtrl(self.upperleftpanel,-1,size=(260,280),style=wx.TR_LINES_AT_ROOT|wx.TR_HAS_BUTTONS|wx.TR_FULL_ROW_HIGHLIGHT)
         self.upperleftsizer.Add(self.tree,1,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.control_vgap))
         self.buildTree()
@@ -1619,6 +1619,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         else:
             toprow.Add(self.getLabel(tmppanel,mod['author']['name'],bold=True))
         toprow.Add(self.getLabel(tmppanel,'.'))
+        descwidth=parent.GetSizeTuple()[0]-2*DV.border_padding-72-DV.control_hgap
         if extended:
             rightcol.Add(self.getLabel(tmppanel,'Author:',bold=True))
             authorsizer=wx.BoxSizer(wx.HORIZONTAL)
@@ -1635,7 +1636,6 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             desc=self.getLabel(tmppanel,mod['about']['long'])
         else:
             desc=self.getLabel(tmppanel,mod['about']['short'])
-        descwidth=tmppanel.GetSizeTuple()[0]-2*DV.border_padding-72-DV.control_hgap
         desc.Wrap(descwidth)
         self.moduledescs[mod['name']]=(desc,descwidth)
         rightcol.Add((0,DV.control_vgap))
@@ -1696,7 +1696,9 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 topsizer.Add(self.modulelist,1,wx.EXPAND)
                 topsizer.Add((0,DV.control_vgap))
                 buttonsizer=wx.BoxSizer(wx.HORIZONTAL)
-                topsizer.Add(buttonsizer,0,wx.ALIGN_RIGHT)
+                topsizer.Add(buttonsizer,0,wx.ALIGN_RIGHT,border=1)
+                if DV.os=='mac':
+                    topsizer.Add((0,2)) # Annoying glitch with the buttons
                 # Construct module list scrollable window
                 for mod in DamnIterModules():
                     modlistsizer.Add(self.buildModulePanel(self.modulelist,mod,withscrollbars=True),0,wx.EXPAND)
@@ -1860,6 +1862,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             self.bestsize[0]=newsize[0]
         if newsize[1]>self.bestsize[1]:
             self.bestsize[1]=newsize[1]
+        self.SetClientSize(newsize)
         self.SetClientSize(self.bestsize)
         self.Center()
     def getPrefWidth(self,pref):
@@ -1987,6 +1990,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             desc[0].SetLabel(modtitle+' has been updated to version '+str(info['result'][0])+'.')
             desc[0].Wrap(desc[1])
         self.modulelist.Layout()
+        self.modulelist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
     def onModuleUpdate(self,module=None,event=None):
         if not DV.modules.has_key(module):
             return
@@ -2789,7 +2793,7 @@ class DamnMainFrame(wx.Frame): # The main window
         hboxwrapper4.Add((0,DV.border_padding))
         panel4.SetSizer(hboxwrapper4)
         self.stopbutton=wx.Button(panel4,-1,'Stop')
-        for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.delSelection,self.delAll,self.gobutton1,self.stopbutton):
+        for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.delSelection,self.delAll,self.gobutton1,self.stopbutton,self.btnSearch):
             button.SetMinSize((buttonwidth,button.GetSizeTuple()[1]))
         self.profiledropdown.SetMinSize((buttonwidth,tmplistheight))
         self.profiledropdown.Bind(wx.EVT_CHOICE,self.onChangeProfileDropdown)
@@ -2935,7 +2939,10 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addurl=DamnAddURLDialog(self,default)
         self.addurl.SetIcon(DV.icon)
         self.addurl.ShowModal()
-        self.addurl.Destroy()
+        try:
+            self.addurl.Destroy()
+        except:
+            pass # The addurl destroys itself, supposedly, and doing it again sometimes (sometimes!) generates errors.
         self.addurl=None
     def validURI(self,uri):
         if REGEX_HTTP_GENERIC.match(uri):
@@ -3348,10 +3355,10 @@ class DamnMainFrame(wx.Frame): # The main window
 class DamnVid(wx.App):
     def OnInit(self):
         splash=DamnSplashScreen()
-        clock=time.clock()
+        clock=time.time()
         splash.Show()
         frame=DamnMainFrame(None,-1,'DamnVid')
-        while clock+.5>time.clock():
+        while clock+.5>time.time():
             time.sleep(.025) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
         splash.Hide()
         splash.Destroy()

@@ -5,7 +5,7 @@ cd ./..
 hdiutil detach /Volumes/DamnVid
 rm -rf DamnVid.app required-files.txt DamnVid-*.dmg
 echo "Compyling..."
-python build-required-files.py
+python ./build-any/build-required-files.py
 python ./build-app/py2app-osx.py py2app
 echo "Adjusting..."
 mv ./dist/DamnVid.app ./DamnVid.app
