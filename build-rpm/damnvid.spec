@@ -6,7 +6,6 @@ Summary: A versatile video downloader/converter, written in Python.
 License: GPL
 Group: Applications/Multimedia
 URL: http://damnvid.googlecode.com/
-Requires: wxPython
 
 %define _rpmdir ../
 %define _rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm

@@ -1,14 +1,16 @@
 #!/bin/bash
 
-# Yes, I am aware that this is not the really right way to build .deb's. But hey, if you wanna help me build deb's, feel free to help! :)
+# Yes, I am aware that this is not the really right way to build .deb's. But hey, if you wanna help me build .deb's, feel free to help! :)
 
 orig=$(pwd)
 cd ..
 timestamp=$(date "+%a, %d %b %Y %H:%m:%S %Z")
 rm -rf ./package damnvid*.deb damnvid*.rpm required-files.txt
-mkdir package
+python build-deb/bbfreeze-unix.py
 read version < version.damnvid
-python build-required-files.py
+python build-any/build-required-files.py
+ls -1 package >> required-files.txt
+mv package/* ./
 tar -czvf build.tar.gz --files-from=required-files.txt
 mv build.tar.gz ./package/build.tar.gz
 cd package
@@ -23,7 +25,6 @@ echo "Package: damnvid
 Version: $version-1
 Architecture: all
 Maintainer: WindPower <windypower@gmail.com>
-Depends: python2.5 (>= 2.5-1), python-wxgtk2.8
 Section: sound
 Priority: standard
 Homepage: http://damnvid.googlecode.com/
@@ -58,5 +59,5 @@ python ./build-spec.py
 cd ../package
 rpmbuild -bb --clean --target noarch damnvid.spec
 cd ..
-rm -rf ./package
+python build-any/cleanup.py
 echo "All done!"

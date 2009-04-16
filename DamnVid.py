@@ -419,10 +419,10 @@ def DamnLoadConfig(forcemodules=False):
     }
     DV.listicons_order=['damnvid','generic']
     DV.listicons_imagelist=None # Will be loaded later
-    if forcemodules or True: # Fixme: DEBUG ONLY
+    if forcemodules:# or True: # Fixme: DEBUG ONLY
         shutil.rmtree(DV.modules_path)
         os.makedirs(DV.modules_path)
-        if True: # Fixme: DEBUG ONLY; rebuilds all modules
+        """if True: # Fixme: DEBUG ONLY; rebuilds all modules
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
                     os.remove(i)
@@ -432,10 +432,14 @@ def DamnLoadConfig(forcemodules=False):
             for i in os.listdir('modules'):
                 if os.path.isdir('modules/'+i) and i.find('svn')==-1:
                     print 'Building module '+i
-                    os.popen('python build-any/module-package.py modules/'+i).close()
+                    p=os.popen('python build-any/module-package.py modules/'+i)
+                    try:
+                        p.close()
+                    except:
+                        pass
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
-                    os.rename(i,'modules/'+i)
+                    os.rename(i,'modules/'+i)"""
         for i in os.listdir(DV.curdir+'modules'):
             if i[-15:]=='.module.damnvid':
                 print 'Installing',i
@@ -2903,6 +2907,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addurl=None
         self.loadingvisible=0
         self.onListSelect()
+        self.Center()
         if DV.first_run:
             dlg=wx.MessageDialog(self,'Welcome to DamnVid '+DV.version+'!\nWould you like DamnVid to check for updates every time it starts?','Welcome to DamnVid '+DV.version+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
             if dlg.ShowModal()==wx.ID_YES:
@@ -3406,7 +3411,6 @@ class DamnVid(wx.App):
         del clock,splash
         frame.init2()
         frame.Show(True)
-        frame.Center()
         return True
     def MacReopenApp(self):
         self.GetTopWindow().Raise()

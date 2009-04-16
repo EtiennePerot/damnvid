@@ -35,14 +35,18 @@ for d in required_dirs:
 for f in os.listdir('./'):
     if f[-15:]=='.module.damnvid':
         os.remove(f)
-for f in os.listdir('modules'):
-    p=os.popen('python build-any/module-package.py modules/'+f)
-    for l in p.readlines():
-        print l
-    try:
-        p.close()
-    except:
-        pass
+for f in os.listdir('./modules/'):
+    if f[-15:]=='.module.damnvid':
+        os.remove('./modules/'+f)
+for f in os.listdir('./modules/'):
+    if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
+        p=os.popen('python build-any/module-package.py modules/'+f)
+        for l in p.readlines():
+            print l.strip()
+        try:
+            p.close()
+        except:
+            pass
 for f in os.listdir('./'):
     if f[-15:]=='.module.damnvid':
         if os.path.lexists('modules/'+f):
