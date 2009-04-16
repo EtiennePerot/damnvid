@@ -4,6 +4,7 @@
 !define HALPPAGE "http://code.google.com/p/damnvid/wiki/Help"
 name "${APP}"
 caption "${APP} installation"
+SetCompressor lzma
 outFile "..\..\${APP}-setup.exe"
 installDir "$PROGRAMFILES\${APP}\"
 RequestExecutionLevel admin
@@ -52,6 +53,12 @@ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "U
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "URLInfoAbout" "${URL}"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "HelpLink" "${URL}"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "DisplayIcon" "$INSTDIR\img\icon.ico"
+WriteRegStr HKCR ".damnvid" "" "DamnVid.file"
+WriteRegStr HKCR "DamnVid.file" "" "DamnVid file"
+WriteRegStr HKCR "DamnVid.file\DefaultIcon" "" "$\"$INSTDIR\img\iconfile.ico$\""
+WriteRegStr HKCR "DamnVid.file\Shell" "" ""
+WriteRegStr HKCR "DamnVid.file\Shell\Open" "" ""
+WriteRegStr HKCR "DamnVid.file\Shell\Open\Command" "" "$\"$INSTDIR\DamnVid.exe$\" $\"%1$\""
 WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "NoModify" 1
 WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}" "NoRepair" 1
 sectionEnd
@@ -69,4 +76,6 @@ delete "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk"
 rmDir "$SMPROGRAMS\$StartMenuFolder"
 DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
 DeleteRegKey HKCU "Software\${APP}"
+DeleteRegKey HKCR ".damnvid"
+DeleteRegKey HKCR "DamnVid.file"
 sectionEnd

@@ -20,13 +20,11 @@
 @"C:\Program Files\NSIS\makensis.exe" -V4 -NOCD ..\..\NSIS-win32.nsi
 @echo Switching back to root directory.
 @cd ..\..
-@echo DamnVid packaged. Cleaning up.
-@rmdir package /s /q
-@del /q NSIS-win32.nsi
-@del /q required-files.txt
+@echo DamnVid packaged.
 @echo Renaming setup.
 @set /p version= < version.damnvid
 @ren DamnVid-setup.exe DamnVid-setup-%version%.exe
+@echo Cleaning up.
 @python build-any/cleanup.py
 @echo All done.
 @pause

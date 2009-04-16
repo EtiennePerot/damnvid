@@ -23,7 +23,7 @@ import wx.lib.wordwrap # wx wordwrapping! Oh my my!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import os # Filesystem functions.
 import re # Regular expressions \o/
-import subprocess # Spawn sub-processes (ffmpeg)
+import subprocess # Spawn sub-processes (ffmpeg, taskkill)
 import time # Sleepin'
 import urllib2 # Fetch data from the tubes, encode/decode URLs
 import urllib # Sadly required as well, for its urlencode function
@@ -55,6 +55,7 @@ DV=DamnVid() # The only global variable out there. Srsly.
 DV.curdir=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
 versionfile=open(DV.curdir+'version.damnvid','r')
 DV.version=versionfile.readline().strip()
+DV.argv=sys.argv[1:]
 versionfile.close()
 del versionfile
 DV.cookiejar=cookielib.CookieJar()
@@ -3403,17 +3404,31 @@ class DamnVid(wx.App):
         splash=DamnSplashScreen()
         clock=time.time()
         splash.Show()
-        frame=DamnMainFrame(None,-1,'DamnVid')
+        self.frame=DamnMainFrame(None,-1,'DamnVid')
         while clock+.5>time.time():
             time.sleep(.025) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
         splash.Hide()
         splash.Destroy()
         del clock,splash
-        frame.init2()
-        frame.Show(True)
+        self.frame.init2()
+        self.frame.Show(True)
+        self.loadArgs(DV.argv)
         return True
+    def loadArgs(self,args):
+        if len(args):
+            vids=[]
+            for i in args:
+                if i[-15:].lower()=='.module.damnvid':
+                    DamnInstallModule(i)
+                elif i[-8:].lower()!='.damnvid':
+                    DV.prefs.set('LastFileDir',os.path.dirname(i))
+                    vids.append(i)
+            if len(vids):
+                self.frame.addVid(vids)
     def MacReopenApp(self):
         self.GetTopWindow().Raise()
+    def MacOpenFile(self,name):
+        pass# Todo
 app=DamnVid(0)
 DV.gui_ok=True
 app.MainLoop()
