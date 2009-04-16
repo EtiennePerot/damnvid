@@ -1,0 +1,84 @@
+#~DamnVid-module:gamevideos
+
+class DamnModule_GameVideos(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='gamevideos'
+        self.regex={
+            'url':re.compile('gamevideos\.1up\.com/video/id/(\d+)',re.IGNORECASE),
+            'title':re.compile('<entry[^<>]*\s+title="([^"]+)"',re.IGNORECASE),
+            'ticket':(re.compile('<a[^<>]*href="(/download\?[^"]+)"[^<>]*class="orangetxt"',re.IGNORECASE),re.compile('<entry[^<>]*\s+href="([^"]+)"',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.gamevideos_urls=[]
+        if self.valid:
+            self.id='1^:'+self.valid.group(1)
+            self.link='http://gamevideos.1up.com/video/id/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen('http://gamevideos.1up.com/do/videoListXML?id='+self.id[3:])
+            for i in html:
+                res,res1=self.regex['title'].search(i),self.regex['ticket'][1].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+                if res1:
+                    self.gamevideos_urls.append(DamnHtmlEntities(res1.group(1)))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=urllib2.urlopen(self.link)
+        for i in html:
+            res=self.regex['ticket'][0].search(i)
+            if res:
+                self.gamevideos_urls.append('http://gamevideos.1up.com'+DamnHtmlEntities(res.group(1)))
+        self.newTicket(DamnURLPickerBySize(self.gamevideos_urls,array=True))
+DamnRegisterModule({
+    'name':'gamevideos',
+    'title':'Game Videos',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'gamevideos.png',
+        'large':'gamevideos-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for GameVideos.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from 1UP's GameVideos, including "undownloadable" videos.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'GameVideos',
+            'icon':'gamevideos.png',
+            'url':'http://gamevideos.1up.com/'
+        }
+    ],
+    'class':DamnModule_GameVideos,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/GameVideos/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'gamevideos':'gamevideos.png'
+        }
+    }
+})

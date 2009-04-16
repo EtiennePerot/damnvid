@@ -496,22 +496,58 @@ def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     else:
         return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnURLPicker(urls,urlonly=False):
+    tried=[]
     for i in urls:
-        request=urllib2.Request(i)
-        try:
-            pipe=urllib2.urlopen(request)
-            if urlonly:
-                try:
-                    pipe.close()
-                except:
-                    pass
-                return i
-            return pipe
-        except IOError, err:
-            if not hasattr(err,'reason') and not hasattr(err,'code'):
-                return None
-            pass
+        if i not in tried:
+            tried.append(i)
+            request=urllib2.Request(i)
+            try:
+                pipe=urllib2.urlopen(request)
+                if urlonly:
+                    try:
+                        pipe.close()
+                    except:
+                        pass
+                    return i
+                return pipe
+            except IOError, err:
+                if not hasattr(err,'reason') and not hasattr(err,'code'):
+                    return None
+                pass
     return None
+def DamnURLPickerBySize(urls,array=False):
+    tried=[]
+    maxlen=[]
+    maxurl=[]
+    for i in urls:
+        if i not in tried:
+            tried.append(i)
+            try:
+                handle=urllib2.urlopen(i)
+                size=int(handle.info()['Content-Length'])
+                handle.close()
+                maxlen.append(size)
+                maxurl.append(i)
+            except:
+                pass
+    if not len(maxurl):
+        return urls[0]
+    maxlen2=maxlen
+    maxlen2.sort()
+    maxlen2.reverse()
+    assoc=[]
+    finalurls=[]
+    for i in maxlen2:
+        for f in range(len(maxlen)):
+            if i==maxlen[f] and f not in assoc:
+                assoc.append(f)
+                finalurls.append(maxurl[f])
+    for i in tried:
+        if i not in finalurls:
+            finalurls.append(i)
+    if array:
+        return finalurls
+    return finalurls[0]
 def DamnTempFile():
     name=DV.tmp_path+str(random.random())+'.tmp'
     while os.path.lexists(name):
@@ -528,7 +564,7 @@ def DamnFriendlyDir(d):
         d=d[0:-1]
     return d
 def DamnHtmlEntities(html):
-    return unicode(BeautifulSoup.BeautifulStoneSoup(html,convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES))
+    return unicode(BeautifulSoup.BeautifulStoneSoup(html,convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES)).replace(u'&amp;',u'&') # Because BeautifulSoup, as good as it is, puts &amp;badentity where &badentitity; are. Gotta convert that back.
 DV.evt_progress=wx.NewEventType()
 DV.evt_prog=wx.PyEventBinder(DV.evt_progress,1)
 class DamnProgressEvent(wx.PyCommandEvent):
@@ -948,7 +984,6 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
             self.ini.add_section(section)
             self.sets(section,name,value)
             return self.gets(section,name)
-        print DV.defaultprefs.keys()
         print 'No such pref:',section+':'+name
     def sets(self,section,name,value):
         name=name.lower()
@@ -1138,7 +1173,7 @@ class DamnVidBrowser(wx.Dialog):
         searchhbox.Add(self.searchbutton,0,wx.ALIGN_CENTER_VERTICAL)
         self.scrollpanel=wx.ScrolledWindow(self.toppanel,-1,size=(360,270+3*DV.control_vgap))
         self.scrollpanel.SetMinSize((360,270+3*DV.control_vgap))
-        self.scrollpanel.SetScrollbars(0,0,0,0)
+        self.scrollpanel.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
         scrollpanelsizer=wx.BoxSizer(wx.HORIZONTAL)
         self.scrollpanel.SetSizer(scrollpanelsizer)
         self.resultpanel=wx.Panel(self.scrollpanel,-1)
@@ -1220,7 +1255,7 @@ class DamnVidBrowser(wx.Dialog):
         for i in self.resultctrls:
             i.Destroy()
         self.resultctrls=[]
-        self.scrollpanel.SetScrollbars(0,0,0,0)
+        self.scrollpanel.AdjustScrollbars()
         self.resultsizer.Clear(True)
         self.displayedurls=[]
     def onLoad(self,event):
@@ -1230,7 +1265,7 @@ class DamnVidBrowser(wx.Dialog):
             boldfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
             boldfont.SetWeight(wx.FONTWEIGHT_BOLD)
             tmpscrollbar=wx.ScrollBar(self.resultpanel,-1,style=wx.SB_VERTICAL)
-            panelwidth=self.resultpanel.GetSizeTuple()[0]-tmpscrollbar.GetSizeTuple()[0]
+            panelwidth=self.scrollpanel.GetSizeTuple()[0]-tmpscrollbar.GetSizeTuple()[0]
             tmpscrollbar.Destroy()
             del tmpscrollbar
             for i in range(len(results.entry)):
@@ -1316,7 +1351,7 @@ class DamnVidBrowser(wx.Dialog):
             self.waitingpanel.Hide()
             self.scrollpanel.Show()
             self.resultpanel.Fit()
-            self.scrollpanel.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,self.resultpanel.GetSizeTuple()[1])
+            self.scrollpanel.AdjustScrollbars()
             self.toppanel.Layout()
         elif info['query'][0]=='image':
             try:
@@ -1433,7 +1468,7 @@ class DamnVidBrowser(wx.Dialog):
         panel.Fit()
         panel.Layout()
         self.resultpanel.Fit()
-        self.scrollpanel.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,self.resultpanel.GetSizeTuple()[1])
+        self.scrollpanel.AdjustScrollbars()
         self.scrollpanel.Scroll(position[0],position[1])
     def onClose(self,event=None):
         self.parent.searchopen=False
@@ -1990,7 +2025,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             desc[0].SetLabel(modtitle+' has been updated to version '+str(info['result'][0])+'.')
             desc[0].Wrap(desc[1])
         self.modulelist.Layout()
-        self.modulelist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
+        self.modulelist.AdjustScrollbars()
     def onModuleUpdate(self,module=None,event=None):
         if not DV.modules.has_key(module):
             return
@@ -2384,10 +2419,16 @@ class DamnConverter(thr.Thread): # The actual converter
                     if self.stream=='-': # Spawn a downloader
                         src=DamnURLPicker(self.uris)
                         total=int(src.info()['Content-Length'])
+                        ext='avi'
+                        try:
+                            if src.info()['Content-Type'].lower().find('audio')!=-1:
+                                ext='mp3'
+                        except:
+                            ext='avi'
                         try:
                             tmpuri=src.info()['Content-Disposition'][src.info()['Content-Disposition'].find('filename=')+9:]
                         except:
-                            tmpuri='Video.avi' # And pray for the best!
+                            tmpuri='Video.'+ext # And pray for the best!
                     else: # Just copy the file, lol
                         total=int(os.lstat(self.stream).st_size)
                         src=open(self.stream,'rb')

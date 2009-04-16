@@ -1,0 +1,83 @@
+#~DamnVid-module:tmtube
+
+class DamnModule_TMTube(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='tmtube'
+        self.regex={
+            'url':re.compile('tm-tube\.com/video/(\d+)',re.IGNORECASE),
+            'title':re.compile('<title>\s*TM-Tube - Your TrackMania Video Portal\s*-\s*([^<>]+?)\s*</title>',re.IGNORECASE),
+            'ticket':re.compile('<a[^<>]*href="(https?://.*?tm-tube.com/media[^"]+)"[^<>]*>Download',re.IGNORECASE)
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.gamevideos_urls=[]
+        if self.valid:
+            self.id='tm:'+self.valid.group(1)
+            self.link='http://www.tm-tube.com/video/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen(self.link)
+            for i in html:
+                res,res1=self.regex['title'].search(i),self.regex['ticket'].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+                if res1:
+                    self.newTicket(DamnHtmlEntities(res1.group(1)))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=urllib2.urlopen(self.link)
+        for i in html:
+            res=self.regex['ticket'].search(i)
+            if res:
+                self.newTicket(DamnHtmlEntities(res.group(1)))
+DamnRegisterModule({
+    'name':'tmtube',
+    'title':'TM-Tube',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'tmtube.png',
+        'large':'tmtube-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for TM-Tube.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from TM-Tube.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'TM-Tube',
+            'icon':'tmtube.png',
+            'url':'http://www.tm-tube.com/video'
+        }
+    ],
+    'class':DamnModule_TMTube,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/TM-Tube/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'tmtube':'tmtube.png'
+        }
+    }
+})

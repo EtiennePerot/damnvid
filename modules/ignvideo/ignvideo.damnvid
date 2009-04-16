@@ -1,0 +1,86 @@
+#~DamnVid-module:ignvideo
+
+class DamnModule_IGNVideo(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='ignvideo'
+        self.regex={
+            'url':re.compile('^https?://.*?ign\.com/dor/(?:objects?/)?.*$',re.IGNORECASE),
+            'title':re.compile('<title>\s*IGN Video:\s*([^<>]+?)\s*</title>',re.IGNORECASE),
+            'ticket':(re.compile('href="([^"]+)"[^<>]*class="nonInsiderDL"',re.IGNORECASE),re.compile('vp_hiResFlash\s*=\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('vp_lowResFlash\s*=\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('mediaIdHash\s*\[\s*[\'"]([^"\']+)[\'"]\s*\]\s*=',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.ignvideo_urls=[]
+        if self.valid:
+            self.id='ig:'+self.valid.group(0)
+            self.link=self.valid.group(0)
+    def getTitle(self):
+        if self.title is None:
+            html=urllib2.urlopen(self.link)
+            for i in html:
+                res,res1,res2,res3,res4=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i),self.regex['ticket'][3].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1))
+                if res1:
+                    self.ignvideo_urls.append(DamnHtmlEntities(res1.group(1)))
+                if res2:
+                    self.ignvideo_urls.append(DamnHtmlEntities(res2.group(1)))
+                if res3:
+                    self.ignvideo_urls.append(DamnHtmlEntities(res3.group(1)))
+                if res4:
+                    self.ignvideo_urls.append(DamnHtmlEntities(res4.group(1)))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        self.newTicket(DamnURLPickerBySize(self.ignvideo_urls,array=True))
+DamnRegisterModule({
+    'name':'ignvideo',
+    'title':'IGN Video',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'ignvideo.png',
+        'large':'ignvideo-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for IGN Video.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from IGN Video (Imagine Games Network).
+The module can download "undownloadable" videos, but cannot download from IGN Insider streams. From all available streams, the module will try to download the one with the best quality.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'IGN Video',
+            'icon':'ignvideo.png',
+            'url':'http://video.ign.com/'
+        }
+    ],
+    'class':DamnModule_IGNVideo,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/IGN/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'ignvideo':'ignvideo.png'
+        }
+    }
+})
