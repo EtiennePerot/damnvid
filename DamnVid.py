@@ -2624,7 +2624,7 @@ class DamnConverter(thr.Thread): # The actual converter
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
             if DV.os=='nt':
-                DamnSpawner(DV.bin_path+'taskkill.exe /PID '+str(self.process.pid)+' /F').wait()
+                DamnSpawner('"'+DV.bin_path+'taskkill.exe" /PID '+str(self.process.pid)+' /F').wait()
             elif DV.os=='mac':
                 DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # From http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
             else:
