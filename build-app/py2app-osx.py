@@ -21,13 +21,15 @@ setup(
     options={
         'py2app':{
             'argv_emulation':True,
-            'iconfile': path2src+'img/icon.icns',
+            'iconfile':path2src+'img/icon.icns',
             'plist':{
                 'CFBundleShortVersionString':version,
                 'CFBundleGetInfoString':'DamnVid '+version,
                 'CFBundleExecutable':'DamnVid',
                 'CFBundleName':'DamnVid',
-                'CFBundleIdentifier':'com.googlecode.DamnVid'
+                'CFBundleIdentifier':'com.googlecode.DamnVid',
+                'CFBundleTypeExtensions':['damnvid','avi','mkv','ogm','ogg','mp3','divx','x264','mov','mp4','mpg','mpeg','aac','flv','3gp''wma','wmv','rm','3g2','vob'],
+                'CFBundleTypeRole':'Editor'
             }
         }
     },

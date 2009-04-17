@@ -3428,7 +3428,9 @@ class DamnVid(wx.App):
     def MacReopenApp(self):
         self.GetTopWindow().Raise()
     def MacOpenFile(self,name):
-        pass# Todo
+        if type(name) is not type([]):
+            name=[name]
+        self.loadArgs(name)
 app=DamnVid(0)
 DV.gui_ok=True
 app.MainLoop()
