@@ -2609,10 +2609,13 @@ class DamnConverter(thr.Thread): # The actual converter
             self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
             self.update(status='Failure.',go=self.abort)
     def parseLine(self,line):
+        print line.strip()
         if self.duration==None:
             res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
             if res:
                 self.duration=int(res.group(1))*3600+int(res.group(2))*60+float(res.group(3))
+                if not self.duration:
+                    self.duration=None
         else:
             res=REGEX_FFMPEG_TIME_EXTRACT.search(line)
             if res:
