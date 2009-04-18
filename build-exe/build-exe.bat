@@ -12,7 +12,7 @@
 @echo Compyling DamnVid.
 @python ..\build-exe\py2exe-win32.py py2exe --package encodings
 @echo Running UPX --brute on compyled executable.
-@upx --brute dist\DamnVid.exe
+@echo upx --brute dist\DamnVid.exe
 @echo Switching to /package/dist/ directory.
 @cd dist
 @echo Packaging with NSIS.
