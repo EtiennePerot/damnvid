@@ -2319,7 +2319,7 @@ class DamnVideoLoader(thr.Thread):
                                 self.showDialog('Duplicate found','This video is already in the list!',wx.ICON_EXCLAMATION|wx.OK)
                         else:
                             self.addValid({'name':filename[0:filename.rfind('.')],'profile':DV.prefs.get('defaultprofile'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.parent.ID_ICON_LOCAL})
-class DamnConverter(thr.Thread): # The actual converter
+class DamnConverter(thr.Thread): # The actual converter, dammit
     def __init__(self,parent):
         self.parent=parent
         self.sourceuri=parent.videos[parent.converting]
@@ -2336,24 +2336,6 @@ class DamnConverter(thr.Thread): # The actual converter
                 if type(uri) in (type(''),type(u'')):
                     uri=[uri]
                 return uri
-        if uri[0:3]=='mv:':
-            html=urllib2.urlopen('http://megavideo.com/?v='+uri[3:])
-            k1=0
-            k2=0
-            un=''
-            s=''
-            for i in html:
-                res1,res2,res3,res4=REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[0].search(i),REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[1].search(i),REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[2].search(i),REGEX_HTTP_MEGAVIDEO_TICKET_EXTRACT[3].search(i)
-                if res1:
-                    k1=int(res1.group(1))
-                if res2:
-                    k2=int(res2.group(1))
-                if res3:
-                    un=res3.group(1)
-                if res4:
-                    s=int(res4.group(1))
-            if k1 and k2 and s and un:
-                return ['http://www'+str(s)+'.megavideo.com/files/'+DamnMegaVideoDecrypt(un,k1,k2)+'/']
         return [uri]
     def cmd2str(self,cmd):
         s=''
@@ -2397,181 +2379,184 @@ class DamnConverter(thr.Thread): # The actual converter
         self.uris=self.getURI(self.sourceuri)
         self.abort=False
         if not self.abort:
-            self.uri=self.uris[0]
-            self.update(0)
-            self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
-            self.filename=unicodedata.normalize('NFKD',unicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip() # Gotta convert to utf-8, because subprocess doesn't handle unicode strings very nicely
-            self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
-            if os.path.lexists(self.uri):
-                self.stream=self.uri # It's a file stream, ffmpeg will take care of it
-                if self.outdir is None:
-                    self.outdir=DV.prefs.get('defaultoutdir')
-            else:
-                self.stream='-' # It's another stream, spawn a downloader thread to take care of it and pipe the content to ffmpeg via stdin
-                if self.outdir is None:
-                    self.outdir=DV.prefs.get('defaultweboutdir')
-            if self.outdir[-1:]==os.sep:
-                self.outdir=self.outdir[0:-1]
-            if not os.path.lexists(self.outdir):
-                os.makedirs(self.outdir)
-            elif not os.path.isdir(self.outdir):
-                os.remove(self.outdir)
-                os.makedirs(self.outdir)
-            self.outdir=self.outdir+os.sep
-            if self.profile==-1: # Do not encode, just copy
-                try:
-                    failed=False
-                    if self.stream=='-': # Spawn a downloader
-                        src=DamnURLPicker(self.uris)
-                        total=int(src.info()['Content-Length'])
-                        ext='avi'
-                        try:
-                            if src.info()['Content-Type'].lower().find('audio')!=-1:
-                                ext='mp3'
-                        except:
+            try:
+                self.uri=self.uris[0]
+                self.update(0)
+                self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
+                self.filename=unicodedata.normalize('NFKD',unicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip() # Gotta convert to utf-8, because subprocess doesn't handle unicode strings very nicely
+                self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
+                if os.path.lexists(self.uri):
+                    self.stream=self.uri # It's a file stream, ffmpeg will take care of it
+                    if self.outdir is None:
+                        self.outdir=DV.prefs.get('defaultoutdir')
+                else:
+                    self.stream='-' # It's another stream, spawn a downloader thread to take care of it and pipe the content to ffmpeg via stdin
+                    if self.outdir is None:
+                        self.outdir=DV.prefs.get('defaultweboutdir')
+                if self.outdir[-1:]==os.sep:
+                    self.outdir=self.outdir[0:-1]
+                if not os.path.lexists(self.outdir):
+                    os.makedirs(self.outdir)
+                elif not os.path.isdir(self.outdir):
+                    os.remove(self.outdir)
+                    os.makedirs(self.outdir)
+                self.outdir=self.outdir+os.sep
+                if self.profile==-1: # Do not encode, just copy
+                    try:
+                        failed=False
+                        if self.stream=='-': # Spawn a downloader
+                            src=DamnURLPicker(self.uris)
+                            total=int(src.info()['Content-Length'])
                             ext='avi'
-                        try:
-                            tmpuri=src.info()['Content-Disposition'][src.info()['Content-Disposition'].find('filename=')+9:]
-                        except:
-                            tmpuri='Video.'+ext # And pray for the best!
-                    else: # Just copy the file, lol
-                        total=int(os.lstat(self.stream).st_size)
-                        src=open(self.stream,'rb')
-                        tmpuri=self.stream
-                    if REGEX_URI_EXTENSION_EXTRACT.search(tmpuri):
-                        ext='.'+REGEX_URI_EXTENSION_EXTRACT.sub('\\1',tmpuri)
-                    else:
-                        ext='.avi' # And pray for the best again!
-                    self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
-                    dst=open(self.outdir+self.filename+ext,'wb')
-                    keepgoing=True
-                    copied=0.0
-                    lasttime=0.0
-                    self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
-                    while keepgoing and not self.abort:
-                        i=src.read(32768)
-                        if len(i):
-                            dst.write(i)
-                            copied+=32768.0
+                            try:
+                                if src.info()['Content-Type'].lower().find('audio')!=-1:
+                                    ext='mp3'
+                            except:
+                                ext='avi'
+                            try:
+                                tmpuri=src.info()['Content-Disposition'][src.info()['Content-Disposition'].find('filename=')+9:]
+                            except:
+                                tmpuri='Video.'+ext # And pray for the best!
+                        else: # Just copy the file, lol
+                            total=int(os.lstat(self.stream).st_size)
+                            src=open(self.stream,'rb')
+                            tmpuri=self.stream
+                        if REGEX_URI_EXTENSION_EXTRACT.search(tmpuri):
+                            ext='.'+REGEX_URI_EXTENSION_EXTRACT.sub('\\1',tmpuri)
                         else:
-                            copied=float(total)
-                            keepgoing=False
-                        progress=min((100.0,copied/total*100.0))
-                        nowtime=float(time.time())
-                        if lasttime+.5<nowtime: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
-                            self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
-                            lasttime=nowtime
-                except:
-                    failed=True
-                self.grabberrun=False
-                if self.abort or failed:
-                    self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
-                    self.update(status='Failure.')
+                            ext='.avi' # And pray for the best again!
+                        self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
+                        dst=open(self.outdir+self.filename+ext,'wb')
+                        keepgoing=True
+                        copied=0.0
+                        lasttime=0.0
+                        self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
+                        while keepgoing and not self.abort:
+                            i=src.read(32768)
+                            if len(i):
+                                dst.write(i)
+                                copied+=32768.0
+                            else:
+                                copied=float(total)
+                                keepgoing=False
+                            progress=min((100.0,copied/total*100.0))
+                            nowtime=float(time.time())
+                            if lasttime+.5<nowtime: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
+                                self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
+                                lasttime=nowtime
+                    except:
+                        failed=True
+                    self.grabberrun=False
+                    if self.abort or failed:
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
+                        self.update(status='Failure.')
+                    else:
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
+                        self.update(status='Success!')
+                        self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
+                    self.update(go=self.abort)
+                    return
+                os_exe_ext=''
+                if DV.os=='nt':
+                    os_exe_ext='.exe'
+                elif DV.os=='mac':
+                    os_exe_ext='osx'
+                self.passes=1
+                cmd=[DV.bin_path+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-deinterlace','-passlogfile',DV.tmp_path+'pass']
+                for i in DV.preferences.keys():
+                    if i[0:25]=='damnvid-profile:encoding_':
+                        i=i[16:]
+                        pref=DV.prefs.getp(self.profile,i)
+                        if pref:
+                            if type(DV.preferences['damnvid-profile:'+i]['kind']) in (type(''),type(u'')):
+                                if DV.preferences['damnvid-profile:'+i]['kind'][0]=='%':
+                                    pref=str(round(float(pref),0)) # Round
+                            if i=='encoding_pass':
+                                pref='?DAMNVID_VIDEO_PASS?'
+                            if i[9:]=='b' and pref=='sameq':
+                                cmd.append('-sameq')
+                            else:
+                                cmd.extend(['-'+i[9:],pref])
+                self.encodevideo=DV.prefs.getp(self.profile,'video')
+                self.encodeaudio=DV.prefs.getp(self.profile,'audio')
+                if not self.encodevideo:
+                    cmd.append('-vn')
+                if not self.encodeaudio:
+                    cmd.append('-an')
+                vidformat=DV.prefs.getp(self.profile,'Encoding_f')
+                self.vcodec=DV.prefs.getp(self.profile,'Encoding_vcodec')
+                self.acodec=DV.prefs.getp(self.profile,'Encoding_acodec')
+                self.totalpasses=DV.prefs.getp(self.profile,'Encoding_pass')
+                if not self.totalpasses:
+                    self.totalpasses=1
                 else:
-                    self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
-                    self.update(status='Success!')
-                    self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
-                self.update(go=self.abort)
-                return
-            os_exe_ext=''
-            if DV.os=='nt':
-                os_exe_ext='.exe'
-            elif DV.os=='mac':
-                os_exe_ext='osx'
-            self.passes=1
-            cmd=[DV.bin_path+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-deinterlace','-passlogfile',DV.tmp_path+'pass']
-            for i in DV.preferences.keys():
-                if i[0:25]=='damnvid-profile:encoding_':
-                    i=i[16:]
-                    pref=DV.prefs.getp(self.profile,i)
-                    if pref:
-                        if type(DV.preferences['damnvid-profile:'+i]['kind']) in (type(''),type(u'')):
-                            if DV.preferences['damnvid-profile:'+i]['kind'][0]=='%':
-                                pref=str(round(float(pref),0)) # Round
-                        if i=='encoding_pass':
-                            pref='?DAMNVID_VIDEO_PASS?'
-                        if i[9:]=='b' and pref=='sameq':
-                            cmd.append('-sameq')
-                        else:
-                            cmd.extend(['-'+i[9:],pref])
-            self.encodevideo=DV.prefs.getp(self.profile,'video')
-            self.encodeaudio=DV.prefs.getp(self.profile,'audio')
-            if not self.encodevideo:
-                cmd.append('-vn')
-            if not self.encodeaudio:
-                cmd.append('-an')
-            vidformat=DV.prefs.getp(self.profile,'Encoding_f')
-            self.vcodec=DV.prefs.getp(self.profile,'Encoding_vcodec')
-            self.acodec=DV.prefs.getp(self.profile,'Encoding_acodec')
-            self.totalpasses=DV.prefs.getp(self.profile,'Encoding_pass')
-            if not self.totalpasses:
-                self.totalpasses=1
-            else:
-                self.totalpasses=int(self.totalpasses)
-            if vidformat and DV.file_ext.has_key(vidformat):
-                ext='.'+DV.file_ext[vidformat]
-            else:
-                if self.vcodec and self.encodevideo and DV.file_ext_by_codec.has_key(self.vcodec):
-                    ext='.'+DV.file_ext_by_codec[self.vcodec]
-                elif self.encodeaudio and not self.encodevideo:
-                    if DV.file_ext_by_codec.has_key(self.acodec):
-                        ext='.'+DV.file_ext_by_codec[self.acodec]
-                    else:
-                        ext='.mp3'
+                    self.totalpasses=int(self.totalpasses)
+                if vidformat and DV.file_ext.has_key(vidformat):
+                    ext='.'+DV.file_ext[vidformat]
                 else:
-                    ext='.avi'
-            flags=[]
-            if self.vcodec and DV.codec_advanced_cl.has_key(self.vcodec):
-                for o in DV.codec_advanced_cl[self.vcodec]:
-                    if type(o) in (type(''),type(u'')):
-                        if o not in flags: # If the flag is already there, don't add it again
-                            flags.append(o)
-                    else:
-                        if '-'+o[0] not in cmd: # If the option is already there, don't overwrite it
-                            cmd.extend(['-'+o[0],o[1]])
-            if len(flags):
-                cmd.extend(['-flags',''.join(flags)])
-            self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
-            self.filenamenoext=self.filename
-            self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
-            cmd.append('?DAMNVID_OUTPUT_FILE?')
-            if len(self.moduleextraargs):
-                cmd.extend(self.moduleextraargs)
-            self.filename=self.filenamenoext+ext
-            self.duration=None
-            self.update(statustext=u'Converting '+unicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+unicode(self.filename.decode('utf8'))+u'...')
-            while int(self.passes)<=int(self.totalpasses) and not self.abort:
-                if self.totalpasses!=1:
-                    self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
-                    self.update(status='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
-                    if self.stream=='-':
-                        if self.passes==1:
-                            self.tmppassfile=DV.tmp_path+self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
+                    if self.vcodec and self.encodevideo and DV.file_ext_by_codec.has_key(self.vcodec):
+                        ext='.'+DV.file_ext_by_codec[self.vcodec]
+                    elif self.encodeaudio and not self.encodevideo:
+                        if DV.file_ext_by_codec.has_key(self.acodec):
+                            ext='.'+DV.file_ext_by_codec[self.acodec]
                         else:
-                            self.stream=self.tmppassfile
-                    if self.passes!=1:
-                        self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
-                self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV.tmp_path))
-                if self.stream=='-' and self.sourceuri[0:3]!='gv:':
+                            ext='.mp3'
+                    else:
+                        ext='.avi'
+                flags=[]
+                if self.vcodec and DV.codec_advanced_cl.has_key(self.vcodec):
+                    for o in DV.codec_advanced_cl[self.vcodec]:
+                        if type(o) in (type(''),type(u'')):
+                            if o not in flags: # If the flag is already there, don't add it again
+                                flags.append(o)
+                        else:
+                            if '-'+o[0] not in cmd: # If the option is already there, don't overwrite it
+                                cmd.extend(['-'+o[0],o[1]])
+                if len(flags):
+                    cmd.extend(['-flags',''.join(flags)])
+                self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
+                self.filenamenoext=self.filename
+                self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
+                cmd.append('?DAMNVID_OUTPUT_FILE?')
+                if len(self.moduleextraargs):
+                    cmd.extend(self.moduleextraargs)
+                self.filename=self.filenamenoext+ext
+                self.duration=None
+                self.update(statustext=u'Converting '+unicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+unicode(self.filename.decode('utf8'))+u'...')
+                while int(self.passes)<=int(self.totalpasses) and not self.abort:
                     if self.totalpasses!=1:
-                        self.feeder=DamnDownloader(self.uris,self.process.stdin,self.tmppassfile)
-                    else:
-                        self.feeder=DamnDownloader(self.uris,self.process.stdin)
-                    self.feeder.start()
-                curline=''
-                while self.process.poll()==None and not self.abort:
-                    c=self.process.stderr.read(1)
-                    curline+=c
-                    if c=='\r' or c=='\n':
-                        self.parseLine(curline)
-                        curline=''
-                self.passes+=1
-            self.update(100)
-            result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
-            time.sleep(.25) # Wait a bit
-            self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
-            if result and os.path.lexists(DV.tmp_path+self.tmpfilename):
-                os.remove(DV.tmp_path+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
+                        self.update(status='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
+                        if self.stream=='-':
+                            if self.passes==1:
+                                self.tmppassfile=DV.tmp_path+self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
+                            else:
+                                self.stream=self.tmppassfile
+                        if self.passes!=1:
+                            self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
+                    self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV.tmp_path))
+                    if self.stream=='-' and self.sourceuri[0:3]!='gv:':
+                        if self.totalpasses!=1:
+                            self.feeder=DamnDownloader(self.uris,self.process.stdin,self.tmppassfile)
+                        else:
+                            self.feeder=DamnDownloader(self.uris,self.process.stdin)
+                        self.feeder.start()
+                    curline=''
+                    while self.process.poll()==None and not self.abort:
+                        c=self.process.stderr.read(1)
+                        curline+=c
+                        if c=='\r' or c=='\n':
+                            self.parseLine(curline)
+                            curline=''
+                    self.passes+=1
+                self.update(100)
+                result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
+                time.sleep(.25) # Wait a bit
+                self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
+                if result and os.path.lexists(DV.tmp_path+self.tmpfilename):
+                    os.remove(DV.tmp_path+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
+            except:
+                result=1
             for i in os.listdir(os.path.dirname(DV.tmp_path)):
                 if i[0:8]=='damnvid-':
                     i=i[8:]
@@ -3062,7 +3047,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 elif verbose:
                     msg=('Error!','There was a problem while checking for updates. You are running DamnVid '+DV.version+'.\nMake sure you are connected to the Internet, and that no firewall is blocking DamnVid.',wx.ICON_INFORMATION)
                 if msg is not None:
-                    dlg=wx.MessageDialog(self,msg[1],msg[0],msg[3])
+                    dlg=wx.MessageDialog(self,msg[1],msg[0],msg[2])
                     dlg.SetIcon(DV.icon)
                     dlg.ShowModal()
                     dlg.Destroy()

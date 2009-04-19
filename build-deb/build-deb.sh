@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Yes, I am aware that this is not the really right way to build .deb's. But hey, if you wanna help me build .deb's, feel free to help! :)
+# Yes, I am aware that this is absolutely not the right way to build .deb's. But hey, if you wanna help me build .deb's, feel free! :)
 
 orig=$(pwd)
 cd ..
@@ -20,11 +20,11 @@ echo "damnvid ($version) unstable; urgency=low
 
   * See http://code.google.com/p/damnvid/source/list
 
- -- WindPower <windypower@gmail.com> $timestamp">changelog.Debian
+ -- Etienne <etienneperot@gmail.com> $timestamp">changelog.Debian
 echo "Package: damnvid
 Version: $version-1
 Architecture: all
-Maintainer: WindPower <windypower@gmail.com>
+Maintainer: Etienne <etienneperot@gmail.com>
 Section: sound
 Priority: standard
 Homepage: http://damnvid.googlecode.com/

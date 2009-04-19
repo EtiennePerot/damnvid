@@ -352,7 +352,7 @@ DV.preferences={
         'kind':'bool',
         'strict':True,
         'align':False,
-        'default':True
+        'default':False
     },
     #'damnvid-showdailytip':{
         #'name':'Show Daily Tip when DamnVid starts',
