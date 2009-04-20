@@ -5,6 +5,8 @@ echo "Adding symlinks"
 ln -sn /Applications /Volumes/DamnVid/Applications
 mv /Volumes/DamnVid/DamnVid.app/Contents/Resources/bin/ffmpegosx /Volumes/DamnVid/DamnVid.app/Contents/Resources/ffmpegosx
 ln -sn ./../ffmpegosx /Volumes/DamnVid/DamnVid.app/Contents/Resources/bin/ffmpegosx
+ln -sn ./../Frameworks /Volumes/DamnVid/DamnVid.app/Contents/Resources/Frameworks
+ln -sn ./../MacOS /Volumes/DamnVid/DamnVid.app/Contents/Resources/MacOS
 echo "Setting custom icon"
 cp ./img/icon.icns /Volumes/DamnVid/.VolumeIcon.icns
 SetFile -a C /Volumes/DamnVid
