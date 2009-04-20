@@ -199,6 +199,11 @@ def DamnInstallModule(module):
         else:
             os.remove(DV.modules_path+prefix)
     mod.extractall(DV.modules_path)
+    try:
+        DV.prefs.rems('damnvid-module-'+prefix[0:-1]) # Reset module preferences when installing it.
+        DV.prefs.save()
+    except:
+        pass
     DamnLoadModule(DV.modules_path+prefix[0:-1])
     return 'success'
 def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
@@ -2097,7 +2102,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
     def onModuleUninstall(self,module=None,event=None):
         if not DV.modules.has_key(module):
             return
-        dlg=wx.MessageDialog(None,'Are you sure you want to uninstall the '+module+' module?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg=wx.MessageDialog(None,'Are you sure you want to uninstall the '+DV.modules[module]['title']+' module?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_YES:
             del DV.modules[module]
