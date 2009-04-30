@@ -3475,7 +3475,10 @@ class DamnMainFrame(wx.Frame): # The main window
             wx.TheClipboard.Close() # Try to close it, just in case it's left open.
         except:
             pass
-        self.clipboardtimer.Start(5)
+        try:
+            self.clipboardtimer.Start(1000)
+        except:
+            pass # Sometimes the timer can still live while DamnMainFrame is closed, and if EVT_TIMER is then raised, error!
     def onClose(self,event):
         if self.converting!=-1:
             dlg=wx.MessageDialog(None,'DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.\r\nContinue?','Conversion in progress',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_EXCLAMATION)

@@ -1,8 +1,10 @@
 #!/bin/sh
+# Before running this file, you require the following:
+# gcc or a sweet other compiler, libtool (automake, autoconf, m4), libogg, yasm/nasm, wget (not there by default on OS X), svn, pkg-config, upx.
 
-sudo mkdir /ffmpeg
-sudo chmod 0777 /ffmpeg
 prefix="$HOME/ffmpeg/libs/compiled"
+libprefix="/ffmpeg"
+sudo mkdir /ffmpeg
 rm -rf ~/ffmpeg
 mkdir ~/ffmpeg
 cd ~/ffmpeg
@@ -66,16 +68,15 @@ cd ../vorbis
 make
 make install
 cd ~/ffmpeg
-libprefix="/ffmpeg"
-sudo cp libs/compiled/lib/*.a $libprefix/
+sudo cp $prefix/lib/*.a $libprefix
 svn co svn://svn.ffmpeg.org/ffmpeg/trunk ffmpeg
 cd ffmpeg
-./configure --enable-memalign-hack --enable-libxvid --enable-libx264 --enable-libfaac --enable-libfaad --enable-libmp3lame --enable-libvorbis --enable-libtheora --enable-pthreads --enable-gpl --enable-postproc --enable-static --disable-shared --extra-cflags=--static --disable-ffplay --disable-ffserver --extra-libs=$libprefix/libfaac.a --extra-libs=$libprefix/libfaad.a --extra-libs=$libprefix/libmp3lame.a --extra-libs=$libprefix/libmp4ff.a --extra-libs=$libprefix/libogg.a --extra-libs=$libprefix/libx264.a --extra-libs=$libprefix/libxvidcore.a --extra-libs=$libprefix/libogg.a --extra-libs=$libprefix/libtheora.a --extra-libs=$libprefix/libvorbis.a
+./configure --enable-memalign-hack --enable-libxvid --enable-libx264 --enable-libfaac --enable-libfaad --enable-libmp3lame --enable-libvorbis --enable-libtheora --enable-pthreads --enable-gpl --enable-postproc --enable-static --disable-shared --extra-cflags=--static --disable-ffplay --disable-ffserver --extra-ldflags=-L$prefix/lib --extra-cflags=-I$prefix/include --extra-libs=$libprefix/libfaac.a --extra-libs=$libprefix/libfaad.a --extra-libs=$libprefix/libmp3lame.a --extra-libs=$libprefix/libmp4ff.a --extra-libs=$libprefix/libogg.a --extra-libs=$libprefix/libx264.a --extra-libs=$libprefix/libxvidcore.a --extra-libs=$libprefix/libogg.a --extra-libs=$libprefix/libtheora.a --extra-libs=$libprefix/libvorbis.a
 make
 mv ./ffmpeg ~/ffmpeg-bin
 cd ~
 rm -rf ./ffmpeg
 mv ./ffmpeg-bin ./ffmpeg
+sudo rm -rf /ffmpeg
 upx --brute ./ffmpeg
-rm -rf /ffmpeg
 echo "All done! ffmpeg has been moved to $HOME."
