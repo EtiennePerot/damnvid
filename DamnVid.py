@@ -17,9 +17,8 @@
 # I mean, some parts of the code are awesome, some parts are definitely not. I'm undecided.
 
 
-import wx # Oh my, it's wx.
-import wx.animate # wx gif animations! Oh my!
-import wx.lib.wordwrap # wx wordwrapping! Oh my my!
+import wx # Oh my wx, it's wx.
+import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import os # Filesystem functions.
 import re # Regular expressions \o/
@@ -112,6 +111,34 @@ else:
     DV.conf_file_location=DV.conf_file_location[DV.os]
 DV.conf_file_directory=DV.conf_file_location+os.sep
 DV.conf_file=DV.conf_file_directory+'damnvid.ini'
+DV.log_file=DV.conf_file_directory+'damnvid.log'
+if os.path.lexists(DV.log_file):
+    os.remove(DV.log_file)
+class DamnLog:
+    def __init__(self):
+        self.stream=open(DV.log_file,'w')
+        self.time=0
+        self.stream.write(self.getPrefix()+u'Log opened.')
+    def getPrefix(self):
+        t=int(time.time())
+        if self.time!=t:
+            self.time=t
+            return u'['+unicode(time.strftime('%H:%M:%S'))+u'] '
+        return u''
+    def log(self,message):
+        s=u'\r\n'+self.getPrefix()+unicode(message.strip())
+        print s
+        return self.stream.write(s)
+    def close(self):
+        self.log('Closing log.')
+        self.stream.close()
+DV.log=DamnLog()
+def Damnlog(*args):
+    s=[]
+    for i in args:
+        s.append(unicode(i))
+    return DV.log.log(' '.join(s))
+Damnlog('DamnVid started')
 DV.first_run=False
 DV.updated=False
 if not os.path.lexists(DV.conf_file):
@@ -124,11 +151,18 @@ if not os.path.lexists(DV.conf_file):
     del lastversion
     DV.first_run=True
 else:
-    lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
-    version=lastversion.readline().strip()
-    lastversion.close()
-    DV.updated=version!=DV.version
-    del lastversion,version
+    if os.path.lexists(DV.conf_file_directory+'lastversion.damnvid'):
+        lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
+        version=lastversion.readline().strip()
+        lastversion.close()
+        DV.updated=version!=DV.version
+        del version
+    else:
+        DV.updated=True
+        lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
+        lastversion.write(DV.version)
+        lastversion.close()
+    del lastversion
 DV.images_path=DV.curdir+'img/'.replace('/',os.sep)
 DV.bin_path=DV.curdir+'bin/'.replace('/',os.sep)
 DV.tmp_path=tempfile.gettempdir()
@@ -170,13 +204,58 @@ DV.codec_advanced_cl={
     'libx264':[('coder','1'),'+loop',('cmp','+chroma'),('partitions','+parti4x4+partp8x8+partb8x8'),('g','250'),('subq','6'),('me_range','16'),('keyint_min','25'),('sc_threshold','40'),('i_qfactor','0.71'),('b_strategy','1')]
 }
 DV.youtube_service=gdata.youtube.service.YouTubeService()
+Damnlog('Init underway, starting to declare fancier stuff.')
+class DamnIconList(wx.ImageList): # An imagelist with dictionary-like association, not stupid IDs, and graceful failure. Can also be initialized with delay.
+    def __init__(self,width=16,height=16,mask=True,initialCount=0,fail=None,initNow=False):
+        self.list={}
+        self.args=(width,height,mask,initialCount)
+        self.init=False
+        self.fail=fail
+        if initNow:
+            self.initWX()
+    def initWX(self):
+        wx.ImageList.__init__(self,self.args[0],self.args[1],self.args[2],self.args[3])
+        self.init=True
+        self.resetList(self.list)
+    def add(self,bitmap,handle=None):
+        Damnlog('Adding',bitmap,'to icon list, with handle',handle)
+        while handle is None or handle in self.list.keys():
+            Damnlog('!Icon conflict found with handle',handle)
+            handle=hashlib.md5(str(random.random())+str(random.random())).hexdigest()
+        if self.init:
+            if type(bitmap) is type(''):
+                bitmap=wx.Bitmap(bitmap)
+            self.list[handle]=self.Add(bitmap)
+        else:
+            self.list[handle]=bitmap
+        return handle
+    def get(self,handle):
+        if not self.init:
+            return
+        if type(handle) is type(''):
+            if handle in self.list.keys():
+                handle=self.list[handle]
+            else:
+                handle=self.blankid
+        return handle
+    def getBitmap(self,handle):
+        return self.GetBitmap(self.get(handle))
+    def resetList(self,items={}):
+        self.list={}
+        if self.init:
+            self.RemoveAll()
+            if self.fail is None:
+                blank=wx.EmptyBitmap(width,height)
+            else:
+                blank=wx.Bitmap(self.fail)
+            self.blankid=self.Add(blank)
+        for i in items.keys():
+            self.add(items[i],i)
+DV.listicons=DamnIconList(16,16,fail=DV.images_path+'video.png')
 def DamnGetListIcon(icon):
-    if type(icon) is type(1):
-        return icon
-    if icon in DV.listicons_order:
-        return DV.listicons_order.index(icon)
-    return 0 # Damnvid generic video icon
+    return DV.listicons.get(icon)
 def DamnInstallModule(module):
+    Damnlog('Attempting to install module',module)
     if not os.path.lexists(module):
         return 'nofile'
     if not tarfile.is_tarfile(module):
@@ -203,8 +282,9 @@ def DamnInstallModule(module):
         DV.prefs.rems('damnvid-module-'+prefix[0:-1]) # Reset module preferences when installing it.
         DV.prefs.save()
     except:
-        pass
+        Damnlog('Resetting module preferences for module',module,'(probably not installed or left default before)')
     DamnLoadModule(DV.modules_path+prefix[0:-1])
+    Damnlog('Success installing module',module)
     return 'success'
 def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
     mods=DV.modules.keys()
@@ -216,6 +296,7 @@ def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
         ret.append(DV.modules[i])
     return ret
 def DamnRegisterModule(module):
+    Damnlog('Attempting to register module',module)
     DV.modules[module['name']]=module
     DV.modulesstorage[module['name']]={}
     if module.has_key('register'):
@@ -223,8 +304,7 @@ def DamnRegisterModule(module):
         if module['register'].has_key('listicons'):
             module['class'].register['listicons']={}
             for icon in module['register']['listicons'].iterkeys():
-                DV.listicons[icon]=DV.modules_path+module['name']+os.sep+module['register']['listicons'][icon]
-                DV.listicons_order.append(icon)
+                DV.listicons.add(DV.modules_path+module['name']+os.sep+module['register']['listicons'][icon],icon)
     if module.has_key('preferences'):
         for pref in module['preferences'].iterkeys():
             DV.preferences['damnvid-module-'+module['name']+':'+pref]=module['preferences'][pref]
@@ -235,7 +315,9 @@ def DamnRegisterModule(module):
             DV.preference_order['damnvid-module-'+module['name']]=module['preferences_order']
         else:
             DV.preference_order['damnvid-module-'+module['name']]=module['preferences'].keys()
+    Damnlog('Module registered:',module)
 def DamnGetAlternateModule(uri):
+    Damnlog('Got request to get new module for URI:',uri)
     urlgrabber=DamnVideoLoader(None,[uri],feedback=False)
     urlgrabber.start()
     time.sleep(.1)
@@ -243,6 +325,7 @@ def DamnGetAlternateModule(uri):
         time.sleep(.05)
     res=urlgrabber.result
     urlgrabber.done=False
+    Damnlog('Module found, returning',res['module'])
     return res['module']
 class DamnVideoModule:
     def __init__(self,uri):
@@ -307,9 +390,12 @@ class DamnVideoModule:
     def addVid(self,parent):
         parent.addValid(self.getVidObject())
     def getVidObject(self):
-        return {'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self,'downloadgetter':self.getDownloadGetter()}
+        obj={'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self,'downloadgetter':self.getDownloadGetter()}
+        Damnlog('Module',self.name,'returning video object:',obj)
+        return obj
 class DamnModuleUpdateCheck(thr.Thread):
     def __init__(self,parent,modules,byevent=True):
+        Damnlog('Spawned module update checker for modules',modules,'by event:',byevent)
         self.parent=parent
         if type(modules) is not type([]):
             modules=[modules]
@@ -320,6 +406,7 @@ class DamnModuleUpdateCheck(thr.Thread):
         thr.Thread.__init__(self)
     def postEvent(self,module,result):
         info={'module':module,'result':result}
+        Damnlog('Update checker sending event:',info,'by event:',self.byevent)
         if self.byevent:
             wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,info))
         else:
@@ -367,11 +454,13 @@ class DamnModuleUpdateCheck(thr.Thread):
                             self.postEvent(module2,'uptodate')
 class DamnVidUpdater(thr.Thread):
     def __init__(self,parent,verbose=False,main=True,modules=True):
+        Damnlog('Spawned main updater thread')
         self.parent=parent
         self.todo={'main':main,'modules':modules}
         self.info={'main':None,'modules':{},'verbose':verbose}
         thr.Thread.__init__(self)
     def postEvent(self):
+        Damnlog('Main updated thread sending event',self.info)
         wx.PostEvent(self.parent,DamnLoadingEvent(DV.evt_loading,-1,{'updateinfo':self.info}))
     def onLoad(self,info):
         if not info.has_key('module'):
@@ -396,6 +485,7 @@ def DamnLoadModule(module):
         if not os.path.isdir(module+os.sep+i) and i[-8:]=='.damnvid':
             execfile(module+os.sep+i)
 def DamnLoadConfig(forcemodules=False):
+    Damnlog('Loading config.')
     DV.preferences=None
     try:
         execfile(DV.curdir+'conf'+os.sep+'preferences.damnvid') # Load preferences
@@ -413,19 +503,19 @@ def DamnLoadConfig(forcemodules=False):
             DV.path_prefs.append(i)
     DV.prefs=None # Will be loaded later
     # Load modules
+    Damnlog('Loading modules.')
     DV.modules_path=DV.conf_file_directory+'modules'+os.sep
     if not os.path.lexists(DV.modules_path):
         os.makedirs(DV.modules_path)
     DV.modules={}
     DV.modulesstorage={}
     DV.generic_title_extract=re.compile('<title>\s*([^<>]+?)\s*</title>',re.IGNORECASE)
-    DV.listicons={
+    DV.listicons.resetList({
         'damnvid':DV.images_path+'video.png',
         'generic':DV.images_path+'online.png'
-    }
-    DV.listicons_order=['damnvid','generic']
-    DV.listicons_imagelist=None # Will be loaded later
+    })
     if forcemodules:# or True: # Fixme: DEBUG ONLY
+        Damnlog('forcemodules is on; resetting modules.')
         shutil.rmtree(DV.modules_path)
         os.makedirs(DV.modules_path)
         """if True: # Fixme: DEBUG ONLY; rebuilds all modules
@@ -454,6 +544,7 @@ def DamnLoadConfig(forcemodules=False):
         if os.path.isdir(DV.modules_path+i):
             DamnLoadModule(DV.modules_path+i)
     # End load modules
+Damnlog('Loading initial config and modules.')
 DamnLoadConfig(DV.first_run or DV.updated)
 # Begin ID constants
 ID_MENU_EXIT=wx.ID_EXIT
@@ -483,6 +574,7 @@ REGEX_HTTP_GENERIC_TITLE_EXTRACT=re.compile('<title>([^<>]+)</title>',re.IGNOREC
 REGEX_THOUSAND_SEPARATORS=re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 # End regex constants
 # End constants
+Damnlog('End init, begin declarations.')
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     finalcmd=[]
     oldcmd=cmd
@@ -502,11 +594,14 @@ def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     if cwd==None:
         cwd=os.getcwd()
     if DV.os=='nt':
+        Damnlog('Spawning subprocess',oldcmd)
         return subprocess.Popen(oldcmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd,executable=exe,bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
     else:
+        Damnlog('Spawning subprocess',finalcmd)
         return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnURLPicker(urls,urlonly=False):
     tried=[]
+    Damnlog('URL picker summoned. URLs:',urls)
     for i in urls:
         if i not in tried:
             tried.append(i)
@@ -526,6 +621,7 @@ def DamnURLPicker(urls,urlonly=False):
                 pass
     return None
 def DamnURLPickerBySize(urls,array=False):
+    Damnlog('URL picker by size summoned. URLs:',urls)
     tried=[]
     maxlen=[]
     maxurl=[]
@@ -562,6 +658,7 @@ def DamnTempFile():
     name=DV.tmp_path+str(random.random())+'.tmp'
     while os.path.lexists(name):
         name=DV.tmp_path+str(random.random())+'.tmp'
+    Damnlog('Temp file requested. Return:',name)
     return name
 def DamnFriendlyDir(d):
     if DV.os=='mac':
@@ -791,8 +888,8 @@ class DamnAddURLDialog(wx.Dialog):
         bottomrightsizer.Add((0,DV.control_vgap))
         self.videolist=DamnList(self.toppanel,self)
         il=wx.ImageList(16,16,True)
-        for i in range(DV.listicons_imagelist.GetImageCount()):
-            il.Add(DV.listicons_imagelist.GetBitmap(i))
+        for i in range(DV.listicons.GetImageCount()):
+            il.Add(DV.listicons.GetBitmap(i))
         self.videolist.AssignImageList(il,wx.IMAGE_LIST_SMALL)
         bottomrightsizer.Add(self.videolist,1,wx.EXPAND)
         self.videocolumn=self.videolist.InsertColumn(ID_COL_VIDNAME,'Videos')
@@ -2304,7 +2401,7 @@ class DamnVideoLoader(thr.Thread):
                     name=self.getVidName(uri)
                     if name=='Unknown title':
                         name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
-                    self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':self.parent.ID_ICON_ONLINE})
+                    self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':DamnGetListIcon('generic')})
                 else:
                     # It's a file or a directory
                     if os.path.isdir(uri):
@@ -2323,12 +2420,14 @@ class DamnVideoLoader(thr.Thread):
                             if len(uris)==1: # There's only one file, so an alert here is tolerable
                                 self.showDialog('Duplicate found','This video is already in the list!',wx.ICON_EXCLAMATION|wx.OK)
                         else:
-                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':DV.prefs.get('defaultprofile'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':self.parent.ID_ICON_LOCAL})
+                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':DV.prefs.get('defaultprofile'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':DamnGetListIcon('damnvid')})
 class DamnConverter(thr.Thread): # The actual converter, dammit
     def __init__(self,parent):
         self.parent=parent
         self.sourceuri=parent.videos[parent.converting]
         self.outdir=None
+        self.filename=None
+        self.tmpfilename=None
         self.moduleextraargs=[]
         thr.Thread.__init__(self)
     def getURI(self,uri):
@@ -2437,16 +2536,16 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         lasttime=0.0
                         self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
                         while keepgoing and not self.abort:
-                            i=src.read(32768)
+                            i=src.read(4096)
                             if len(i):
                                 dst.write(i)
-                                copied+=32768.0
+                                copied+=4096.0
                             else:
                                 copied=float(total)
                                 keepgoing=False
                             progress=min((100.0,copied/total*100.0))
                             nowtime=float(time.time())
-                            if lasttime+.5<nowtime: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
+                            if lasttime+.5<nowtime or not keepgoing: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
                                 self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
                                 lasttime=nowtime
                     except:
@@ -2562,6 +2661,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     os.remove(DV.tmp_path+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
             except:
                 result=1
+                Damnlog('Error in main conversion routine.')
             for i in os.listdir(os.path.dirname(DV.tmp_path)):
                 if i[0:8]=='damnvid-':
                     i=i[8:]
@@ -2743,12 +2843,8 @@ class DamnMainFrame(wx.Frame): # The main window
         self.list.Bind(wx.EVT_KEY_DOWN,self.onListKeyDown)
         self.list.Bind(wx.EVT_LIST_ITEM_SELECTED,self.onListSelect)
         self.list.Bind(wx.EVT_LIST_ITEM_DESELECTED,self.onListSelect)
-        DV.listicons_imagelist=wx.ImageList(16,16,True)
-        for icon in DV.listicons_order:
-            DV.listicons_imagelist.Add(wx.Bitmap(DV.listicons[icon]))
-        self.ID_ICON_LOCAL=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'video.png',wx.BITMAP_TYPE_PNG))
-        self.ID_ICON_ONLINE=DV.listicons_imagelist.Add(wx.Bitmap(DV.images_path+'online.png',wx.BITMAP_TYPE_PNG))
-        self.list.AssignImageList(DV.listicons_imagelist,wx.IMAGE_LIST_SMALL)
+        DV.listicons.initWX()
+        self.list.AssignImageList(DV.listicons,wx.IMAGE_LIST_SMALL)
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN,self.list.onRightClick)
         hbox1.Add(self.list,1,wx.EXPAND)
@@ -3289,9 +3385,9 @@ class DamnMainFrame(wx.Frame): # The main window
                     # Yes, using icons as source identifiers, why not? Lol
                     if self.meta[self.videos[i]].has_key('module'):
                         self.meta[self.videos[i]]['profile']=self.meta[self.videos[i]]['module'].getProfile()
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_LOCAL:
+                    elif self.meta[self.videos[i]]['icon']==DamnGetListIcon('damnvid'):
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultprofile')
-                    elif self.meta[self.videos[i]]['icon']==self.ID_ICON_ONLINE:
+                    elif self.meta[self.videos[i]]['icon']==DamnGetListIcon('generic'):
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultwebprofile')
                 self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
         try:
@@ -3424,7 +3520,11 @@ class DamnVid(wx.App):
         if type(name) is not type([]):
             name=[name]
         self.loadArgs(name)
+Damnlog('All done, starting wx app.')
 app=DamnVid(0)
 DV.gui_ok=True
+Damnlog('App up, entering main loop.')
 app.MainLoop()
+Damnlog('Main loop ended, saving prefs.')
 DV.prefs.save()
+DV.log.close()
