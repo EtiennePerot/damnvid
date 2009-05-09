@@ -4,11 +4,12 @@
 
 orig=$(pwd)
 cd ..
+damnarch=$(dpkg --print-architecture)
 timestamp=$(date "+%a, %d %b %Y %H:%m:%S %Z")
 rm -rf ./package damnvid*.deb damnvid*.rpm required-files.txt
-python build-deb/bbfreeze-unix.py
+python2.5 build-deb/bbfreeze-unix.py
 read version < version.damnvid
-python build-any/build-required-files.py
+python2.5 build-any/build-required-files.py
 ls -1 package >> required-files.txt
 mv package/* ./
 tar -czvf build.tar.gz --files-from=required-files.txt
@@ -23,7 +24,7 @@ echo "damnvid ($version) unstable; urgency=low
  -- Etienne <etienneperot@gmail.com> $timestamp">changelog.Debian
 echo "Package: damnvid
 Version: $version-1
-Architecture: all
+Architecture: $damnarch
 Maintainer: Etienne <etienneperot@gmail.com>
 Section: sound
 Priority: standard
@@ -46,8 +47,8 @@ cp ../../DEBIAN/copyright doc/damnvid/copyright
 echo "damnvid for Debian" > doc/damnvid/README.Debian
 gzip -c ../../DEBIAN/changelog.Debian > doc/damnvid/changelog.Debian.gz
 cd ../../.. # Now we're back in package
-dpkg-deb -b debian damnvid_$version-1_all.deb
-mv damnvid_$version-1_all.deb ./../damnvid_$version-1_all.deb
+dpkg-deb -b debian damnvid_$version-1_$damnarch.deb
+mv damnvid_$version-1_$damnarch.deb ./../damnvid_$version-1_$damnarch.deb
 # deb file okay, now going to make RPM
 cd debian
 rm -rf ./DEBIAN
@@ -55,9 +56,9 @@ cd ..
 mv ./debian/usr ./usr
 rm -rf ./debian
 cd ../build-rpm
-python ./build-spec.py
+python2.5 ./build-spec.py
 cd ../package
-rpmbuild -bb --clean --target noarch damnvid.spec
+rpmbuild -bb --clean --target $damnarch damnvid.spec
 cd ..
-python build-any/cleanup.py
+python2.5 build-any/cleanup.py
 echo "All done!"

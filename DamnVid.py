@@ -1252,6 +1252,7 @@ class DamnYouTubeService(thr.Thread):
             pass # Window might have been closed
 class DamnVidBrowser(wx.Dialog):
     def __init__(self,parent):
+        Damnlog('Opening new YouTube browser dialog.')
         self.parent=parent
         wx.Dialog.__init__(self,parent,-1,'Search for videos...')
         topsizer=wx.BoxSizer(wx.VERTICAL)
@@ -1291,7 +1292,6 @@ class DamnVidBrowser(wx.Dialog):
         topvbox.Add(self.scrollpanel,1,wx.EXPAND)
         self.Bind(wx.EVT_CLOSE,self.onClose)
         self.Bind(DV.evt_load,self.onLoad)
-        self.boxmenu=wx.Panel(self,-1) # Temp panel, gonna be deleted in buildSearchbox anyway
         self.buildSearchbox()
         self.loadlevel=0
         self.results=[]
@@ -1309,6 +1309,7 @@ class DamnVidBrowser(wx.Dialog):
         topvbox.Add(self.waitingpanel)
         self.searchingimg=wx.StaticBitmap(self.waitingpanel,-1,wx.Bitmap(DV.images_path+'searchpanel.png'))
         waitingsizer2.Add(self.searchingimg)
+        Damnlog('YouTube browser dialog has been built. Populating.')
         defaultsearch=DV.prefs.gets('damnvid-search','default_search')
         if defaultsearch:
             self.search(search=defaultsearch)
@@ -1321,6 +1322,7 @@ class DamnVidBrowser(wx.Dialog):
         topvbox.Add((0,DV.border_padding))
         self.SetClientSize(self.GetBestSize())
         self.Center()
+        Damnlog('YouTube browser dialog init complete.')
     def cleanString(self,s):
         return DamnHtmlEntities(s)
     def getService(self):
@@ -1336,6 +1338,7 @@ class DamnVidBrowser(wx.Dialog):
                 return self.getService()
         return self.service
     def search(self,event=None,search=''):
+        Damnlog('YouTube browser is now searching for',search,'from event',event)
         self.scrollpanel.Hide()
         self.waitingpanel.Show()
         self.toppanel.Layout()
@@ -1346,19 +1349,24 @@ class DamnVidBrowser(wx.Dialog):
         self.searchbox.SetValue(search)
         self.searchbutton.LoadFile(DV.images_path+'searching.gif')
         self.searchbutton.Play()
+        Damnlog('YouTube browser interface updated and ready for search, resolving API query.')
         prefix='http://gdata.youtube.com/feeds/api/videos?racy=include&orderby=viewCount&vq='
         if search in self.standardchoices:
             prefix='http://gdata.youtube.com/feeds/api/standardfeeds/'
             search=search.lower().replace(' ','_')
         else:
+            Damnlog('Query is not a standard choice. Updating query history.')
             history=DV.prefs.geta('damnvid-search','history')
             if search not in history:
                 history.append(search)
                 while len(history)>int(DV.prefs.gets('damnvid-search','history_length')):
                     history.pop(0)
             DV.prefs.seta('damnvid-search','history',history)
+        Damnlog('Youtube browser API prefix is',prefix)
         self.buildSearchbox()
+        Damnlog('YouTube browser search box populating complete, beginning actual search for',search)
         self.getService().query(('feed',prefix+urllib2.quote(search)))
+        Damnlog('YouTube browser search results for',search,'are in, destroying interface.')
         for i in self.resultctrls:
             i.Destroy()
         self.resultctrls=[]
@@ -1367,6 +1375,7 @@ class DamnVidBrowser(wx.Dialog):
         self.displayedurls=[]
     def onLoad(self,event):
         info=event.GetInfo()
+        Damnlog('onLoad event on YouTube browser. Event data:',info)
         if info['query'][0]=='feed':
             results=info['result']
             boldfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
@@ -1479,37 +1488,43 @@ class DamnVidBrowser(wx.Dialog):
             except:
                 pass
     def buildSearchbox(self):
+        Damnlog('Building search box on YouTube browser dialog.')
         val=self.searchbox.GetValue().strip().lower()
-        self.boxmenu.Destroy()
-        del self.boxmenu
-        self.boxmenu=wx.Menu('')
+        Damnlog('Clean search box value is',val,'; Destroying boxmenu.')
+        boxmenu=wx.Menu('')
         history=DV.prefs.geta('damnvid-search','history')
+        Damnlog('Rebuilding history menu. History data:',history)
         if len(history):
             history.reverse() # Recent entries appear on top
             for i in history:
-                item=wx.MenuItem(self.boxmenu,-1,i,kind=wx.ITEM_RADIO)
-                self.boxmenu.AppendItem(item) # Once again, item has to be appended before being checked
+                item=wx.MenuItem(boxmenu,-1,i,kind=wx.ITEM_RADIO)
+                boxmenu.AppendItem(item) # Once again, item has to be appended before being checked
                 item.Check(i.lower()==val)
-                self.boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
+                boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
                 self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
-            item=wx.MenuItem(self.boxmenu,-1,'(Clear search history)',kind=wx.ITEM_RADIO) # Ironic, but necessary to put this one as a radio, otherwise wx guesses that the menu is actually two separated radio menus
-            self.boxmenu.AppendItem(item)
-            self.boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
+            item=wx.MenuItem(boxmenu,-1,'(Clear search history)',kind=wx.ITEM_RADIO) # Ironic, but necessary to put this one as a radio, otherwise wx guesses that the menu is actually two separated radio menus
+            boxmenu.AppendItem(item)
+            boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
             self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
+        Damnlog('History menu rebuilt, will now add standard choices.')
         for i in self.standardchoices:
-            item=wx.MenuItem(self.boxmenu,-1,i,kind=wx.ITEM_RADIO)
-            self.boxmenu.AppendItem(item)
+            item=wx.MenuItem(boxmenu,-1,i,kind=wx.ITEM_RADIO)
+            boxmenu.AppendItem(item)
             item.Check(i.lower()==val)
-            self.boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
+            boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
             self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
-        self.searchbox.SetMenu(self.boxmenu)
+        Damnlog('History menu built, assigning it to search box.')
+        self.searchbox.SetMenu(boxmenu)
     def onSearchMenu(self,query,event):
+        Damnlog('YouTube browser dialog received onSearchmenu event. Query is',query)
         if query is None: # Clear history
             DV.prefs.seta('damnvid-search','history',[])
             DV.prefs.save()
+            Damnlog('Query is none, deleted history, rebuilding search box.')
             self.buildSearchbox()
         else:
             self.searchbox.SetValue(query)
+            Damnlog('Query is not none, set searchbox value, starting search.')
             self.search()
     def makeDescPanel(self,desc,parent,width):
         desc=self.cleanString(desc)

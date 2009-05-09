@@ -9,7 +9,7 @@ path2src='../../DamnVid/'
 versionfile=open(path2src+'version.damnvid','r')
 version=versionfile.readline().strip()
 versionfile.close()
-description='A free, open-source video converter and downloader.'
+description='DamnVid'
 files=open(path2src+'required-files.txt','r')
 data_files=[]
 for f in files.readlines():
