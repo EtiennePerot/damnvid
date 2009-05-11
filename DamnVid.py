@@ -766,8 +766,10 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
             self.AppendItem(addurl)
             self.Bind(wx.EVT_MENU,self.parent.parent.onAddURL,addurl)
 class DamnHyperlink(wx.HyperlinkCtrl):
-    def __init__(self,parent,id,label,url):
+    def __init__(self,parent,id,label,url,background=None):
         wx.HyperlinkCtrl.__init__(self,parent,id,label,url)
+        if background is not None:
+            self.SetBackgroundColour(background)
 class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
     def __init__(self,parent,window):
         wx.ListCtrl.__init__(self,parent,-1,style=wx.LC_REPORT)
@@ -1403,7 +1405,7 @@ class DamnVidBrowser(wx.Dialog):
                 tmpsizer.Add((DV.control_hgap,0))
                 infobox=wx.BoxSizer(wx.VERTICAL)
                 tmpsizer.Add(infobox,1,wx.EXPAND)
-                title=DamnHyperlink(tmppanel,-1,self.cleanString(results.entry[i].media.title.text),self.cleanString(results.entry[i].media.player.url))
+                title=DamnHyperlink(tmppanel,-1,self.cleanString(results.entry[i].media.title.text),self.cleanString(results.entry[i].media.player.url),wx.WHITE)
                 infobox.Add(title)
                 #infobox.Add((0,DV.control_vgap))
                 desc=self.makeDescPanel(results.entry[i].media.description.text,tmppanel,panelwidth-2*DV.border_padding)
@@ -1560,7 +1562,7 @@ class DamnVidBrowser(wx.Dialog):
             descs=[desc]
         for i in range(len(descs)):
             if i in urls:
-                link=DamnHyperlink(panel,-1,descs[i],descs[i])
+                link=DamnHyperlink(panel,-1,descs[i],descs[i],wx.WHITE)
                 sizer.Add(link)
             else:
                 txt=wx.StaticText(panel,-1,descs[i])
@@ -1722,11 +1724,12 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                     break
         else:
             self.updatePrefPane('special:error')
-    def getLabel(self,panel,label,color='#000000',bold=False,hyperlink=None):
+    def getLabel(self,panel,label,color='#000000',bold=False,hyperlink=None,background=None):
         if hyperlink is None:
             lbl=wx.StaticText(panel,-1,label)
         else:
             lbl=DamnHyperlink(panel,-1,label,hyperlink)
+        lbl.SetBackgroundColour(wx.WHITE)
         if bold:
             sysfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
             boldfont=wx.Font(sysfont.GetPointSize(),sysfont.GetFamily(),sysfont.GetStyle(),wx.FONTWEIGHT_BOLD)
