@@ -21,5 +21,5 @@ def cleanDir(d,deletables):
                     shazarr(d+os.sep+f)
         elif os.path.lexists(d+os.sep+i):
             shazarr(d+os.sep+i)
-cleanDir('.',['COPYING','DamnVid.exe.manifest','required-files.txt','package','DamnVid.app','*.module.damnvid','*.so','*.so.*','library.zip','py','NSIS-win32.nsi','DamnVid'])
+cleanDir('.',['COPYING','DamnVid.exe.manifest','required-files.txt','damnvid.spec','package','DamnVid.app','*.module.damnvid','*.so','*.so.*','library.zip','py','NSIS-win32.nsi','DamnVid'])
 cleanDir('./modules',['*.module.damnvid'])

@@ -48,17 +48,20 @@ echo "damnvid for Debian" > doc/damnvid/README.Debian
 gzip -c ../../DEBIAN/changelog.Debian > doc/damnvid/changelog.Debian.gz
 cd ../../.. # Now we're back in package
 dpkg-deb -b debian damnvid_$version-1_$damnarch.deb
-mv damnvid_$version-1_$damnarch.deb ./../damnvid_$version-1_$damnarch.deb
+mv ./damnvid_$version-1_$damnarch.deb ./../damnvid_$version-1_$damnarch.deb
 # deb file okay, now going to make RPM
 cd debian
 rm -rf ./DEBIAN
 cd ..
-mv ./debian/usr ./usr
+rm -rf ./usr
+mv ./debian/usr ./
 rm -rf ./debian
-cd ../build-rpm
+cd ./build-rpm
 python2.5 ./build-spec.py
-cd ../package
-rpmbuild -bb --clean --target $damnarch damnvid.spec
 cd ..
+rm -rf package
+mkdir package
+mv ./usr ./package/usr
+rpmbuild -bb --clean --target $damnarch damnvid.spec
 python2.5 build-any/cleanup.py
 echo "All done!"
