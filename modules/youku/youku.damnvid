@@ -5,7 +5,7 @@ class DamnModule_Youku(DamnVideoModule):
         DamnVideoModule.__init__(self,uri)
         self.name='youku'
         self.regex={
-            'url':re.compile('youku\.com/(?:v_show/id_)?([-+_\w]+)=+\.html',re.IGNORECASE),
+            'url':re.compile('youku\.com/(?:v_show/id_)?([-+_\w]+)=*\.html',re.IGNORECASE),
             'title':re.compile('</span>\s*(.*?)\s*</h1>',re.IGNORECASE),
             'ticket':(re.compile('addVariable\s*\(\s*[\'"]VideoIDS[\'"]\s*,\s*(\d+)\s*\)',re.IGNORECASE),re.compile('sendVideoLink\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('[\'"\s]+?key1[\'"\s]+?:\s*[\'"]([^\'"]+)[\'"]\s*,\s*[\'"\s]+?key2[\'"\s]+?:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE))
         }
@@ -40,7 +40,7 @@ DamnRegisterModule({
     'name':'youku',
     'title':'Youku',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',

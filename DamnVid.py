@@ -110,6 +110,8 @@ if DV.os=='posix' or DV.os=='mac':
 else:
     DV.conf_file_location=DV.conf_file_location[DV.os]
 DV.conf_file_directory=DV.conf_file_location+os.sep
+if not os.path.lexists(DV.conf_file_directory):
+    os.makedirs(DV.conf_file_directory)
 DV.conf_file=DV.conf_file_directory+'damnvid.ini'
 DV.log_file=DV.conf_file_directory+'damnvid.log'
 if os.path.lexists(DV.log_file):
