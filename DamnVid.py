@@ -16,6 +16,11 @@
 # Uhm, yeah. I'm not really sure if I'm proud of this source code or not.
 # I mean, some parts of the code are awesome, some parts are definitely not. I'm undecided.
 
+# External Python modules required:
+# - wx (with wx.animate and mixins)
+# - GData (YouTube API)
+# - BeautifulSoup (Malformed HTML parsing)
+# - Psyco (optional, speeds up execution)
 
 import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
@@ -141,6 +146,14 @@ def Damnlog(*args):
         s.append(unicode(i))
     return DV.log.log(' '.join(s))
 Damnlog('DamnVid started')
+Damnlog('Attempting to import Psyco.')
+try:
+    import psyco
+    Damnlog('Psyco imported. Running it.')
+    psyco.full()
+    Damnlog('Psyco OK.')
+except:
+    Damnlog('Psyco error. Continuing anyway.')
 DV.first_run=False
 DV.updated=False
 if not os.path.lexists(DV.conf_file):

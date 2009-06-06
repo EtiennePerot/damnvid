@@ -24,7 +24,7 @@ class Target:
     def __init__(self,**kw):
         self.__dict__.update(kw)
         self.version=version
-        self.company_name='WindPower'
+        self.company_name='Etienne Perot'
         self.copyright='',
         self.name='DamnVid'
 
@@ -41,7 +41,7 @@ setup(
     zipfile=None,
     version=version,
     description=description,
-    author='WindPower',
+    author='Etienne Perot',
     author_email='windypower@gmail.com',
     url='http://code.google.com/p/damnvid/',
     windows=[
