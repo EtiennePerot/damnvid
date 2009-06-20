@@ -19,6 +19,6 @@ reqfile.close()
 spec=open(path2src+'build-rpm/damnvid.spec','r')
 specout=open(path2src+'damnvid.spec','w')
 for l in spec.readlines():
-    specout.write(l.strip().replace('{version}',version).replace('{files}',reqdirs+'\n'+reqfiles)+'\n')
+    specout.write(l.strip().replace('{version}',version).replace('$HOME',os.path.expanduser('~')).replace('{files}',reqdirs+'\n'+reqfiles)+'\n')
 spec.close()
 specout.close()

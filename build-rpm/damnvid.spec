@@ -1,4 +1,4 @@
-Buildroot: /home/windpower/dev/damnvid/package
+Buildroot: $HOME/dev/damnvid/package
 Name: damnvid
 Version: {version}
 Release: 1
