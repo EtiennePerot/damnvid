@@ -143,7 +143,7 @@ DV.log=DamnLog()
 def Damnlog(*args):
     s=[]
     for i in args:
-        s.append(unicode(i))
+        s.append(unicode(i,errors='replace'))
     return DV.log.log(' '.join(s))
 Damnlog('DamnVid started')
 Damnlog('Attempting to import Psyco.')
