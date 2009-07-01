@@ -120,12 +120,18 @@ if not os.path.lexists(DV.conf_file_directory):
 DV.conf_file=DV.conf_file_directory+'damnvid.ini'
 DV.log_file=DV.conf_file_directory+'damnvid.log'
 if os.path.lexists(DV.log_file):
-    os.remove(DV.log_file)
+    try:
+        os.remove(DV.log_file)
+    except:
+        DV.log_file=None
 class DamnLog:
     def __init__(self):
-        self.stream=open(DV.log_file,'w')
         self.time=0
-        self.stream.write(self.getPrefix()+u'Log opened.')
+        try:
+            self.stream=open(DV.log_file,'w')
+            self.stream.write(self.getPrefix()+u'Log opened.')
+        except:
+            self.stream=None
     def getPrefix(self):
         t=int(time.time())
         if self.time!=t:
@@ -135,7 +141,8 @@ class DamnLog:
     def log(self,message):
         s=u'\r\n'+self.getPrefix()+unicode(message.strip())
         print s
-        return self.stream.write(s)
+        if self.stream is not None:
+            return self.stream.write(s)
     def close(self):
         self.log('Closing log.')
         self.stream.close()
@@ -143,7 +150,12 @@ DV.log=DamnLog()
 def Damnlog(*args):
     s=[]
     for i in args:
-        s.append(unicode(i,errors='replace'))
+        if type(i) is type(''):
+            s.append(unicode(i,errors='ignore'))
+        elif type(i) is type(u''):
+            s.append(i)
+        else:
+            s.append(unicode(i))
     return DV.log.log(' '.join(s))
 Damnlog('DamnVid started')
 Damnlog('Attempting to import Psyco.')
@@ -616,7 +628,7 @@ def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
         return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnURLPicker(urls,urlonly=False):
     tried=[]
-    Damnlog('URL picker summoned. URLs:',urls)
+    Damnlog('DamnURLPicker summoned. URLs:',urls)
     for i in urls:
         if i not in tried:
             tried.append(i)
@@ -629,14 +641,21 @@ def DamnURLPicker(urls,urlonly=False):
                     except:
                         pass
                     return i
+                Damnlog('DamnURLPicker returning pipe stream for',i)
                 return pipe
             except IOError, err:
                 if not hasattr(err,'reason') and not hasattr(err,'code'):
+                    Damnlog('DamnURLPicker returning none because of an IOError without reason or code')
                     return None
                 pass
+    Damnlog('DamnURLPicker returning none because no URLs are valid')
     return None
 def DamnURLPickerBySize(urls,array=False):
     Damnlog('URL picker by size summoned. URLs:',urls)
+    if len(urls)==1:
+        if array:
+            return urls
+        return urls[0]
     tried=[]
     maxlen=[]
     maxurl=[]
@@ -2516,17 +2535,20 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
         self.uris=self.getURI(self.sourceuri)
         self.abort=False
         if not self.abort:
-            try:
+            if True:
+                Damnlog('Conversion routine starting, URI is',self.uris[0])
                 self.uri=self.uris[0]
                 self.update(0)
                 self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
-                self.filename=unicodedata.normalize('NFKD',unicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip() # Gotta convert to utf-8, because subprocess doesn't handle unicode strings very nicely
+                self.filename=unicodedata.normalize('NFKD',unicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip()
                 self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
                 if os.path.lexists(self.uri):
+                    Damnlog('We\'re dealing with a file stream here.')
                     self.stream=self.uri # It's a file stream, ffmpeg will take care of it
                     if self.outdir is None:
                         self.outdir=DV.prefs.get('defaultoutdir')
                 else:
+                    Damnlog('We\'re dealing with a network stream here.')
                     self.stream='-' # It's another stream, spawn a downloader thread to take care of it and pipe the content to ffmpeg via stdin
                     if self.outdir is None:
                         self.outdir=DV.prefs.get('defaultweboutdir')
@@ -2538,7 +2560,9 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     os.remove(self.outdir)
                     os.makedirs(self.outdir)
                 self.outdir=self.outdir+os.sep
+                Damnlog('Profile is',self.profile,'; Output directory is',self.outdir)
                 if self.profile==-1: # Do not encode, just copy
+                    Damnlog('We\'re in raw copy mode')
                     try:
                         failed=False
                         if self.stream=='-': # Spawn a downloader
@@ -2568,6 +2592,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         copied=0.0
                         lasttime=0.0
                         self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
+                        Damnlog('Starting raw download of stream',src)
                         while keepgoing and not self.abort:
                             i=src.read(4096)
                             if len(i):
@@ -2581,7 +2606,9 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                             if lasttime+.5<nowtime or not keepgoing: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
                                 self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
                                 lasttime=nowtime
+                        Damnlog('Done downloading!')
                     except:
+                        Damnlog('Raw download failed. Aborted?',self.abort)
                         failed=True
                     self.grabberrun=False
                     if self.abort or failed:
@@ -2593,6 +2620,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
                     self.update(go=self.abort)
                     return
+                Damnlog('We\'re in on-the-fly conversion mode.')
                 os_exe_ext=''
                 if DV.os=='nt':
                     os_exe_ext='.exe'
@@ -2653,14 +2681,16 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     cmd.extend(['-flags',''.join(flags)])
                 self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
                 self.filenamenoext=self.filename
-                self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
+                self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext.decode('utf8','ignore').encode('charmap','ignore'),ext)
                 cmd.append('?DAMNVID_OUTPUT_FILE?')
                 if len(self.moduleextraargs):
                     cmd.extend(self.moduleextraargs)
+                Damnlog('ffmpeg call has been generated:',cmd)
                 self.filename=self.filenamenoext+ext
                 self.duration=None
                 self.update(statustext=u'Converting '+unicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+unicode(self.filename.decode('utf8'))+u'...')
                 while int(self.passes)<=int(self.totalpasses) and not self.abort:
+                    Damnlog('Starting pass',self.passes,'out of',self.totalpasses)
                     if self.totalpasses!=1:
                         self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
                         self.update(status='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
@@ -2672,7 +2702,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         if self.passes!=1:
                             self.tmpfilename=self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
                     self.process=DamnSpawner(self.cmd2str(cmd),stderr=subprocess.PIPE,stdin=subprocess.PIPE,cwd=os.path.dirname(DV.tmp_path))
-                    if self.stream=='-' and self.sourceuri[0:3]!='gv:':
+                    if self.stream=='-':
                         if self.totalpasses!=1:
                             self.feeder=DamnDownloader(self.uris,self.process.stdin,self.tmppassfile)
                         else:
@@ -2686,15 +2716,18 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                             self.parseLine(curline)
                             curline=''
                     self.passes+=1
+                Damnlog('And we\'re done converting!')
                 self.update(100)
                 result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
                 time.sleep(.25) # Wait a bit
                 self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
                 if result and os.path.lexists(DV.tmp_path+self.tmpfilename):
                     os.remove(DV.tmp_path+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
-            except:
+                Damnlog('All the routine completed successfully.')
+            else:
                 result=1
                 Damnlog('Error in main conversion routine.')
+            Damnlog('Cleaning up after conversion.')
             for i in os.listdir(os.path.dirname(DV.tmp_path)):
                 if i[0:8]=='damnvid-':
                     i=i[8:]
@@ -2724,6 +2757,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                             os.remove(DV.tmp_path+i)
                         except:
                             pass
+            Damnlog('End cleanup, returning. Result?',result,'; Abort?',self.abort)
             if not result and not self.abort:
                 self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
                 self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
@@ -2732,7 +2766,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
             self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
             self.update(status='Failure.',go=self.abort)
     def parseLine(self,line):
-        print line.strip()
+        Damnlog('ffmpeg>',line)
         if self.duration==None:
             res=REGEX_FFMPEG_DURATION_EXTRACT.search(line)
             if res:
@@ -2747,6 +2781,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     'status':self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(100.0*float(res.group(1))/self.duration))+'%]'
                 }))
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
+        Damnlog('I\'m gonna kill dash nine, cause it\'s my time to shine.')
         self.abort=True # This prevents the converter from going to the next file
         if self.profile!=-1:
             if DV.os=='nt':
@@ -2762,6 +2797,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 pass # Maybe the file wasn't created yet
 class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
     def __init__(self,uri,pipe,copy=None):
+        Damnlog('DamnDownloader spawned. URI:',uri,'; Pipe:',pipe)
         self.uri=uri
         self.pipe=pipe
         self.copy=copy
