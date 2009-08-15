@@ -5,8 +5,8 @@ class DamnModule_YouTube(DamnVideoModule):
         DamnVideoModule.__init__(self,uri)
         self.name='youtube'
         self.regex={
-            'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
-            'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.com.*p(?:laylist)?[/=]([-_\w]{6,})',re.IGNORECASE),
+            'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
+            'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:laylist)?[/=]([-_\w]{6,})',re.IGNORECASE),
             'title':re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE),
             'title2':self.regex['title'],
             'ticket':re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2',re.IGNORECASE)
@@ -27,6 +27,7 @@ class DamnModule_YouTube(DamnVideoModule):
         if self.playlist:
             return None
         if self.title is None:
+            gotticket=False
             html=urllib2.urlopen('http://www.youtube.com/watch?v='+self.id[3:])
             for i in html:
                 res=self.regex['title'].search(i)
@@ -36,12 +37,15 @@ class DamnModule_YouTube(DamnVideoModule):
                     res=self.regex['title2'].search(i)
                     if res:
                         self.title=DamnHtmlEntities(res.group(1))
-                res2=self.regex['ticket'].search(i)
-                if res2:
-                    self.newTicket(res2.group(3))
-                    url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)],True)
-                    if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22':
-                        self.hd=True
+                if not gotticket:
+                    res2=self.regex['ticket'].search(i)
+                    if res2:
+                        self.newTicket(res2.group(3))
+                        print self.id[3:],'|',res2.group(3)
+                        url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)],True)
+                        if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22':
+                            self.hd=True
+                        gotticket=True
         if self.hd is None:
             self.hd=False
         return DamnVideoModule.getTitle(self)
@@ -92,7 +96,7 @@ DamnRegisterModule({
     'name':'youtube',
     'title':'YouTube',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',

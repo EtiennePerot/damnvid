@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Copyright 2008 Etienne Perot
 
 # This program is free software: you can redistribute it and/or modify
@@ -38,6 +39,7 @@ import webbrowser # Open a page in default browser
 import tempfile,random # Generate temporary files
 import shutil # Shell utilities (copyfile)
 import sys # System stuff
+import platform # Platform information
 import ConfigParser # INI file parsing and writing
 import base64 # Base64 encoding/decoding
 import gdata.youtube # YouTube API client
@@ -75,6 +77,7 @@ DV.icon=None # This will be defined when DamnMainFrame is initialized
 DV.my_videos_path=''
 DV.appdata_path=''
 DV.os=os.name
+DV.bit64=False
 if DV.os=='posix' and sys.platform=='darwin':
     DV.os='mac'
     DV.border_padding=12
@@ -82,10 +85,13 @@ if DV.os=='posix' and sys.platform=='darwin':
     DV.control_vgap=4
     DV.scroll_factor=2
 else:
+    # Linux~
     DV.border_padding=8
     DV.control_hgap=8
     DV.control_vgap=4
     DV.scroll_factor=3
+    if platform.architecture()[0]=='64bit':
+        DV.bit64=True
 if DV.os=='nt':
     import win32process
     # Need to determine the location of the "My Videos" and "Application Data" folder.
@@ -124,6 +130,15 @@ if os.path.lexists(DV.log_file):
         os.remove(DV.log_file)
     except:
         DV.log_file=None
+def DamnUnicode(s):
+    if type(s) is type(u''):
+        return s
+    if type(s) is type(''):
+        return unicode(s,errors='ignore')
+    try:
+        return unicode(s)
+    except:
+        return s
 class DamnLog:
     def __init__(self):
         self.time=0
@@ -136,10 +151,10 @@ class DamnLog:
         t=int(time.time())
         if self.time!=t:
             self.time=t
-            return u'['+unicode(time.strftime('%H:%M:%S'))+u'] '
+            return u'['+DamnUnicode(time.strftime('%H:%M:%S'))+u'] '
         return u''
     def log(self,message):
-        s=u'\r\n'+self.getPrefix()+unicode(message.strip())
+        s=u'\r\n'+self.getPrefix()+DamnUnicode(message.strip())
         print s
         if self.stream is not None:
             return self.stream.write(s)
@@ -151,13 +166,16 @@ def Damnlog(*args):
     s=[]
     for i in args:
         if type(i) is type(''):
-            s.append(unicode(i,errors='ignore'))
+            s.append(DamnUnicode(i))
         elif type(i) is type(u''):
             s.append(i)
         else:
-            s.append(unicode(i))
+            s.append(DamnUnicode(i))
     return DV.log.log(' '.join(s))
-Damnlog('DamnVid started')
+if DV.bit64:
+    Damnlog('DamnVid started in 64-bit mode on',sys.platform)
+else:
+    Damnlog('DamnVid started in 32-bit mode on',sys.platform)
 Damnlog('Attempting to import Psyco.')
 try:
     import psyco
@@ -460,7 +478,7 @@ class DamnModuleUpdateCheck(thr.Thread):
                         self.postEvent(module2,'error')
                     else:
                         vers=DamnHtmlEntities(res.group(1))
-                        if vers!=unicode(module2['version']):
+                        if vers!=DamnUnicode(module2['version']):
                             url=DamnHtmlEntities(res.group(2)).strip()
                             if not REGEX_HTTP_GENERIC.match(url):
                                 self.postEvent(module2,'error')
@@ -626,13 +644,18 @@ def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     else:
         Damnlog('Spawning subprocess',finalcmd)
         return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
-def DamnURLPicker(urls,urlonly=False):
+def DamnURLPicker(urls,urlonly=False,resumeat=None):
     tried=[]
-    Damnlog('DamnURLPicker summoned. URLs:',urls)
+    if resumeat==0:
+        resumeat=None
+    Damnlog('DamnURLPicker summoned. URLs:',urls,'Resume at:',resumeat)
     for i in urls:
         if i not in tried:
             tried.append(i)
-            request=urllib2.Request(i)
+            if resumeat is None:
+                request=urllib2.Request(i)
+            else:
+                request=urllib2.Request(i,None,{'Range':'bytes='+str(resumeat)+'-*'})
             try:
                 pipe=urllib2.urlopen(request)
                 if urlonly:
@@ -705,7 +728,7 @@ def DamnFriendlyDir(d):
         d=d[0:-1]
     return d
 def DamnHtmlEntities(html):
-    return unicode(BeautifulSoup.BeautifulStoneSoup(html,convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES)).replace(u'&amp;',u'&') # Because BeautifulSoup, as good as it is, puts &amp;badentity where &badentitity; are. Gotta convert that back.
+    return DamnUnicode(BeautifulSoup.BeautifulStoneSoup(html,convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES)).replace(u'&amp;',u'&') # Because BeautifulSoup, as good as it is, puts &amp;badentity where &badentitity; are. Gotta convert that back.
 DV.evt_progress=wx.NewEventType()
 DV.evt_prog=wx.PyEventBinder(DV.evt_progress,1)
 class DamnProgressEvent(wx.PyCommandEvent):
@@ -2523,9 +2546,9 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
         if progress is not None:
             info['progress']=float(progress)
         if statustext is not None:
-            info['statustext']=unicode(statustext)
+            info['statustext']=DamnUnicode(statustext)
         if status is not None:
-            info['status']=unicode(status)
+            info['status']=DamnUnicode(status)
         if dialog is not None:
             info['dialog']=dialog
         if go is not None:
@@ -2540,7 +2563,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 self.uri=self.uris[0]
                 self.update(0)
                 self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
-                self.filename=unicodedata.normalize('NFKD',unicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip()
+                self.filename=unicodedata.normalize('NFKD',DamnUnicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip()
                 self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
                 if os.path.lexists(self.uri):
                     Damnlog('We\'re dealing with a file stream here.')
@@ -2563,11 +2586,12 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 Damnlog('Profile is',self.profile,'; Output directory is',self.outdir)
                 if self.profile==-1: # Do not encode, just copy
                     Damnlog('We\'re in raw copy mode')
-                    try:
+                    if True:
                         failed=False
                         if self.stream=='-': # Spawn a downloader
                             src=DamnURLPicker(self.uris)
                             total=int(src.info()['Content-Length'])
+                            Damnlog('Total bytes:',total)
                             ext='avi'
                             try:
                                 if src.info()['Content-Type'].lower().find('audio')!=-1:
@@ -2578,20 +2602,24 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                 tmpuri=src.info()['Content-Disposition'][src.info()['Content-Disposition'].find('filename=')+9:]
                             except:
                                 tmpuri='Video.'+ext # And pray for the best!
+                            Damnlog('Temp URI is',tmpuri)
                         else: # Just copy the file, lol
                             total=int(os.lstat(self.stream).st_size)
                             src=open(self.stream,'rb')
                             tmpuri=self.stream
+                            Damnlog('Total is',total,'; Temp URI is',tmpuri)
                         if REGEX_URI_EXTENSION_EXTRACT.search(tmpuri):
                             ext='.'+REGEX_URI_EXTENSION_EXTRACT.sub('\\1',tmpuri)
                         else:
                             ext='.avi' # And pray for the best again!
                         self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
+                        Damnlog('Filename is',self.filename,'; opening local stream.')
                         dst=open(self.outdir+self.filename+ext,'wb')
+                        Damnlog(self.outdir+self.filename+ext,'opened.')
                         keepgoing=True
                         copied=0.0
                         lasttime=0.0
-                        self.update(statustext='Copying '+self.parent.meta[self.parent.videos[self.parent.converting]]['name']+' to '+self.filename+ext+'...')
+                        self.update(statustext=u'Copying '+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+DamnUnicode(self.filename+ext)+u'...')
                         Damnlog('Starting raw download of stream',src)
                         while keepgoing and not self.abort:
                             i=src.read(4096)
@@ -2607,7 +2635,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                 self.update(progress,status=self.parent.meta[self.parent.videos[self.parent.converting]]['status']+' ['+str(int(progress))+'%]')
                                 lasttime=nowtime
                         Damnlog('Done downloading!')
-                    except:
+                    else:
                         Damnlog('Raw download failed. Aborted?',self.abort)
                         failed=True
                     self.grabberrun=False
@@ -2626,6 +2654,8 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     os_exe_ext='.exe'
                 elif DV.os=='mac':
                     os_exe_ext='osx'
+                if DV.bit64==True:
+                    os_exe_ext='64'+os_exe_ext
                 self.passes=1
                 cmd=[DV.bin_path+'ffmpeg'+os_exe_ext,'-i','?DAMNVID_VIDEO_STREAM?','-y','-deinterlace','-passlogfile',DV.tmp_path+'pass']
                 for i in DV.preferences.keys():
@@ -2688,7 +2718,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 Damnlog('ffmpeg call has been generated:',cmd)
                 self.filename=self.filenamenoext+ext
                 self.duration=None
-                self.update(statustext=u'Converting '+unicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+unicode(self.filename.decode('utf8'))+u'...')
+                self.update(statustext=u'Converting '+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+DamnUnicode(self.filename.decode('utf8'))+u'...')
                 while int(self.passes)<=int(self.totalpasses) and not self.abort:
                     Damnlog('Starting pass',self.passes,'out of',self.totalpasses)
                     if self.totalpasses!=1:
@@ -2802,8 +2832,20 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
         self.pipe=pipe
         self.copy=copy
         thr.Thread.__init__(self)
+    def timeouterror(self):
+        Damnlog('DamnDownloader timeout detection timer fired!')
+        self.timeouted=True
+        self.http.close()
     def run(self):
-        self.http=DamnURLPicker(self.uri)
+        self.amountwritten=0
+        self.timeouted=True
+        Damnlog('DamnDownloader starting download for first time.')
+        while self.timeouted:
+            self.timeouted=False
+            self.goDownload()
+            Damnlog('DamnDownloader goDownload subroutine done. Total written is',self.amountwritten,'bytes. Timeout?',self.timeouted)
+    def goDownload(self):
+        self.http=DamnURLPicker(self.uri,resumeat=self.amountwritten)
         if self.http==None:
             try:
                 self.pipe.close() # This tells ffmpeg that it's the end of the stream
@@ -2814,7 +2856,17 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
         direct=False
         if self.copy!=None:
             copystream=open(self.copy,'wb')
-        for i in self.http:
+        i='letsgo'
+        while len(i):
+            tmptimer=thr.Timer(10.0,self.timeouterror)
+            tmptimer.start()
+            try:
+                i=self.http.read(1024)
+                tmptimer.cancel()
+            except:
+                Damnlog('DamnDownloader stream timeout from exception handler.')
+                self.timeouted=True
+                break
             try:
                 if direct:
                     self.pipe.write(i)
@@ -2830,6 +2882,7 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
                         del writing
             except:
                 break
+            self.amountwritten+=len(i)
         if not direct:  # Video weighs less than 100 KB (!)
             try:
                 self.pipe.write(writing)

@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
+import platform
 import shutil
 
 OSNAME=os.name
@@ -58,7 +60,10 @@ if OSNAME=='nt':
 elif OSNAME=='mac':
     required_files.append('bin'+os.sep+'ffmpegosx')
 else:
-    required_files.append('bin'+os.sep+'ffmpeg')
+    if platform.architecture()[0]=='64bit':
+        required_files.append('bin'+os.sep+'ffmpeg')
+    else:
+        required_files.append('bin'+os.sep+'ffmpeg64')
 required_file=open('required-files.txt','w')
 for f in required_files:
     required_file.write(f+'\n')
