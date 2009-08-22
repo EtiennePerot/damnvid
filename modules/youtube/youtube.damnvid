@@ -6,7 +6,7 @@ class DamnModule_YouTube(DamnVideoModule):
         self.name='youtube'
         self.regex={
             'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
-            'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:laylist)?[/=]([-_\w]{6,})',re.IGNORECASE),
+            'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
             'title':re.compile('<title>YouTube - ([^<>]+)</title>',re.IGNORECASE),
             'title2':self.regex['title'],
             'ticket':re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2',re.IGNORECASE)
@@ -86,6 +86,7 @@ class DamnModule_YouTube(DamnVideoModule):
     def addVid(self,parent):
         if not self.playlist:
             return DamnVideoModule.addVid(self,parent)
+        print 'Grabbin','http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist'))
         playlist=DV.youtube_service.GetYouTubeVideoFeed('http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
         for i in playlist.entry:
             try:

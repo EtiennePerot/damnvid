@@ -1,0 +1,122 @@
+#~DamnVid-module:youtube
+
+class DamnModule_ITMSPodcasts(DamnVideoModule):
+    def __init__(self,uri,parent=None):
+        DamnVideoModule.__init__(self,uri)
+        self.name='itmspodcasts'
+        self.regex={
+            'url':re.compile('^(?:https?|itms)://(?:[-_\w]+\.)*itunes\.apple\.com.*viewPodcast\?.*?id=(\d+)',re.IGNORECASE),
+            'title':re.compile('<key>itemName</key>\s*<string>\s*([^<>]+)\s*</string>',re.IGNORECASE),
+            'ticket':re.compile('<key>episodeURL</key>\s*<string>\s*([^<>]+)\s*</string>',re.IGNORECASE)
+        }
+        self.playlist=False
+        self.valid=self.regex['url'].search(uri)
+        if self.valid:
+            self.playlist=True
+            self.id='it:'+self.valid.group(1)
+            self.link='http://ax.itunes.apple.com/WebObjects/MZStore.woa/wa/viewPodcast?id='+self.valid.group(1)
+        else:
+            self.id='ie:'+uri
+            self.link=uri
+    def ITMSPodcasts_setTitle(self,title):
+        self.title=title
+        return self # Return self for chainability
+    def getTitle(self):
+        if self.playlist:
+            return None
+        return DamnVideoModule.getTitle(self)
+    def getProfile(self):
+        if self.playlist:
+            return None
+        return self.pref('profile')
+    def getOutdir(self):
+        if self.playlist:
+            return None
+        return self.pref('outdir')
+    def getIcon(self):
+        if self.playlist:
+            return None
+        return DamnGetListIcon('itmspodcasts')
+    def renewTicket(self):
+        return
+    def getDownload(self):
+        if self.playlist:
+            return None
+        return self.link
+    def addVid(self,parent):
+        if not self.playlist:
+            return DamnVideoModule.addVid(self,parent)
+        html=urllib2.urlopen(self.link)
+        count=0
+        maxcount=int(self.pref('maxepisodes'))
+        lasturl=None
+        for i in html:
+            res=self.regex['ticket'].search(i)
+            if res:
+                lasturl=DamnHtmlEntities(res.group(1))
+            else:
+                res=self.regex['title'].search(i)
+                if res and lasturl is not None and count<=maxcount:
+                    self.__class__(lasturl).ITMSPodcasts_setTitle(DamnHtmlEntities(res.group(1))).addVid(parent)
+                    lasturl=None
+                    count+=1
+                    if count>=maxcount:
+                        break
+DamnRegisterModule({
+    'name':'itmspodcasts',
+    'title':'iTunes Podcasts',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'itmspodcasts.png',
+        'large':'itmspodcasts-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for iTunes Podcasts and iTunes U.',
+        'long':"""This is a video plugin for DamnVid that adds video podcasts downloading capabilities from the iTunes Music Store.
+Also works with iTunes U.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'iTunes Podcasts',
+            'icon':'itmspodcasts.png',
+            'url':'http://www.apple.com/itunes/#podcasts'
+        }
+    ],
+    'class':DamnModule_ITMSPodcasts,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Podcasts/'
+        },
+        'maxepisodes':{
+            'name':'Maximum episodes from podcast',
+            'type':DV.preference_type_misc,
+            'kind':'int:1-50',
+            'strict':True,
+            'default':'5'
+        }
+    },
+    'preferences_order':['profile','outdir','maxepisodes'],
+    'register':{
+        'listicons':{
+            'itmspodcasts':'itmspodcasts.png'
+        }
+    }
+})
