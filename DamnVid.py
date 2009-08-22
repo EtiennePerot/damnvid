@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # Copyright 2008 Etienne Perot
 
 # This program is free software: you can redistribute it and/or modify
@@ -143,6 +143,8 @@ class DamnLog:
     def __init__(self):
         self.time=0
         try:
+            if not exists(os.path.dirname(DV.log_file)):
+                self.makedirs(os.path.dirname(DV.log_file))
             self.stream=open(DV.log_file,'w')
             self.stream.write(self.getPrefix()+u'Log opened.')
         except:
@@ -157,10 +159,16 @@ class DamnLog:
         s=u'\r\n'+self.getPrefix()+DamnUnicode(message.strip())
         print s
         if self.stream is not None:
-            return self.stream.write(s)
+            try:
+                return self.stream.write(s)
+            except:
+                pass
     def close(self):
         self.log('Closing log.')
-        self.stream.close()
+        try:
+            self.stream.close()
+        except:
+            pass
 DV.log=DamnLog()
 def Damnlog(*args):
     s=[]
@@ -1145,7 +1153,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
             if shortsection+':'+name in DV.path_prefs:
                 value=self.expandPath(value)
             return value
-        elif DV.defaultprefs.has_key(section+':'+name):
+        if DV.defaultprefs.has_key(section+':'+name):
             value=DV.defaultprefs[section+':'+name]
             self.ini.add_section(section)
             self.sets(section,name,value)
@@ -1195,12 +1203,6 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
         return self.sets('damnvid-profile-'+str(profile),name,value)
     def listp(self,profile):
         return self.lists('damnvid-profile-'+str(profile))
-    def getd(self,name):
-        return self.gets('damnvid-default-profiles',name)
-    def setd(self,name,value):
-        return self.sets('damnvid-default-profiles',name,value)
-    def listd(self):
-        return self.lists('damnvid-default-profiles')
     def getm(self,module,name):
         return self.gets('damnvid-module-'+module,name)
     def setm(self,module,name,value):
@@ -1209,26 +1211,33 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
         self.ini.add_section('damnvid-profile-'+str(self.profiles))
         for i in DV.defaultprefs.iterkeys():
             if i[0:16]=='damnvid-profile:':
-                self.ini.set('damnvid-profile-'+str(self.profiles),i,DV.defaultprefs[i])
-        self.profiles=self.profiles+1
+                self.setp(self.profiles,i[16:],DamnUnicode(DV.defaultprefs[i]))
+        self.profiles+=1
     def remp(self,profile):
         if self.profiles>1:
-            for i in self.ini.options('damnvid-default-profiles'):
-                if str(self.ini.get('damnvid-default-profiles',i))==str(profile):
-                    self.ini.set('damnvid-default-profiles',i,'0')
-                elif int(self.ini.get('damnvid-default-profiles',i))>int(profile):
-                    self.ini.set('damnvid-default-profiles',i,str(int(self.ini.get('damnvid-default-profiles',i))-1))
+            for i in DV.preferences.iterkeys():
+                section,option=(i[0:i.find(':')],i[i.find(':')+1:])
+                if DV.preferences[i]['kind']=='profile':
+                    if int(self.gets(section,option))==int(profile):
+                        self.ini.set(section,option,'0') # Fall back to default profile
+                    elif int(self.gets(section,option))>int(profile):
+                        self.ini.set(section,option,str(int(self.gets(section,option))-1))
+            for i in DamnIterModules():
+                for j in DV.modules[i]['preferences'].iterkeys():
+                    if DV.modules[i]['preferences'][j]['kind']=='profile':
+                        if int(self.getm(DV.modules[i]['name'],j))==int(profile):
+                            self.setm(DV.modules[i]['name'],j,'0') # Fall back to default profile
+                        elif int(self.getm(DV.modules[i]['name'],j))>int(profile):
+                            self.setm(DV.modules[i]['name'],j,str(int(self.getm(DV.modules[i]['name'],j))-1))
             for i in range(profile,self.profiles-1):
                 for j in self.ini.options('damnvid-profile-'+str(i)):
                     self.ini.remove_option('damnvid-profile-'+str(i),j)
                 for j in self.ini.options('damnvid-profile-'+str(i+1)):
                     self.ini.set('damnvid-profile-'+str(i),j,self.ini.get('damnvid-profile-'+str(i+1),j))
-            self.profiles=self.profiles-1
+            self.profiles-=1
             self.ini.remove_section('damnvid-profile-'+str(self.profiles))
             return self.profiles
-        else:
-            print 'Denied~'
-            return None
+        return None
     def geta(self,section,name):
         return eval(base64.b64decode(self.gets(section,name)))
     def seta(self,section,name,value):
@@ -1737,26 +1746,26 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.Center()
     def buildTree(self):
         self.tree.DeleteAllItems()
-        treeimages=wx.ImageList(16,16,True)
-        self.tree.AssignImageList(treeimages)
+        self.treeimages=wx.ImageList(16,16,True)
+        self.tree.AssignImageList(self.treeimages)
         self.treeroot=self.tree.AddRoot('DamnVid Preferences')
-        self.tree.SetItemImage(self.treeroot,treeimages.Add(wx.Bitmap(DV.images_path+'icon16.png')))
+        self.tree.SetItemImage(self.treeroot,self.treeimages.Add(wx.Bitmap(DV.images_path+'icon16.png')))
         self.searchprefs=self.tree.AppendItem(self.treeroot,'YouTube browser')
-        self.tree.SetItemImage(self.searchprefs,treeimages.Add(wx.Bitmap(DV.images_path+'youtubebrowser.png')))
+        self.tree.SetItemImage(self.searchprefs,self.treeimages.Add(wx.Bitmap(DV.images_path+'youtubebrowser.png')))
         self.modulelistitem=self.tree.AppendItem(self.treeroot,'Modules')
-        self.tree.SetItemImage(self.modulelistitem,treeimages.Add(wx.Bitmap(DV.images_path+'modules.png')))
+        self.tree.SetItemImage(self.modulelistitem,self.treeimages.Add(wx.Bitmap(DV.images_path+'modules.png')))
         self.modules={}
         self.moduledescs={}
         for i in DamnIterModules():
             self.modules[i]=self.tree.AppendItem(self.modulelistitem,DV.modules[i]['title'])
-            self.tree.SetItemImage(self.modules[i],treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+os.sep+DV.modules[i]['icon']['small'])))
+            self.tree.SetItemImage(self.modules[i],self.treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+os.sep+DV.modules[i]['icon']['small'])))
         self.profileroot=self.tree.AppendItem(self.treeroot,'Encoding profiles')
-        self.tree.SetItemImage(self.profileroot,treeimages.Add(wx.Bitmap(DV.images_path+'profiles.png')))
+        self.tree.SetItemImage(self.profileroot,self.treeimages.Add(wx.Bitmap(DV.images_path+'profiles.png')))
         self.profiles=[]
         for i in range(0,DV.prefs.profiles):
             treeitem=self.tree.AppendItem(self.profileroot,DV.prefs.getp(i,'name'))
             self.profiles.append(treeitem)
-            self.tree.SetItemImage(treeitem,treeimages.Add(wx.Bitmap(DV.images_path+'profile.png')))
+            self.tree.SetItemImage(treeitem,self.treeimages.Add(wx.Bitmap(DV.images_path+'profile.png')))
         self.tree.ExpandAll()
         self.forceSelect(self.treeroot)
     def forceSelect(self,item,event=None):
@@ -2153,7 +2162,9 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 DV.prefs.sets(self.pane,self.splitLongPref(i)[1],path)
     def onAddProfile(self,event):
         DV.prefs.addp()
-        self.profiles.append(self.tree.AppendItem(self.profileroot,DV.prefs.getp(DV.prefs.profiles-1,'name')))
+        prof=self.tree.AppendItem(self.profileroot,DV.prefs.getp(DV.prefs.profiles-1,'name'))
+        self.tree.SetItemImage(prof,self.treeimages.Add(wx.Bitmap(DV.images_path+'profile.png')))
+        self.profiles.append(prof)
         self.tree.SelectItem(self.profiles[-1],True)
     def onDeleteProfile(self,event):
         if self.tree.GetSelection()!=self.treeroot and self.tree.GetItemParent(self.tree.GetSelection())==self.profileroot:
@@ -2459,8 +2470,6 @@ class DamnVideoLoader(thr.Thread):
         self.postEvent({'status':status})
     def showDialog(self,title,content,icon):
         self.postEvent({'dialog':(title,content,icon)})
-    def getDefaultProfile(self,profile):
-        return int(DV.prefs.getd(profile))
     def vidLoop(self,uris):
         for uri in uris:
             self.originaluri=uri
@@ -2514,6 +2523,9 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     self.outdir=self.parent.meta[self.sourceuri]['module'].getOutdir()
                 if type(uri) in (type(''),type(u'')):
                     uri=[uri]
+                if uri is None:
+                    Damnlog('URI is None!')
+                    return [None]
                 return uri
         return [uri]
     def cmd2str(self,cmd):
@@ -3078,7 +3090,7 @@ class DamnMainFrame(wx.Frame): # The main window
             lastversion.close()
             del lastversion
         else:
-            dvversion='old' # This is not an arbitrary erroneous value, it's handy in the concatenation on the wx.FileDialog line below
+            dvversion='old' # This is not just an arbitrary erroneous value, it's actually handy in the concatenation on the wx.FileDialog line below
         if dvversion!=DV.version: # Just updated to new version, ask what to do about the preferences
             dlg=wx.MessageDialog(self,'DamnVid was updated to '+DV.version+'.\nIf anything fails, try to uninstall DamnVid before updating it again.\n\nFrom a version to another, DamnVid\'s default preferences may vary, and their structure may change.\nIf that is the case, your current preferences may not work anymore.\nAdditionally, new versions of DamnVid often come with new or updated encoding profiles. That is why DamnVid is going to overwrite your current configuration.\nDo you want to export your current preferences, before they get overwritten? You might then try to import them back using the "Import" button in the Preferences pane.','DamnVid was successfully updated',wx.YES|wx.NO|wx.ICON_QUESTION)
             tmpprefs=DamnVidPrefs()
@@ -3615,15 +3627,27 @@ class DamnMainFrame(wx.Frame): # The main window
         self.Destroy()
 class DamnVid(wx.App):
     def OnInit(self):
-        splash=DamnSplashScreen()
-        clock=time.time()
-        splash.Show()
+        showsplash=False
+        try:
+            DV.prefs=DamnVidPrefs()
+            if DV.prefs.get('splashscreen')=='True':
+                splash=DamnSplashScreen()
+                clock=time.time()
+                showsplash=True
+                splash.Show()
+            DV.prefs=None
+        except:
+            pass
         self.frame=DamnMainFrame(None,-1,'DamnVid')
-        while clock+.5>time.time():
-            time.sleep(.025) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
-        splash.Hide()
-        splash.Destroy()
-        del clock,splash
+        if showsplash:
+            try:
+                while clock+.5>time.time():
+                    time.sleep(.02) # Makes splashscreen stay at least a fifth of a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
+                splash.Hide()
+                splash.Destroy()
+                del clock,splash
+            except:
+                pass
         self.frame.init2()
         self.frame.Show(True)
         self.loadArgs(DV.argv)

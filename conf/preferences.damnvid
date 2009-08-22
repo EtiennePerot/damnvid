@@ -338,6 +338,14 @@ DV.preferences={
         'strict':False,
         'default':''
     },
+    'damnvid:splashscreen':{
+        'name':'Show splashscreen at startup',
+        'type':DV.preference_type_misc,
+        'kind':'bool',
+        'strict':True,
+        'align':False,
+        'default':True
+    },
     'damnvid:clipboard':{
         'name':'Monitor clipboard for video URLs',
         'type':DV.preference_type_misc,
@@ -386,87 +394,10 @@ DV.preferences={
         'kind':'int:0-50',
         'strict':True,
         'default':8
-    },
-    'damnvid-default-profiles:googlevideo':{
-        'name':'Google Videos',
-        'icon':'googlevideo.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:dailymotion':{
-        'name':'Dailymotion videos',
-        'icon':'dailymotion.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:bliptv':{
-        'name':'Blip.tv videos',
-        'icon':'bliptv.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:metacafe':{
-        'name':'Metacafe videos',
-        'icon':'metacafe.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:crunchyroll':{
-        'name':'Crunchyroll videos',
-        'icon':'crunchyroll.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:megavideo':{
-        'name':'Megavideo videos',
-        'icon':'megavideo.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:revver':{
-        'name':'Revver videos',
-        'icon':'revver.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:break':{
-        'name':'Break.com videos',
-        'icon':'break.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:flickr':{
-        'name':'Flickr videos',
-        'icon':'flickr.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:livevideo':{
-        'name':'Livevideo videos',
-        'icon':'livevideo.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
-    },
-    'damnvid-default-profiles:youku':{
-        'name':'Youku videos',
-        'icon':'youku.png',
-        'type':DV.preference_type_profile,
-        'kind':'profile',
-        'strict':True
     }
 }
 DV.preference_order={
-    'damnvid':['checkforupdates','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
+    'damnvid':['checkforupdates','splashscreen','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
     'damnvid-search':['autoconvert','default_search','history_length']
 }

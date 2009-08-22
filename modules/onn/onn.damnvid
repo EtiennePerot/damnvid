@@ -1,0 +1,89 @@
+#~DamnVid-module:onn
+
+class DamnModule_ONN(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='onn'
+        self.regex={
+            'url':re.compile('theonion\.com/content/video/([^/]+)',re.IGNORECASE),
+            'title':re.compile('<meta[^<>]*name="title"[^<>]*content="([^"]+)"',re.IGNORECASE),
+            'ticket':(
+                re.compile('videoid\s*=\s*[\'"]?(\d+)',re.IGNORECASE),
+                re.compile('<enclosure[^<>]*url="([^"]+)"[^<>]*>(?:(?!<category)[\s\S])*<category(?!>commercial)',re.IGNORECASE)
+            )
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.onn_id=0
+        if self.valid:
+            self.id='on:'+self.valid.group(1)
+            self.link='http://www.theonion.com/content/video/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is not None:
+            return self.title
+        html=urllib2.urlopen(self.link)
+        for i in html:
+            res1,res2=self.regex['title'].search(i),self.regex['ticket'][0].search(i)
+            if res1:
+                self.title=DamnHtmlEntities(res1.group(1))
+            if res2:
+                self.onn_id=res2.group(1)
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None or not self.onn_id:
+            return
+        html=urllib2.urlopen('http://www.theonion.com/content/xml/'+self.onn_id+'/video')
+        for i in html:
+            res=self.regex['ticket'][1].search(i)
+            if res:
+                self.newTicket(DamnHtmlEntities(res.group(1)))
+DamnRegisterModule({
+    'name':'onn',
+    'title':'Onion News Network',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'onn.png',
+        'large':'onn-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for the Onion News Network.',
+        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from the Onion News Network.
+Ads are not downloaded/converted.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'Onion News Network',
+            'icon':'onn.png',
+            'url':'http://www.theonion.com/content/video'
+        }
+    ],
+    'class':DamnModule_ONN,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Onion/'
+        }
+    },
+    'preferences_order':['profile','outdir'],
+    'register':{
+        'listicons':{
+            'onn':'onn.png'
+        }
+    }
+})
