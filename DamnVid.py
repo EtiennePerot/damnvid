@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2008 Etienne Perot
 
 # This program is free software: you can redistribute it and/or modify
@@ -157,7 +157,7 @@ class DamnLog:
         return u''
     def log(self,message):
         s=u'\r\n'+self.getPrefix()+DamnUnicode(message.strip())
-        print s
+        print s.encode('ascii',errors='ignore')
         if self.stream is not None:
             try:
                 return self.stream.write(s)
