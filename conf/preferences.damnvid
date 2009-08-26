@@ -362,6 +362,13 @@ DV.preferences={
         'align':False,
         'default':False
     },
+    'damnvid:locale':{
+        'name':'Language (requires restart)',
+        'type':DV.preference_type_misc,
+        'kind':'locale',
+        'strict':True,
+        'default':'English'
+    },
     #'damnvid-showdailytip':{
         #'name':'Show Daily Tip when DamnVid starts',
         #'type':DV.preference_type_misc,
@@ -374,19 +381,19 @@ DV.preferences={
         'name':'Initial search query',
         'type':DV.preference_type_misc,
         'kind':{
-            'Most popular':'Most popular',
-            'Most viewed':'Most viewed',
-            'Top rated':'Top rated',
-            'Recently featured':'Recently featured',
-            'Most recent':'Most recent',
-            'Most discussed':'Most discussed',
-            'Top favorites':'Top favorites',
-            'Most linked':'Most linked',
-            'Most responded':'Most responded'
+            'most_popular':'Most popular',
+            'most_viewed':'Most viewed',
+            'top_rated':'Top rated',
+            'recently_featured':'Recently featured',
+            'most_recent':'Most recent',
+            'most_discussed':'Most discussed',
+            'top_favorites':'Top favorites',
+            'most_linked':'Most linked',
+            'most_responded':'Most responded'
         },
         'strict':False,
-        'order':['Most popular','Most viewed','Top rated','Recently featured','Most recent','Most discussed','Top favorites','Most linked','Most responded'],
-        'default':'Recently featured'
+        'order':['most_popular','most_viewed','top_rated','recently_featured','most_recent','most_discussed','top_favorites','most_linked','most_responded'],
+        'default':'recently_featured'
     },
     'damnvid-search:history_length':{
         'name':'Search history size',
@@ -397,7 +404,7 @@ DV.preferences={
     }
 }
 DV.preference_order={
-    'damnvid':['checkforupdates','splashscreen','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
+    'damnvid':['checkforupdates','locale','splashscreen','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
     'damnvid-search':['autoconvert','default_search','history_length']
 }

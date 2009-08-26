@@ -157,7 +157,13 @@ class DamnLog:
         return u''
     def log(self,message):
         s=u'\r\n'+self.getPrefix()+DamnUnicode(message.strip())
-        print s.encode('ascii',errors='ignore')
+        try:
+            print s,
+        except:
+            try:
+                print s.encode('utf8'),
+            except:
+                print 'Cannot echo log string; invalid characters and/or non-tolerant output?'
         if self.stream is not None:
             try:
                 return self.stream.write(s)
@@ -218,6 +224,7 @@ else:
     del lastversion
 DV.images_path=DV.curdir+'img/'.replace('/',os.sep)
 DV.bin_path=DV.curdir+'bin/'.replace('/',os.sep)
+DV.locale_path=DV.curdir+'locale/'.replace('/',os.sep)
 DV.tmp_path=tempfile.gettempdir()
 if DV.tmp_path[-1]!=os.sep:
     DV.tmp_path+=os.sep
@@ -416,7 +423,7 @@ class DamnVideoModule:
                 self.title=DamnHtmlEntities(res.group(1))
         if self.title is not None:
             return self.title
-        return u'Unknown title'
+        return DV.l('Unknown title')
     def getIcon(self):
         return DamnGetListIcon(self.name)
     def pref(self,pref,value=None):
@@ -597,8 +604,42 @@ def DamnLoadConfig(forcemodules=False):
         if os.path.isdir(DV.modules_path+i):
             DamnLoadModule(DV.modules_path+i)
     # End load modules
+DV.locale_warnings=[]
+def DamnLocale(s,asunicode=True,warn=True):
+    k=str(s.encode('ascii','ignore'))
+    s=DamnUnicode(s)
+    if DV.locale is None:
+        Damnlog('Locale warning: Locale is None.')
+        if asunicode:
+            return s
+        return k
+    if not DV.locale['strings'].has_key(k):
+        if warn and k not in DV.locale_warnings:
+            DV.locale_warnings.append(k)
+            Damnlog('Locale warning:',k,'has no key for language',DV.lang)
+        if asunicode:
+            return s
+        return k
+    if asunicode:
+        return DamnUnicode(DV.locale['strings'][k])
+    return str(DV.locale['strings'][k].encode('ascii','ignore'))
+def DamnLoadCurrentLocale():
+    if DV.languages.has_key(DV.lang):
+        DV.locale=DV.languages[DV.lang]
+    else:
+        DV.locale=None
 Damnlog('Loading initial config and modules.')
-DamnLoadConfig(DV.first_run or DV.updated)
+DamnLoadConfig(forcemodules=(DV.first_run or DV.updated))
+Damnlog('Loading locales.')
+DV.languages={}
+DV.l=DamnLocale
+DV.locale=None
+DV.lang='English' # Default, will be overriden later if needed.
+for i in os.listdir(DV.locale_path):
+    if i[-7:].lower()=='.locale':
+        Damnlog('Loading',DV.locale_path+i)
+        execfile(DV.locale_path+i)
+DamnLoadCurrentLocale()
 # Begin ID constants
 ID_MENU_EXIT=wx.ID_EXIT
 ID_MENU_ADD_FILE=102
@@ -727,9 +768,9 @@ def DamnTempFile():
     return name
 def DamnFriendlyDir(d):
     if DV.os=='mac':
-        myvids='Movies'
+        myvids=DV.l('Movies')
     else:
-        myvids='My Videos'
+        myvids=DV.l('My Videos')
     d=d.replace('?DAMNVID_MY_VIDEOS?',myvids)
     d=os.path.expanduser(d).replace(DV.my_videos_path,myvids).replace('/',os.sep).replace('\\',os.sep)
     while d[-1:]==os.sep:
@@ -778,7 +819,7 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
         self.parent=parent
         self.items=self.parent.getAllSelectedItems()
         if len(self.items): # If there's at least one item selected
-            rename=wx.MenuItem(self,-1,'Rename')
+            rename=wx.MenuItem(self,-1,DV.l('Rename'))
             self.AppendItem(rename)
             if len(self.items)!=1:
                 rename.Enable(False)
@@ -786,7 +827,7 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
                 if self.items[0]==self.parent.parent.converting:
                     rename.Enable(False)
             self.Bind(wx.EVT_MENU,self.parent.parent.onRename,rename)
-            moveup=wx.MenuItem(self,-1,'Move up')
+            moveup=wx.MenuItem(self,-1,DV.l('Move up'))
             self.AppendItem(moveup)
             moveup.Enable(self.items[0]>0)
             self.Bind(wx.EVT_MENU,self.parent.parent.onMoveUp,moveup)
@@ -794,11 +835,11 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
             self.AppendItem(movedown)
             movedown.Enable(self.items[-1]<self.parent.GetItemCount()-1)
             self.Bind(wx.EVT_MENU,self.parent.parent.onMoveDown,movedown)
-            stop=wx.MenuItem(self,-1,'Stop')
+            stop=wx.MenuItem(self,-1,DV.l('Stop'))
             self.AppendItem(stop)
             stop.Enable(self.parent.parent.converting in self.items)
             self.Bind(wx.EVT_MENU,self.parent.parent.onStop,stop)
-            remove=wx.MenuItem(self,-1,'Remove from list')
+            remove=wx.MenuItem(self,-1,DV.l('Remove from list'))
             self.AppendItem(remove)
             remove.Enable(self.parent.parent.converting not in self.items)
             self.Bind(wx.EVT_MENU,self.parent.parent.onDelSelection,remove)
@@ -810,24 +851,24 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
                         uniprofile=-2
                 for i in range(-1,DV.prefs.profiles):
                     if uniprofile!=-2:
-                        prof=wx.MenuItem(self,-1,DV.prefs.getp(i,'name'),kind=wx.ITEM_RADIO)
+                        prof=wx.MenuItem(self,-1,DV.l(DV.prefs.getp(i,'name'),warn=False),kind=wx.ITEM_RADIO)
                         profile.AppendItem(prof) # Item has to be appended before being checked, otherwise error. Annoying code duplication.
                         prof.Check(i==uniprofile)
                     else:
-                        prof=wx.MenuItem(self,-1,DV.prefs.getp(i,'name'))
+                        prof=wx.MenuItem(self,-1,DV.l(DV.prefs.getp(i,'name'),warn=False))
                         profile.AppendItem(prof)
                     self.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof)    # Of course, on one platform it's self.Bind...
                     profile.Bind(wx.EVT_MENU,DamnCurry(self.parent.parent.onChangeProfile,i),prof) # ... and on the other it's profile.Bind. *sigh*
-                self.AppendMenu(-1,'Encoding profile',profile)
+                self.AppendMenu(-1,DV.l('Encoding profile'),profile)
             else:
                 profile=wx.MenuItem(self,-1,'Encoding profile')
                 self.AppendItem(profile)
                 profile.Enable(False)
         else: # Otherwise, display a different context menu
-            addfile=wx.MenuItem(self,-1,'Add Files')
+            addfile=wx.MenuItem(self,-1,DV.l('Add Files'))
             self.AppendItem(addfile)
             self.Bind(wx.EVT_MENU,self.parent.parent.onAddFile,addfile)
-            addurl=wx.MenuItem(self,-1,'Add URL')
+            addurl=wx.MenuItem(self,-1,DV.l('Add URL'))
             self.AppendItem(addurl)
             self.Bind(wx.EVT_MENU,self.parent.parent.onAddURL,addurl)
 class DamnHyperlink(wx.HyperlinkCtrl):
@@ -867,7 +908,7 @@ class DamnList(wx.ListCtrl,ListCtrlAutoWidthMixin): # The ListCtrl, which inheri
 class DamnAddURLDialog(wx.Dialog):
     def __init__(self,parent,default):
         self.parent=parent
-        wx.Dialog.__init__(self,parent,-1,'Add videos by URL...')
+        wx.Dialog.__init__(self,parent,-1,DV.l('Add videos by URL...'))
         absolutetopsizer=wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(absolutetopsizer)
         innertopsizer=wx.BoxSizer(wx.HORIZONTAL)
@@ -883,11 +924,11 @@ class DamnAddURLDialog(wx.Dialog):
         innertopsizer2.Add(topsizer,1,wx.EXPAND)
         innertopsizer2.Add((0,DV.border_padding))
         # Finished paddings and stuff, now for the actual dialog construction
-        topsizer.Add(wx.StaticText(self.toppanel,-1,'Enter the URL of the video you wish to download.'))
+        topsizer.Add(wx.StaticText(self.toppanel,-1,DV.l('Enter the URL of the video you wish to download.')))
         topsizer.Add((0,DV.control_vgap))
         urlboxsizer=wx.BoxSizer(wx.HORIZONTAL)
         topsizer.Add(urlboxsizer,0,wx.EXPAND)
-        urllabel=wx.StaticText(self.toppanel,-1,'URL:')
+        urllabel=wx.StaticText(self.toppanel,-1,DV.l('URL:'))
         urlboxsizer.Add(urllabel,0,wx.ALIGN_CENTER_VERTICAL)
         urlboxsizer.Add((DV.control_hgap,0))
         self.urlbox=wx.TextCtrl(self.toppanel,-1,default,style=wx.TE_PROCESS_ENTER)
@@ -902,7 +943,7 @@ class DamnAddURLDialog(wx.Dialog):
         self.addButton.Bind(wx.EVT_BUTTON,self.onAdd)
         topsizer.Add((0,DV.control_vgap))
         autoconvertchecksizer=wx.BoxSizer(wx.HORIZONTAL)
-        self.autoconvertcheck=wx.CheckBox(self.toppanel,-1,'Automatically download and convert right away')
+        self.autoconvertcheck=wx.CheckBox(self.toppanel,-1,DV.l('Automatically download and convert right away'))
         self.autoconvertcheck.SetValue(DV.prefs.get('autoconvert')=='True')
         self.autoconvertcheck.Bind(wx.EVT_CHECKBOX,self.onAutoconvertCheck)
         autoconvertchecksizer.Add((DV.control_hgap+urllabel.GetSizeTuple()[0],0))
@@ -922,9 +963,9 @@ class DamnAddURLDialog(wx.Dialog):
         bottomrightsizer=wx.BoxSizer(wx.VERTICAL)
         bottomhorizontalsizer.Add(bottomrightsizer,1,wx.EXPAND|wx.ALIGN_TOP)
         # Now start building the bottom-left part
-        bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'Go ahead, add some videos!'))
+        bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,DV.l('Go ahead, add some videos!')))
         bottomleftsizer.Add((0,DV.control_vgap))
-        bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,'The following sites are suported:'))
+        bottomleftsizer.Add(wx.StaticText(self.toppanel,-1,DV.l('The following sites are supported:')))
         scrollinglist=wx.ScrolledWindow(self.toppanel,-1)
         scrollinglistsizer=wx.BoxSizer(wx.VERTICAL)
         scrollinglist.SetSizer(scrollinglistsizer)
@@ -941,7 +982,7 @@ class DamnAddURLDialog(wx.Dialog):
         scrollinglist.SetMinSize((-1,220))
         scrollinglist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
         # Now start building the bottom-right part
-        self.monitorcheck=wx.CheckBox(self.toppanel,-1,'Monitor clipboard for new URLs')
+        self.monitorcheck=wx.CheckBox(self.toppanel,-1,DV.l('Monitor clipboard for new URLs'))
         self.monitorcheck.Bind(wx.EVT_CHECKBOX,self.onMonitorCheck)
         self.monitorcheck.SetValue(DV.prefs.get('clipboard')=='True')
         bottomrightsizer.Add(self.monitorcheck)
@@ -959,7 +1000,7 @@ class DamnAddURLDialog(wx.Dialog):
             il.Add(DV.listicons.GetBitmap(i))
         self.videolist.AssignImageList(il,wx.IMAGE_LIST_SMALL)
         bottomrightsizer.Add(self.videolist,1,wx.EXPAND)
-        self.videocolumn=self.videolist.InsertColumn(ID_COL_VIDNAME,'Videos')
+        self.videocolumn=self.videolist.InsertColumn(ID_COL_VIDNAME,DV.l('Videos'))
         # We're done! Final touches...
         self.videos=[]
         self.SetClientSize(self.toppanel.GetBestSize())
@@ -972,9 +1013,9 @@ class DamnAddURLDialog(wx.Dialog):
             self.urlbox.SetValue('')
         message=None
         if not val:
-            message=('No URL entered','You must enter a URL!')
+            message=(DV.l('No URL entered'),DV.l('You must enter a URL!'))
         elif not self.parent.validURI(val):
-            message=('Invalid URL','This is not a valid URL!')
+            message=(DV.l('Invalid URL'),DV.l('This is not a valid URL!'))
         if message is not None:
             dlg=wx.MessageDialog(None,message[1],message[0],wx.OK|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
@@ -997,11 +1038,11 @@ class DamnAddURLDialog(wx.Dialog):
         newpref=self.monitorcheck.GetValue()
         DV.prefs.set('clipboard',str(newpref))
         if newpref:
-            self.monitorlabel.SetLabel('Your clipboard is being monitored.')
-            self.monitorlabel2.SetLabel('Simply copy a video URL and DamnVid will add it.')
+            self.monitorlabel.SetLabel(DV.l('Your clipboard is being monitored.'))
+            self.monitorlabel2.SetLabel(DV.l('Simply copy a video URL and DamnVid will add it.'))
         else:
-            self.monitorlabel.SetLabel('Your clipboard is not being monitored.')
-            self.monitorlabel2.SetLabel('Check the checkbox above if you want it to be monitored.')
+            self.monitorlabel.SetLabel(DV.l('Your clipboard is not being monitored.'))
+            self.monitorlabel2.SetLabel(DV.l('Check the checkbox above if you want it to be monitored.'))
         self.monitorlabel.Wrap(180)
         self.monitorlabel2.Wrap(180)
         self.toppanel.Layout()
@@ -1015,7 +1056,7 @@ class DamnAddURLDialog(wx.Dialog):
         self.Destroy()
 class DamnEEgg(wx.Dialog):
     def __init__(self,parent,id):
-        wx.Dialog.__init__(self,parent,id,'Salute the Secret Stoat!')
+        wx.Dialog.__init__(self,parent,id,DV.l('Salute the Secret Stoat!'))
         topvbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(topvbox)
         self.panel=wx.Panel(self,-1)
@@ -1023,20 +1064,20 @@ class DamnEEgg(wx.Dialog):
         self.vbox=wx.BoxSizer(wx.VERTICAL)
         self.panel.SetSizer(self.vbox)
         self.vbox.Add(wx.StaticBitmap(self.panel,-1,wx.Bitmap(DV.images_path+'stoat.jpg')),0,wx.ALIGN_CENTER)
-        self.AddText('DamnVid '+DV.version+' is *100% stoat-powered*, and *proud* of it.',True)
-        self.AddText('*No stoats were harmed* (much) during DamnVid\'s development. Ya rly.',True)
+        self.AddText(DV.l('DamnVid ')+DV.version+DV.l(' is *100% stoat-powered*, and *proud* of it.'),True)
+        self.AddText(DV.l('*No stoats were harmed* (much) during DamnVid\'s development. Ya rly.'),True)
         self.vbox.Add((0,5))
-        self.AddText('Praise the *Secret Stoat* and all it stands for: *WIN*.',True)
+        self.AddText(DV.l('Praise the *Secret Stoat* and all it stands for: *WIN*.'),True)
         self.vbox.Add((0,5))
-        self.AddText('Definitions of *WIN* on the Web:',True)
+        self.AddText(DV.l('Definitions of *WIN* on the Web:'),True)
         self.vbox.Add((0,5))
-        self.AddText('- be the winner in a contest or competition; be victorious; "He won the Gold Medal in skating"; "Our home team won"; "Win the game"')
-        self.AddText('- acquire: win something through one\'s efforts; "I acquired a passing knowledge of Chinese"; "Gain an understanding of international finance"')
-        self.AddText('- gain: obtain advantages, such as points, etc.; "The home team was gaining ground"')
-        self.AddText('- a victory (as in a race or other competition); "he was happy to get the win"')
-        self.AddText('- winnings: something won (especially money)')
-        self.AddText('- succeed: attain success or reach a desired goal; "The enterprise succeeded"; "We succeeded in getting tickets to the show"; "she struggled to overcome her handicap and won"')
-        btn=wx.Button(self.panel,-1,'Secret Stoat!')
+        self.AddText(DV.l('- be the winner in a contest or competition; be victorious; "He won the Gold Medal in skating"; "Our home team won"; "Win the game"'))
+        self.AddText(DV.l('- acquire: win something through one\'s efforts; "I acquired a passing knowledge of Chinese"; "Gain an understanding of international finance"'))
+        self.AddText(DV.l('- gain: obtain advantages, such as points, etc.; "The home team was gaining ground"'))
+        self.AddText(DV.l('- a victory (as in a race or other competition); "he was happy to get the win"'))
+        self.AddText(DV.l('- winnings: something won (especially money)'))
+        self.AddText(DV.l('- succeed: attain success or reach a desired goal; "The enterprise succeeded"; "We succeeded in getting tickets to the show"; "she struggled to overcome her handicap and won"'))
+        btn=wx.Button(self.panel,-1,DV.l('Secret Stoat!'))
         self.vbox.Add(btn,0,wx.ALIGN_CENTER)
         self.Bind(wx.EVT_BUTTON,self.onBtn,btn)
         self.SetClientSize(self.panel.GetBestSize())
@@ -1071,7 +1112,7 @@ class DamnEEgg(wx.Dialog):
 class DamnAboutDamnVid(wx.Dialog):
     def __init__(self,parent,id,main):
         self.parent=main
-        wx.Dialog.__init__(self,parent,id,'About DamnVid '+DV.version)
+        wx.Dialog.__init__(self,parent,id,DV.l('About DamnVid ')+DV.version)
         topvbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(topvbox)
         panel=wx.Panel(self,-1)
@@ -1085,23 +1126,23 @@ class DamnAboutDamnVid(wx.Dialog):
         icon=wx.StaticBitmap(panel,-1,wx.Bitmap(DV.images_path+'icon256.png'))
         icon.Bind(wx.EVT_LEFT_DCLICK,self.eEgg)
         vbox1.Add(icon,1,wx.ALIGN_CENTER)
-        title=wx.StaticText(panel,-1,'DamnVid '+DV.version)
+        title=wx.StaticText(panel,-1,DV.l('DamnVid ')+DV.version)
         title.SetFont(wx.Font(24,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
         vbox2.Add(title,1)
-        author=wx.StaticText(panel,-1,'By Etienne Perot')
+        author=wx.StaticText(panel,-1,DV.l('By Etienne Perot'))
         author.SetFont(wx.Font(16,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL))
         vbox2.Add(author,1)
         vbox2.Add(DamnHyperlink(panel,-1,DV.url,DV.url))
-        vbox2.Add(wx.StaticText(panel,-1,'Contributors:'))
-        vbox2.Add(wx.StaticText(panel,-1,'- Tatara (Linux compatibility/packaging)'))
-        vbox2.Add(wx.StaticText(panel,-1,'- Palmer (Graphics)'))
-        vbox2.Add(wx.StaticText(panel,-1,'Special thanks to:'))
-        vbox2.Add(wx.StaticText(panel,-1,'- The FFmpeg team'))
-        vbox2.Add(wx.StaticText(panel,-1,'- Every stoat on the planet'))
-        vbox2.Add(wx.StaticText(panel,-1,'- You!'))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('Contributors:')))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('- Tatara (Linux compatibility/packaging)')))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('- Palmer (Graphics)')))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('Special thanks to:')))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('- The FFmpeg team')))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('- Every stoat on the planet')))
+        vbox2.Add(wx.StaticText(panel,-1,DV.l('- You!')))
         hbox2=wx.BoxSizer(wx.HORIZONTAL)
         vbox2.Add(hbox2,0,wx.ALIGN_RIGHT)
-        okButton=wx.Button(panel,-1,'OK')
+        okButton=wx.Button(panel,-1,DV.l('OK'))
         self.Bind(wx.EVT_BUTTON,self.onOK,okButton)
         hbox2.Add(okButton)
         self.SetClientSize(panel.GetBestSize())
@@ -1195,7 +1236,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
     def getp(self,profile,name):
         if int(profile)==-1:
             if name.lower()=='name':
-                return '(Do not encode)'
+                return DV.l('(Do not encode)')
             if name.lower()=='outdir':
                 return self.get('defaultoutdir')
         return self.gets('damnvid-profile-'+str(profile),name)
@@ -1322,7 +1363,7 @@ class DamnVidBrowser(wx.Dialog):
     def __init__(self,parent):
         Damnlog('Opening new YouTube browser dialog.')
         self.parent=parent
-        wx.Dialog.__init__(self,parent,-1,'Search for videos...')
+        wx.Dialog.__init__(self,parent,-1,DV.l('Search for videos...'))
         topsizer=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(topsizer)
         self.toppanel=wx.Panel(self,-1)
@@ -1336,9 +1377,19 @@ class DamnVidBrowser(wx.Dialog):
         topvbox.Add((0,DV.border_padding))
         searchhbox=wx.BoxSizer(wx.HORIZONTAL)
         topvbox.Add(searchhbox,0,wx.EXPAND)
-        searchhbox.Add(wx.StaticText(self.toppanel,-1,'Search:'),0,wx.ALIGN_CENTER_VERTICAL)
+        searchhbox.Add(wx.StaticText(self.toppanel,-1,DV.l('Search:')),0,wx.ALIGN_CENTER_VERTICAL)
         searchhbox.Add((DV.control_hgap,0))
-        self.standardchoices=('Most popular','Most viewed','Top rated','Recently featured','Most recent','Most discussed','Top favorites','Most linked','Most responded')
+        self.standardchoices={
+            'most_popular':DV.l('Most popular'),
+            'most_viewed':DV.l('Most viewed'),
+            'top_rated':DV.l('Top rated'),
+            'recently_featured':DV.l('Recently featured'),
+            'most_recent':DV.l('Most recent'),
+            'most_discussed':DV.l('Most discussed'),
+            'top_favorites':DV.l('Top favorites'),
+            'most_linked':DV.l('Most linked'),
+            'most_responded':DV.l('Most responded')
+        }
         self.searchbox=wx.SearchCtrl(self.toppanel,-1,'',style=wx.TE_PROCESS_ENTER)
         self.searchbox.SetSearchMenuBitmap(wx.Bitmap(DV.images_path+'searchctrl.png'))
         self.searchbox.Bind(wx.EVT_TEXT_ENTER,self.search)
@@ -1384,7 +1435,7 @@ class DamnVidBrowser(wx.Dialog):
         else:
             pass
         topvbox.Add((0,DV.control_vgap))
-        self.downloadAll=wx.Button(self.toppanel,-1,'Download all')
+        self.downloadAll=wx.Button(self.toppanel,-1,DV.l('Download all'))
         self.downloadAll.Bind(wx.EVT_BUTTON,self.onDownloadAll)
         topvbox.Add(self.downloadAll,0,wx.ALIGN_RIGHT)
         topvbox.Add((0,DV.border_padding))
@@ -1414,14 +1465,14 @@ class DamnVidBrowser(wx.Dialog):
             search=self.searchbox.GetValue()
         if not search:
             return
-        self.searchbox.SetValue(search)
         self.searchbutton.LoadFile(DV.images_path+'searching.gif')
         self.searchbutton.Play()
         Damnlog('YouTube browser interface updated and ready for search, resolving API query.')
         prefix='http://gdata.youtube.com/feeds/api/videos?racy=include&orderby=viewCount&vq='
-        if search in self.standardchoices:
+        if search in self.standardchoices.keys():
+            Damnlog('Query is a standard choice')
             prefix='http://gdata.youtube.com/feeds/api/standardfeeds/'
-            search=search.lower().replace(' ','_')
+            searchlabel=self.standardchoices[search]
         else:
             Damnlog('Query is not a standard choice. Updating query history.')
             history=DV.prefs.geta('damnvid-search','history')
@@ -1430,6 +1481,8 @@ class DamnVidBrowser(wx.Dialog):
                 while len(history)>int(DV.prefs.gets('damnvid-search','history_length')):
                     history.pop(0)
             DV.prefs.seta('damnvid-search','history',history)
+            searchlabel=search
+        self.searchbox.SetValue(searchlabel)
         Damnlog('Youtube browser API prefix is',prefix)
         self.buildSearchbox()
         Damnlog('YouTube browser search box populating complete, beginning actual search for',search)
@@ -1503,14 +1556,14 @@ class DamnVidBrowser(wx.Dialog):
                 viewcount.SetFont(boldfont)
                 viewcount.SetForegroundColour(wx.BLACK)
                 statistics.Add(viewcount)
-                tmplabel=wx.StaticText(tmppanel,-1,' views.')
+                tmplabel=wx.StaticText(tmppanel,-1,DV.l(' views.'))
                 tmplabel.SetForegroundColour(wx.BLACK)
                 statistics.Add(tmplabel)
-                tmplabel=wx.StaticText(tmppanel,-1,'Rating: ')
+                tmplabel=wx.StaticText(tmppanel,-1,DV.l('Rating: '))
                 tmplabel.SetForegroundColour(wx.BLACK)
                 statistics2.Add(tmplabel,0,wx.ALIGN_CENTER_VERTICAL)
                 if results.entry[i].rating is None:
-                    tmplabel=wx.StaticText(tmppanel,-1,'(None)')
+                    tmplabel=wx.StaticText(tmppanel,-1,DV.l('(None)'))
                     tmplabel.SetForegroundColour(wx.BLACK)
                     statistics2.Add(tmplabel,0,wx.ALIGN_CENTER_VERTICAL)
                 else:
@@ -1518,11 +1571,11 @@ class DamnVidBrowser(wx.Dialog):
                 infobox.Add((0,DV.control_vgap))
                 buttonrow=wx.BoxSizer(wx.HORIZONTAL)
                 infobox.Add(buttonrow)
-                btnDesc=wx.Button(tmppanel,-1,'Description')
+                btnDesc=wx.Button(tmppanel,-1,DV.l('Description'))
                 buttonrow.Add(btnDesc)
                 buttonrow.Add((DV.control_hgap,0))
                 btnDesc.Bind(wx.EVT_BUTTON,DamnCurry(self.onDescButton,desc,tmppanel))
-                btnDownload=wx.Button(tmppanel,-1,'Download')
+                btnDownload=wx.Button(tmppanel,-1,DV.l('Download'))
                 btnDownload.Bind(wx.EVT_BUTTON,DamnCurry(self.onDownload,results.entry[i].media.player.url))
                 self.displayedurls.append(results.entry[i].media.player.url)
                 buttonrow.Add(btnDownload)
@@ -1570,15 +1623,15 @@ class DamnVidBrowser(wx.Dialog):
                 item.Check(i.lower()==val)
                 boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
                 self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
-            item=wx.MenuItem(boxmenu,-1,'(Clear search history)',kind=wx.ITEM_RADIO) # Ironic, but necessary to put this one as a radio, otherwise wx guesses that the menu is actually two separated radio menus
+            item=wx.MenuItem(boxmenu,-1,DV.l('(Clear search history)'),kind=wx.ITEM_RADIO) # Ironic, but necessary to put this one as a radio, otherwise wx guesses that the menu is actually two separated radio menus
             boxmenu.AppendItem(item)
             boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
             self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,None),item)
         Damnlog('History menu rebuilt, will now add standard choices.')
-        for i in self.standardchoices:
-            item=wx.MenuItem(boxmenu,-1,i,kind=wx.ITEM_RADIO)
+        for i in self.standardchoices.iterkeys():
+            item=wx.MenuItem(boxmenu,-1,self.standardchoices[i],kind=wx.ITEM_RADIO)
             boxmenu.AppendItem(item)
-            item.Check(i.lower()==val)
+            item.Check(i==val or self.standardchoices[i].lower()==val)
             boxmenu.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
             self.Bind(wx.EVT_MENU,DamnCurry(self.onSearchMenu,i),item)
         Damnlog('History menu built, assigning it to search box.')
@@ -1606,7 +1659,7 @@ class DamnVidBrowser(wx.Dialog):
         panel.SetSizer(wrapper)
         descfont=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
         descfont.SetWeight(wx.FONTWEIGHT_BOLD)
-        txt=wx.StaticText(panel,-1,'Description:')
+        txt=wx.StaticText(panel,-1,DV.l('Description:'))
         txt.SetFont(descfont)
         txt.SetForegroundColour(wx.BLACK)
         sizer.Add(txt)
@@ -1672,6 +1725,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         DV.prefs.save() # Save just in case, we're gonna modify stuff!
         self.toppanel=wx.Panel(self,-1)
         self.bestsize=[0,0]
+        self.defaultvalue=DV.l('(default)')
         # Top part of the toppanel
         self.topsizer=wx.BoxSizer(wx.VERTICAL)
         self.topsizer.Add((0,DV.border_padding))
@@ -1687,19 +1741,19 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.upperleftsizer.Add(self.tree,1,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.control_vgap))
         self.buildTree()
-        self.addProfileButton=wx.Button(self.upperleftpanel,-1,'Add profile')
+        self.addProfileButton=wx.Button(self.upperleftpanel,-1,DV.l('Add profile'))
         self.upperleftsizer.Add(self.addProfileButton,0,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.control_vgap))
-        self.deleteProfileButton=wx.Button(self.upperleftpanel,-1,'Delete profile')
+        self.deleteProfileButton=wx.Button(self.upperleftpanel,-1,DV.l('Delete profile'))
         self.upperleftsizer.Add(self.deleteProfileButton,0,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.control_vgap))
-        self.importButton=wx.Button(self.upperleftpanel,-1,'Import preferences')
+        self.importButton=wx.Button(self.upperleftpanel,-1,DV.l('Import preferences'))
         self.upperleftsizer.Add(self.importButton,0,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.control_vgap))
-        self.exportButton=wx.Button(self.upperleftpanel,-1,'Export preferences')
+        self.exportButton=wx.Button(self.upperleftpanel,-1,DV.l('Export preferences'))
         self.upperleftsizer.Add(self.exportButton,0,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.control_vgap))
-        self.resetButton=wx.Button(self.upperleftpanel,-1,'Reset all')
+        self.resetButton=wx.Button(self.upperleftpanel,-1,DV.l('Reset all'))
         self.upperleftsizer.Add(self.resetButton,0,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.border_padding))
         self.upperleftpanel.SetSizer(self.upperleftsizer)
@@ -1721,10 +1775,10 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.lowersizer=wx.BoxSizer(wx.HORIZONTAL)
         self.topsizer.Add(self.lowersizer,0,wx.EXPAND)
         self.lowersizer.AddStretchSpacer(1)
-        self.okButton=wx.Button(self.toppanel,wx.ID_OK,'OK')
+        self.okButton=wx.Button(self.toppanel,wx.ID_OK,DV.l('OK'))
         self.lowersizer.Add(self.okButton,0,wx.ALIGN_RIGHT)
         self.lowersizer.Add((DV.control_hgap,0))
-        self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,'Cancel')
+        self.closeButton=wx.Button(self.toppanel,wx.ID_CLOSE,DV.l('Cancel'))
         self.lowersizer.Add(self.closeButton,0,wx.ALIGN_RIGHT)
         self.lowersizer.Add((DV.border_padding,0))
         self.topsizer.Add((0,DV.border_padding))
@@ -1748,18 +1802,18 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.tree.DeleteAllItems()
         self.treeimages=wx.ImageList(16,16,True)
         self.tree.AssignImageList(self.treeimages)
-        self.treeroot=self.tree.AddRoot('DamnVid Preferences')
+        self.treeroot=self.tree.AddRoot(DV.l('DamnVid Preferences'))
         self.tree.SetItemImage(self.treeroot,self.treeimages.Add(wx.Bitmap(DV.images_path+'icon16.png')))
-        self.searchprefs=self.tree.AppendItem(self.treeroot,'YouTube browser')
+        self.searchprefs=self.tree.AppendItem(self.treeroot,DV.l('YouTube browser'))
         self.tree.SetItemImage(self.searchprefs,self.treeimages.Add(wx.Bitmap(DV.images_path+'youtubebrowser.png')))
-        self.modulelistitem=self.tree.AppendItem(self.treeroot,'Modules')
+        self.modulelistitem=self.tree.AppendItem(self.treeroot,DV.l('Modules'))
         self.tree.SetItemImage(self.modulelistitem,self.treeimages.Add(wx.Bitmap(DV.images_path+'modules.png')))
         self.modules={}
         self.moduledescs={}
         for i in DamnIterModules():
             self.modules[i]=self.tree.AppendItem(self.modulelistitem,DV.modules[i]['title'])
             self.tree.SetItemImage(self.modules[i],self.treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+os.sep+DV.modules[i]['icon']['small'])))
-        self.profileroot=self.tree.AppendItem(self.treeroot,'Encoding profiles')
+        self.profileroot=self.tree.AppendItem(self.treeroot,DV.l('Encoding profiles'))
         self.tree.SetItemImage(self.profileroot,self.treeimages.Add(wx.Bitmap(DV.images_path+'profiles.png')))
         self.profiles=[]
         for i in range(0,DV.prefs.profiles):
@@ -1836,10 +1890,10 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             toprow.Add(self.getLabel(tmppanel,mod['title'],hyperlink=mod['about']['url'],bold=True))
         else:
             toprow.Add(self.getLabel(tmppanel,mod['title'],bold=True))
-        toprow.Add(self.getLabel(tmppanel,' (version '))
+        toprow.Add(self.getLabel(tmppanel,DV.l(' (version ')))
         toprow.Add(self.getLabel(tmppanel,mod['version'],bold=True))
         toprow.Add(self.getLabel(tmppanel, ')'))
-        toprow.Add(self.getLabel(tmppanel,' by ',color='#707070'))
+        toprow.Add(self.getLabel(tmppanel,DV.l(' by '),color='#707070'))
         if mod['author'].has_key('url'):
             toprow.Add(self.getLabel(tmppanel,mod['author']['name'],hyperlink=mod['author']['url'],bold=True))
         else:
@@ -1847,7 +1901,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         toprow.Add(self.getLabel(tmppanel,'.'))
         descwidth=parent.GetSizeTuple()[0]-2*DV.border_padding-72-DV.control_hgap
         if extended:
-            rightcol.Add(self.getLabel(tmppanel,'Author:',bold=True))
+            rightcol.Add(self.getLabel(tmppanel,DV.l('Author:'),bold=True))
             authorsizer=wx.BoxSizer(wx.HORIZONTAL)
             rightcol.Add(authorsizer)
             authorsizer.Add((DV.control_hgap*2,0)) # Indent a bit
@@ -1856,9 +1910,9 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             else:
                 authorsizer.Add(self.getLabel(tmppanel,mod['author']['name'],bold=True))
             if mod['author'].has_key('email'):
-                authorsizer.Add(self.getLabel(tmppanel,' <',color='#707070'))
+                authorsizer.Add(self.getLabel(tmppanel,DV.l(' <'),color='#707070'))
                 authorsizer.Add(self.getLabel(tmppanel,mod['author']['email'],hyperlink='mailto:'+mod['author']['email']))
-                authorsizer.Add(self.getLabel(tmppanel,'>',color='#707070'))
+                authorsizer.Add(self.getLabel(tmppanel,DV.l('>'),color='#707070'))
             desc=self.getLabel(tmppanel,mod['about']['long'])
         else:
             desc=self.getLabel(tmppanel,mod['about']['short'])
@@ -1870,15 +1924,15 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             rightcol.Add((0,DV.control_vgap))
             tmpbuttonsizer=wx.BoxSizer(wx.HORIZONTAL)
             rightcol.Add(tmpbuttonsizer,0,wx.ALIGN_RIGHT)
-            config=wx.Button(tmppanel,-1,'Configure')
+            config=wx.Button(tmppanel,-1,DV.l('Configure'))
             config.Bind(wx.EVT_BUTTON,DamnCurry(self.forceSelect,self.modules[module]))
             tmpbuttonsizer.Add(config)
             tmpbuttonsizer.Add((DV.control_hgap,0))
-            update=wx.Button(tmppanel,-1,'Update')
+            update=wx.Button(tmppanel,-1,DV.l('Update'))
             update.Bind(wx.EVT_BUTTON,DamnCurry(self.onModuleUpdate,module))
             tmpbuttonsizer.Add(update)
             tmpbuttonsizer.Add((DV.control_hgap,0))
-            uninstall=wx.Button(tmppanel,-1,'Uninstall')
+            uninstall=wx.Button(tmppanel,-1,DV.l('Uninstall'))
             uninstall.Bind(wx.EVT_BUTTON,DamnCurry(self.onModuleUninstall,module))
             tmpbuttonsizer.Add(uninstall)
         return tmppanel
@@ -1898,15 +1952,11 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         if pane[0:8].lower()=='special:':
             pane=pane[8:]
             if pane=='profileroot':
-                txt=wx.StaticText(self.prefpane,-1,"""DamnVid lets you create multiple so-called "Encoding profiles". An encoding profile is a set of encoding preferences used to encode videos.
-
-Being able to create multiple instances of these profiles allow you to easily convert a set of videos to the same format, while converting others to another format. For instance, you might want to convert some videos with low-quality settings so that they can be played on your iPod, while converting a few other videos with higher quality settings before burning them on a DVD.
-
-Additionally, one of your encoding profiles may be set as the default one for new videos added in the video list from a specific source. This way, you can, for instance, convert all YouTube videos to iPod format, while converting all local files to DVD format. Use the "Default profiles" configuration panel to customize which profiles are used as default for a certain video source.""")
+                txt=wx.StaticText(self.prefpane,-1,DV.l('locale:damnvid-profile-explanation'))
                 txt.Wrap(max(self.prefpane.GetSize()[0],300))
                 self.prefpanesizer.Add(txt,(0,0),(1,1))
             elif pane=='error':
-                txt=wx.StaticText(self.prefpane,-1,'Error!')
+                txt=wx.StaticText(self.prefpane,-1,DV.l('Error!'))
                 txt.Wrap(max(self.prefpane.GetSize()[0],300))
                 self.prefpanesizer.Add(txt,(0,0),(1,1))
             elif pane=='modules':
@@ -1930,15 +1980,15 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     modlistsizer.Add(self.buildModulePanel(self.modulelist,mod,withscrollbars=True),0,wx.EXPAND)
                 self.modulelist.SetScrollbars(0,DV.control_vgap*DV.scroll_factor,0,0)
                 # Construct buttons under module list
-                install=wx.Button(self.prefpane,-1,'Install...')
+                install=wx.Button(self.prefpane,-1,DV.l('Install...'))
                 install.Bind(wx.EVT_BUTTON,self.onModuleInstall)
                 buttonsizer.Add(install)
                 buttonsizer.Add((DV.control_hgap,0))
-                reset=wx.Button(self.prefpane,-1,'Reset all...')
+                reset=wx.Button(self.prefpane,-1,DV.l('Reset all...'))
                 reset.Bind(wx.EVT_BUTTON,self.onModuleAllReset)
                 buttonsizer.Add(reset)
                 buttonsizer.Add((DV.control_hgap,0))
-                update=wx.Button(self.prefpane,-1,'Check for updates')
+                update=wx.Button(self.prefpane,-1,DV.l('Check for updates'))
                 update.Bind(wx.EVT_BUTTON,self.onModuleAllUpdate)
                 buttonsizer.Add(update)
         else:
@@ -1993,14 +2043,14 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 controlspan=(1,maxwidth[str(DV.preferences[i]['type'])]-1)
                 currentprefsinsection[str(DV.preferences[i]['type'])]+=1
                 if DV.preferences[i]['kind']!='bool':
-                    label=wx.StaticText(self.prefpane,-1,DV.preferences[i]['name']+':')
+                    label=wx.StaticText(self.prefpane,-1,DV.l(DV.preferences[i]['name'])+':')
                     self.prefpanesizer.Add(label,(position[0],position[1]),(1,1),wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT)
                 if type(DV.preferences[i]['kind']) is type({}):
-                    choices=['(default)']
+                    choices=[self.defaultvalue]
                     for f in DV.preferences[i]['order']:
                         choices.append(DV.preferences[i]['kind'][f])
                     if not val:
-                        val='(default)'
+                        val=self.defaultvalue
                     else:
                         if val in DV.preferences[i]['kind']:
                             val=DV.preferences[i]['kind'][val]
@@ -2011,22 +2061,22 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                 elif DV.preferences[i]['kind']=='bool':
                     if DV.preferences[i]['align']:
                         self.controls[i]=wx.CheckBox(self.prefpane,-1)
-                        label=wx.StaticText(self.prefpane,-1,DV.preferences[i]['name'])
+                        label=wx.StaticText(self.prefpane,-1,DV.l(DV.preferences[i]['name']))
                         label.Bind(wx.EVT_LEFT_UP,DamnCurry(self.onFakeCheckboxLabelClick,self.controls[i]))
                         self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,1),wx.ALIGN_RIGHT)
                         self.prefpanesizer.Add(label,(position[0],position[1]+1),(1,1),wx.EXPAND)
                     else:
-                        self.controls[i]=wx.CheckBox(self.prefpane,-1,DV.preferences[i]['name'])
+                        self.controls[i]=wx.CheckBox(self.prefpane,-1,DV.l(DV.preferences[i]['name']))
                         self.prefpanesizer.Add(self.controls[i],(position[0],position[1]),(1,maxwidth[str(DV.preferences[i]['type'])]),wx.EXPAND)
                     self.controls[i].SetValue(val=='True')
                     self.Bind(wx.EVT_CHECKBOX,self.onPrefChange,self.controls[i])
                 elif DV.preferences[i]['kind'][0:3]=='int':
-                    choices=['(default)']
+                    choices=[self.defaultvalue]
                     if DV.preferences[i]['kind'][0:5]=='intk:':
                         for f in range(int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find(':')+1:DV.preferences[i]['kind'].find('-')]),int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find('-')+1:])):
                             choices.append(str(pow(2,f))+'k')
                         if not val:
-                            val='(default)'
+                            val=self.defaultvalue
                         self.controls[i]=self.makeList(DV.preferences[i]['strict'],choices,self.prefpane,val) # makeList takes care of the event binding
                         self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                     elif DV.preferences[i]['kind'][0:4]=='int:':
@@ -2036,8 +2086,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                         self.controls[i]=self.makeSlider(self.prefpane,self.prefpanesizer,(controlposition,controlspan),int(val),min(interval),max(interval))
                     elif DV.preferences[i]['kind']=='int':
                         if not val:
-                            val='(default)'
-                        self.controls[i]=self.makeList(False,['(default)'],self.prefpane,val)
+                            val=self.defaultvalue
+                        self.controls[i]=self.makeList(False,[self.defaultvalue],self.prefpane,val)
                         self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 elif DV.preferences[i]['kind']=='dir':
                     pathpanel=wx.Panel(self.prefpane,-1)
@@ -2048,22 +2098,34 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
                     pathsizer.Add(self.controls[i],1,wx.EXPAND)
                     pathsizer.Add((DV.control_hgap,0))
-                    browseButton=DamnBrowseDirButton(pathpanel,-1,'Browse...',control=self.controls[i],title='Select DamnVid '+DV.version+'\'s output directory.',callback=self.onBrowseDir)
+                    browseButton=DamnBrowseDirButton(pathpanel,-1,DV.l('Browse...'),control=self.controls[i],title=DV.l('Select DamnVid\'s output directory.'),callback=self.onBrowseDir)
                     self.Bind(wx.EVT_BUTTON,browseButton.onBrowse,browseButton)
                     pathsizer.Add(browseButton,0)
                 elif DV.preferences[i]['kind']=='text':
                     self.controls[i]=wx.TextCtrl(self.prefpane,-1,val)
                     self.Bind(wx.EVT_TEXT,self.onPrefChange,self.controls[i])
                     self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
+                elif DV.preferences[i]['kind']=='locale':
+                    langs=[]
+                    c=0
+                    lang=0
+                    for l in DV.languages.iterkeys():
+                        if DV.lang==l:
+                            lang=c
+                        c+=1
+                        langs.append(l) # Enventually translate here, but I'm not sure. Maybe both translated and untranslated?
+                    self.controls[i]=self.makeList(DV.preferences[i]['strict'],langs,self.prefpane,None) # makeList takes care of the event binding
+                    self.controls[i].SetSelection(lang)
+                    self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 elif DV.preferences[i]['kind']=='profile':
                     if DV.prefs.profiles:
                         choices=[]
                         for p in range(-1,DV.prefs.profiles):
-                            choices.append(DV.prefs.getp(p,'name'))
+                            choices.append(DV.l(DV.prefs.getp(p,'name'),warn=False))
                         self.controls[i]=self.makeList(DV.preferences[i]['strict'],choices,self.prefpane,None) # makeList takes care of the event binding
-                        self.controls[i].SetSelection(int(val)+1)
+                        self.controls[i].SetSelection(int(val)+1) # +1 to compensate for -1 -> (Do not encode)
                     else:
-                        self.controls[i]=wx.StaticText(self.prefpane,-1,'No encoding profiles found!')
+                        self.controls[i]=wx.StaticText(self.prefpane,-1,DV.l('No encoding profiles found!'))
                     self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 count=count+1
             self.prefpanesizer.Layout()
@@ -2133,7 +2195,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                         val=''
                 else:
                     val=self.controls[i].GetValue()
-                    if val=='(default)':
+                    if val==self.defaultvalue:
                         val=''
                     elif type(DV.preferences[genericpref]['kind']) is type({}) and val in DV.preferences[genericpref]['kind'].values():
                         for j in DV.preferences[genericpref]['kind'].iterkeys():
@@ -2141,6 +2203,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                                 val=j
             elif DV.preferences[genericpref]['kind']=='profile':
                 val=self.controls[i].GetSelection()-1
+            elif DV.preferences[genericpref]['kind']=='lang':
+                val=self.controls[i].GetValue()
             elif DV.preferences[genericpref]['kind'][0:4]=='int:':
                 val=int(self.controls[i].GetValue())
             elif DV.preferences[genericpref]['kind'][0]=='%':
@@ -2185,12 +2249,12 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     self.tree.SelectItem(self.profileroot)
                 self.tree.Delete(curprofile)
             else:
-                dlg=wx.MessageDialog(None,'Cannot delete all encoding profiles!','Cannot delete all profiles',wx.OK|wx.ICON_EXCLAMATION)
+                dlg=wx.MessageDialog(None,DV.l('Cannot delete all encoding profiles!'),DV.l('Cannot delete all profiles'),wx.OK|wx.ICON_EXCLAMATION)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
         else:
-            dlg=wx.MessageDialog(None,'Please choose a profile to delete from the profile list.','No profile selected',wx.OK|wx.ICON_EXCLAMATION)
+            dlg=wx.MessageDialog(None,DV.l('Please choose a profile to delete from the profile list.'),DV.l('No profile selected'),wx.OK|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
@@ -2203,19 +2267,19 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         desc=self.moduledescs[mod]
         if type(info['result']) is type(''):
             if info['result']=='error':
-                desc[0].SetLabel('There was an error while checking for updates to '+modtitle+'.')
+                desc[0].SetLabel(DV.l('There was an error while checking for updates to ')+modtitle+'.')
                 desc[0].Wrap(desc[1])
             elif info['result']=='uptodate':
-                desc[0].SetLabel(modtitle+' is up-to-date.')
+                desc[0].SetLabel(modtitle+DV.l(' is up-to-date.'))
                 desc[0].Wrap(desc[1])
             elif info['result']=='cannot':
-                desc[0].SetLabel(modtitle+' has no update mechanism.')
+                desc[0].SetLabel(modtitle+DV.l(' has no update mechanism.'))
                 desc[0].Wrap(desc[1])
         elif type(info['result']) is type(()):
             self.buildTree()
             self.forceSelect(self.modulelistitem)
             desc=self.moduledescs[mod]
-            desc[0].SetLabel(modtitle+' has been updated to version '+str(info['result'][0])+'.')
+            desc[0].SetLabel(modtitle+DV.l(' has been updated to version ')+str(info['result'][0])+'.')
             desc[0].Wrap(desc[1])
         self.modulelist.Layout()
         self.modulelist.AdjustScrollbars()
@@ -2225,10 +2289,10 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         module=DV.modules[module]
         desc=self.moduledescs[module['name']]
         if not module['about'].has_key('url'):
-            desc[0].SetLabel(module['title']+' has no update mechanism.')
+            desc[0].SetLabel(module['title']+DV.l(' has no update mechanism.'))
             desc[0].Wrap(desc[1])
             return
-        desc[0].SetLabel('Checking for updates...')
+        desc[0].SetLabel(DV.l('Checking for updates...'))
         desc[0].Wrap(desc[1])
         updatecheck=DamnModuleUpdateCheck(self,module)
         updatecheck.start()
@@ -2237,12 +2301,12 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         for i in self.moduledescs.iterkeys():
             if DV.modules.has_key(i):
                 modlist.append(DV.modules[i])
-                self.moduledescs[i][0].SetLabel('Checking for updates...')
+                self.moduledescs[i][0].SetLabel(DV.l('Checking for updates...'))
                 self.moduledescs[i][0].Wrap(self.moduledescs[i][1])
         updatecheck=DamnModuleUpdateCheck(self,modlist)
         updatecheck.start()
     def onModuleAllReset(self,event):
-        dlg=wx.MessageDialog(None,'Are you sure you want to reset all the default modules and their preferences?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg=wx.MessageDialog(None,DV.l('Are you sure you want to reset all the default modules and their preferences?'),DV.l('Are you sure?'),wx.YES_NO|wx.ICON_QUESTION)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_YES:
             for i in DV.prefs.listsections():
@@ -2255,7 +2319,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             self.forceSelect(self.modulelistitem)
         dlg.Destroy()
     def onModuleInstall(self,event=None):
-        dlg=wx.FileDialog(None,'Where is located the module to install?',DV.prefs.get('lastmoduledir'),'','DamnVid modules (*.module.damnvid)|*.module.damnvid|All files (*.*)|*.*',wx.FD_OPEN)
+        dlg=wx.FileDialog(None,DV.l('Where is located the module to install?'),DV.prefs.get('lastmoduledir'),'',DV.l('locale:browse-damnvid-modules'),wx.FD_OPEN)
         dlg.SetIcon(DV.icon)
         result=None
         if dlg.ShowModal()==wx.ID_OK:
@@ -2266,13 +2330,13 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         message=None
         if result is not None:
             if result=='success':
-                message=('Success!','The module was successfully installed.',wx.ICON_INFORMATION)
+                message=(DV.l('Success!'),DV.l('The module was successfully installed.'),wx.ICON_INFORMATION)
             elif result=='nofile':
-                message=('Error','Error: Could not find the module file.',wx.ICON_ERROR)
+                message=(DV.l('Error'),DV.l('Error: Could not find the module file.'),wx.ICON_ERROR)
             elif result=='nomodule':
-                message=('Error','Error: This file is not a valid DamnVid module.',wx.ICON_ERROR)
+                message=(DV.l('Error'),DV.l('Error: This file is not a valid DamnVid module.'),wx.ICON_ERROR)
             else:
-                message=('Error','Error: Unknown error while installing module.',wx.ICON_ERROR)
+                message=(DV.l('Error'),DV.l('Error: Unknown error while installing module.'),wx.ICON_ERROR)
         if message is not None:
             DamnLoadConfig()
             DV.prefs=DamnVidPrefs()
@@ -2285,7 +2349,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
     def onModuleUninstall(self,module=None,event=None):
         if not DV.modules.has_key(module):
             return
-        dlg=wx.MessageDialog(None,'Are you sure you want to uninstall the '+DV.modules[module]['title']+' module?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg=wx.MessageDialog(None,DV.l('Are you sure you want to uninstall the module: ')+DV.modules[module]['title']+'?',DV.l('Are you sure?'),wx.YES_NO|wx.ICON_QUESTION)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_YES:
             del DV.modules[module]
@@ -2298,12 +2362,15 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             self.forceSelect(self.modulelistitem)
         dlg.Destroy()
     def makeList(self,strict,choices,panel,value):
+        choices2=[]
+        for c in choices:
+            choices2.append(DV.l(c))
         if strict:
-            cont=wx.Choice(panel,-1,choices=choices)
-            if value=='(default)':
+            cont=wx.Choice(panel,-1,choices=choices2)
+            if value==self.defaultvalue:
                 cont.SetSelection(0)
             else:
-                for f in range(len(choices)):
+                for f in range(len(choices2)):
                     if choices[f]==value:
                         cont.SetSelection(f)
             self.Bind(wx.EVT_CHOICE,self.onPrefChange,cont)
@@ -2336,11 +2403,11 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             val=self.listvalues[name][self.controls[name].GetSelection()]
         else:
             val=self.controls[name].GetValue()
-        if val=='(default)':
+        if val==self.defaultvalue:
             val=''
         elif type(DV.preference_type[name]['kind']) is type({}):
             for key,i in DV.preference_type[name]['kind'].iteritems():
-                if i==val:
+                if i==val or DV.l(i)==val:
                     return key
         return val
     def setListValue(self,name,strict,value):
@@ -2348,11 +2415,11 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             if strict:
                 self.controls[name].SetSelection(0)
             else:
-                self.controls[name].SetValue('(default)')
+                self.controls[name].SetValue(self.defaultvalue)
         else:
             if strict:
                 if type(DV.preference_type[name]['kind']) is type({}):
-                    value=DV.preference_type[name]['kind'][value]
+                    value=DV.l(DV.preference_type[name]['kind'][value])
                 c=0
                 for i in self.listvalues[name]:
                     if i==value:
@@ -2364,7 +2431,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         DV.prefs.save()
         self.Close(True)
     def onReset(self,event):
-        dlg=wx.MessageDialog(None,'All changes to DamnVid\'s configuration will be lost. Continue?','Are you sure?',wx.YES_NO|wx.ICON_QUESTION)
+        dlg=wx.MessageDialog(None,DV.l('All changes to DamnVid\'s configuration will be lost. Continue?'),DV.l('Are you sure?'),wx.YES_NO|wx.ICON_QUESTION)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_YES:
             dlg.Destroy()
@@ -2377,12 +2444,12 @@ Additionally, one of your encoding profiles may be set as the default one for ne
             DV.prefs.set('checkforupdates',checkupdates)
             DV.prefs.save()
             self.buildTree()
-            dlg=wx.MessageDialog(None,'DamnVid\'s configuration has been successfully reset.','Configuration reset',wx.OK|wx.ICON_INFORMATION)
+            dlg=wx.MessageDialog(None,DV.l('DamnVid\'s configuration has been successfully reset.'),DV.l('Configuration reset'),wx.OK|wx.ICON_INFORMATION)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
         dlg.Destroy()
     def onImport(self,event):
-        dlg=wx.FileDialog(None,'Where is located the configuration file to import?',DV.prefs.get('lastprefdir'),'DamnVid-'+DV.version+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_OPEN)
+        dlg=wx.FileDialog(None,DV.l('Where is located the configuration file to import?'),DV.prefs.get('lastprefdir'),'DamnVid-'+DV.version+'-configuration.ini',DV.l('locale:browse-ini-files'),wx.FD_OPEN)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_OK:
             self.tree.SelectItem(self.treeroot,True)
@@ -2401,7 +2468,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
                     f.close()
                 except:
                     pass
-                dlg=wx.MessageDialog(None,'Invalid configuration file.','Invalid file',wx.OK|wx.ICON_ERROR)
+                dlg=wx.MessageDialog(None,DV.l('Invalid configuration file.'),DV.l('Invalid file'),wx.OK|wx.ICON_ERROR)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
@@ -2421,7 +2488,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         else:
             dlg.Destroy()
     def onExport(self,event):
-        dlg=wx.FileDialog(None,'Where do you want to export DamnVid '+DV.version+'\'s configuration?',DV.prefs.get('lastprefdir'),'DamnVid-'+DV.version+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        dlg=wx.FileDialog(None,DV.l('Where do you want to export DamnVid\'s configuration?'),DV.prefs.get('lastprefdir'),'DamnVid-'+DV.version+'-configuration.ini',DV.l('locale:browse-ini-files'),wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_OK:
             path=dlg.GetPath()
@@ -2483,9 +2550,9 @@ class DamnVideoLoader(thr.Thread):
             if not bymodule:
                 if REGEX_HTTP_GENERIC.match(uri):
                     name=self.getVidName(uri)
-                    if name=='Unknown title':
+                    if name==DV.l('Unknown title'):
                         name=REGEX_HTTP_EXTRACT_FILENAME.sub('',uri)
-                    self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':'Pending.','icon':DamnGetListIcon('generic')})
+                    self.addValid({'name':name,'profile':DV.prefs.get('defaultwebprofile'),'profilemodified':False,'fromfile':name,'dirname':REGEX_HTTP_EXTRACT_DIRNAME.sub('\\1/',uri),'uri':uri,'status':DV.l('Pending.'),'icon':DamnGetListIcon('generic')})
                 else:
                     # It's a file or a directory
                     if os.path.isdir(uri):
@@ -2494,17 +2561,17 @@ class DamnVideoLoader(thr.Thread):
                                 self.vidLoop([uri+os.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
                         else:
                             if len(uris)==1: # Only one dir, so an alert here is tolerable
-                                self.showDialog('Recursion is disabled.','This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.',wx.OK|wx.ICON_EXCLAMATION)
+                                self.showDialog(DV.l('Recursion is disabled.'),DV.l('This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.'),wx.OK|wx.ICON_EXCLAMATION)
                             else:
-                                self.SetStatusText('Skipped '+uri+' (directory recursion disabled).')
+                                self.SetStatusText(DV.l('Skipped ')+uri+DV.l(' (directory recursion disabled).'))
                     else:
                         filename=os.path.basename(uri)
                         if uri in self.parent.videos:
-                            self.SetStatusText('Skipped '+filename+' (already in list).')
+                            self.SetStatusText(DV.l('Skipped ')+filename+DV.l(' (already in list).'))
                             if len(uris)==1: # There's only one file, so an alert here is tolerable
-                                self.showDialog('Duplicate found','This video is already in the list!',wx.ICON_EXCLAMATION|wx.OK)
+                                self.showDialog(DV.l('Duplicate found'),DV.l('This video is already in the list!'),wx.ICON_EXCLAMATION|wx.OK)
                         else:
-                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':DV.prefs.get('defaultprofile'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':'Pending.','icon':DamnGetListIcon('damnvid')})
+                            self.addValid({'name':filename[0:filename.rfind('.')],'profile':DV.prefs.get('defaultprofile'),'profilemodified':False,'fromfile':filename,'uri':uri,'dirname':os.path.dirname(uri),'status':DV.l('Pending.'),'icon':DamnGetListIcon('damnvid')})
 class DamnConverter(thr.Thread): # The actual converter, dammit
     def __init__(self,parent):
         self.parent=parent
@@ -2793,7 +2860,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                     except:
                                         pass
                                 except:
-	                            self.update(dialog=('Cannot move file!','DamnVid successfully converted the file but something (File permissions? Disconnected removable device?) prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:\n'+DV.tmp_path+i,wx.OK|wx.ICON_EXCLAMATION))
+	                            self.update(dialog=(DV.l('Cannot move file!'),DV.l('locale:successfully-converted-file-but-ioerror')+'\n'+DV.tmp_path+i,wx.OK|wx.ICON_EXCLAMATION))
                     else:
                         try:
                             os.remove(DV.tmp_path+i)
@@ -2801,12 +2868,12 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                             pass
             Damnlog('End cleanup, returning. Result?',result,'; Abort?',self.abort)
             if not result and not self.abort:
-                self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Success!'
+                self.parent.meta[self.parent.videos[self.parent.converting]]['status']=DV.l('Success!')
                 self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'],self.outdir))
-                self.update(status='Success!',go=self.abort)
+                self.update(status=DV.l('Success!'),go=self.abort)
                 return
-            self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Failure.'
-            self.update(status='Failure.',go=self.abort)
+            self.parent.meta[self.parent.videos[self.parent.converting]]['status']=DV.l('Failure.')
+            self.update(status=DV.l('Failure.'),go=self.abort)
     def parseLine(self,line):
         Damnlog('ffmpeg>',line)
         if self.duration==None:
@@ -2919,33 +2986,33 @@ class DamnMainFrame(wx.Frame): # The main window
         wx.Frame.__init__(self,parent,wx.ID_ANY,title,size=(780,580),style=wx.DEFAULT_FRAME_STYLE)
         self.CreateStatusBar()
         filemenu=wx.Menu()
-        filemenu.Append(ID_MENU_ADD_FILE,'&Add files...','Adds damn videos from local files.')
+        filemenu.Append(ID_MENU_ADD_FILE,DV.l('&Add files...'),DV.l('Adds damn videos from local files.'))
         self.Bind(wx.EVT_MENU,self.onAddFile,id=ID_MENU_ADD_FILE)
-        filemenu.Append(ID_MENU_ADD_URL,'Add &URL...','Adds a damn video from a URL.')
+        filemenu.Append(ID_MENU_ADD_URL,DV.l('Add &URL...'),DV.l('Adds a damn video from a URL.'))
         self.Bind(wx.EVT_MENU,self.onAddURL,id=ID_MENU_ADD_URL)
         filemenu.AppendSeparator()
-        filemenu.Append(ID_MENU_EXIT,'E&xit','Terminates DamnVid '+DV.version+'.')
+        filemenu.Append(ID_MENU_EXIT,DV.l('E&xit'),DV.l('Terminates DamnVid.'))
         self.Bind(wx.EVT_MENU,self.onExit,id=ID_MENU_EXIT)
         vidmenu=wx.Menu()
-        vidmenu.Append(ID_MENU_GO,'Let\'s &go!','Processes all the videos in the list.')
+        vidmenu.Append(ID_MENU_GO,DV.l('Let\'s &go!'),DV.l('Processes all the videos in the list.'))
         self.Bind(wx.EVT_MENU,self.onGo,id=ID_MENU_GO)
         vidmenu.AppendSeparator()
-        self.prefmenuitem=vidmenu.Append(ID_MENU_PREFERENCES,'Preferences','Opens DamnVid\'s preferences, allowing you to customize its settings.')
+        self.prefmenuitem=vidmenu.Append(ID_MENU_PREFERENCES,DV.l('Preferences'),DV.l('Opens DamnVid\'s preferences, allowing you to customize its settings.'))
         self.Bind(wx.EVT_MENU,self.onPrefs,id=ID_MENU_PREFERENCES)
         #vidmenu.Append(ID_MENU_OUTDIR,'Output directory','Opens DamnVid\'s output directory, where all the videos are saved.')
         #self.Bind(wx.EVT_MENU,self.onOpenOutDir,id=ID_MENU_OUTDIR)
         halpmenu=wx.Menu()
-        halpmenu.Append(ID_MENU_HALP,'DamnVid &Help','Opens DamnVid\'s help.')
+        halpmenu.Append(ID_MENU_HALP,DV.l('&Help'),DV.l('Opens DamnVid\'s help.'))
         self.Bind(wx.EVT_MENU,self.onHalp,id=ID_MENU_HALP)
-        halpmenu.Append(ID_MENU_UPDATE,'Check for updates...','Checks if a new version of DamnVid is available.')
+        halpmenu.Append(ID_MENU_UPDATE,DV.l('Check for updates...'),DV.l('Checks if a new version of DamnVid is available.'))
         self.Bind(wx.EVT_MENU,self.onCheckUpdates,id=ID_MENU_UPDATE)
         halpmenu.AppendSeparator()
-        halpmenu.Append(ID_MENU_ABOUT,'&About DamnVid '+DV.version+'...','Displays information about DamnVid.')
+        halpmenu.Append(ID_MENU_ABOUT,DV.l('&About DamnVid ')+DV.version+'...',DV.l('Displays information about DamnVid.'))
         self.Bind(wx.EVT_MENU,self.onAboutDV,id=ID_MENU_ABOUT)
         self.menubar=wx.MenuBar()
-        self.menubar.Append(filemenu,'&File')
-        self.menubar.Append(vidmenu,'&DamnVid')
-        self.menubar.Append(halpmenu,'&Help')
+        self.menubar.Append(filemenu,DV.l('&File'))
+        self.menubar.Append(vidmenu,DV.l('&DamnVid'))
+        self.menubar.Append(halpmenu,DV.l('&Help'))
         self.SetMenuBar(self.menubar)
         vbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
@@ -2966,13 +3033,13 @@ class DamnMainFrame(wx.Frame): # The main window
         #hbox1.Add((DV.border_padding,0)) Ditto
         panel1.SetSizer(hbox1)
         self.list=DamnList(panel1,window=self)
-        self.list.InsertColumn(ID_COL_VIDNAME,'Video name')
+        self.list.InsertColumn(ID_COL_VIDNAME,DV.l('Video name'))
         self.list.SetColumnWidth(ID_COL_VIDNAME,width=180)
-        self.list.InsertColumn(ID_COL_VIDPROFILE,'Encoding profile')
+        self.list.InsertColumn(ID_COL_VIDPROFILE,DV.l('Encoding profile'))
         self.list.SetColumnWidth(ID_COL_VIDPROFILE,width=120)
-        self.list.InsertColumn(ID_COL_VIDSTAT,'Status')
+        self.list.InsertColumn(ID_COL_VIDSTAT,DV.l('Status'))
         self.list.SetColumnWidth(ID_COL_VIDSTAT,width=120)
-        self.list.InsertColumn(ID_COL_VIDPATH,'Source')
+        self.list.InsertColumn(ID_COL_VIDPATH,DV.l('Source'))
         self.list.SetColumnWidth(ID_COL_VIDPATH,wx.LIST_AUTOSIZE)
         self.list.Bind(wx.EVT_KEY_DOWN,self.onListKeyDown)
         self.list.Bind(wx.EVT_LIST_ITEM_SELECTED,self.onListSelect)
@@ -2994,46 +3061,46 @@ class DamnMainFrame(wx.Frame): # The main window
         self.droptarget.SetDropTarget(DamnDropHandler(self))
         # Extra forced gap here
         sizer2.Add((0,DV.control_vgap+4))
-        self.addByFile=wx.Button(panel2,-1,'Add Files')
+        self.addByFile=wx.Button(panel2,-1,DV.l('Add Files'))
         sizer2.Add(self.addByFile,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onAddFile,self.addByFile)
-        self.addByURL=wx.Button(panel2,-1,'Add URL')
+        self.addByURL=wx.Button(panel2,-1,DV.l('Add URL'))
         sizer2.Add(self.addByURL,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onAddURL,self.addByURL)
-        self.btnSearch=wx.Button(panel2,-1,'Search...')
+        self.btnSearch=wx.Button(panel2,-1,DV.l('Search...'))
         sizer2.Add(self.btnSearch,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onSearch,self.btnSearch)
-        self.btnRename=wx.Button(panel2,-1,'Rename')
+        self.btnRename=wx.Button(panel2,-1,DV.l('Rename'))
         sizer2.Add(self.btnRename,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onRename,self.btnRename)
         self.profilepanel=wx.Panel(panel2,-1)
         profilepanelsizer=wx.BoxSizer(wx.VERTICAL)
         self.profilepanel.SetSizer(profilepanelsizer)
-        profilepanelsizer.Add(wx.StaticText(self.profilepanel,-1,'Profile:'),0,wx.ALIGN_CENTER)
-        self.profiledropdown=wx.Choice(self.profilepanel,-1,choices=['(None)'])
+        profilepanelsizer.Add(wx.StaticText(self.profilepanel,-1,DV.l('Profile:')),0,wx.ALIGN_CENTER)
+        self.profiledropdown=wx.Choice(self.profilepanel,-1,choices=[DV.l('(None)')])
         profilepanelsizer.Add((0,DV.control_vgap))
         profilepanelsizer.Add(self.profiledropdown,0,wx.ALIGN_CENTER)
         sizer2.Add(self.profilepanel)
         tmplistheight=self.profiledropdown.GetSizeTuple()[1]
         self.profilepanel.Hide()
         sizer2.Add((0,DV.control_vgap))
-        self.btnMoveUp=wx.Button(panel2,-1,'Move up')
+        self.btnMoveUp=wx.Button(panel2,-1,DV.l('Move up'))
         sizer2.Add(self.btnMoveUp,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onMoveUp,self.btnMoveUp)
-        self.btnMoveDown=wx.Button(panel2,-1,'Move down')
+        self.btnMoveDown=wx.Button(panel2,-1,DV.l('Move down'))
         sizer2.Add(self.btnMoveDown,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onMoveDown,self.btnMoveDown)
-        self.delSelection=wx.Button(panel2,-1,'Remove')
+        self.delSelection=wx.Button(panel2,-1,DV.l('Remove'))
         sizer2.Add(self.delSelection,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onDelSelection,self.delSelection)
-        self.delAll=wx.Button(panel2,-1,'Remove all')
+        self.delAll=wx.Button(panel2,-1,DV.l('Remove all'))
         sizer2.Add(self.delAll,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
@@ -3045,7 +3112,7 @@ class DamnMainFrame(wx.Frame): # The main window
         hbox3=wx.BoxSizer(wx.HORIZONTAL)
         hbox3.Add((DV.border_padding,0))
         panel3.SetSizer(hbox3)
-        hbox3.Add(wx.StaticText(panel3,-1,'Current video: '),0,wx.ALIGN_CENTER_VERTICAL)
+        hbox3.Add(wx.StaticText(panel3,-1,DV.l('Current video: ')),0,wx.ALIGN_CENTER_VERTICAL)
         self.gauge1=wx.Gauge(panel3,-1)
         self.gauge1.SetSize((self.gauge1.GetSizeTuple()[0],hbox3.GetSizeTuple()[1]))
         hbox3.Add(self.gauge1,1,wx.EXPAND|wx.ALIGN_CENTER_VERTICAL)
@@ -3061,7 +3128,7 @@ class DamnMainFrame(wx.Frame): # The main window
         hboxwrapper4.Add(hbox4)
         hboxwrapper4.Add((0,DV.border_padding))
         panel4.SetSizer(hboxwrapper4)
-        self.stopbutton=wx.Button(panel4,-1,'Stop')
+        self.stopbutton=wx.Button(panel4,-1,DV.l('Stop'))
         for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.delSelection,self.delAll,self.gobutton1,self.stopbutton,self.btnSearch):
             button.SetMinSize((buttonwidth,button.GetSizeTuple()[1]))
         self.profiledropdown.SetMinSize((buttonwidth,tmplistheight))
@@ -3092,12 +3159,12 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             dvversion='old' # This is not just an arbitrary erroneous value, it's actually handy in the concatenation on the wx.FileDialog line below
         if dvversion!=DV.version: # Just updated to new version, ask what to do about the preferences
-            dlg=wx.MessageDialog(self,'DamnVid was updated to '+DV.version+'.\nIf anything fails, try to uninstall DamnVid before updating it again.\n\nFrom a version to another, DamnVid\'s default preferences may vary, and their structure may change.\nIf that is the case, your current preferences may not work anymore.\nAdditionally, new versions of DamnVid often come with new or updated encoding profiles. That is why DamnVid is going to overwrite your current configuration.\nDo you want to export your current preferences, before they get overwritten? You might then try to import them back using the "Import" button in the Preferences pane.','DamnVid was successfully updated',wx.YES|wx.NO|wx.ICON_QUESTION)
+            dlg=wx.MessageDialog(self,DV.l('DamnVid was updated to ')+DV.version+'.\n'+DV.l('locale:damnvid-updated-export-prefs'),DV.l('DamnVid was successfully updated'),wx.YES|wx.NO|wx.ICON_QUESTION)
             tmpprefs=DamnVidPrefs()
             checkupdates=tmpprefs.get('CheckForUpdates')
             if dlg.ShowModal()==wx.ID_YES:
                 dlg.Destroy()
-                dlg=wx.FileDialog(self,'Where do you want to export DamnVid\'s configuration?',tmpprefs.get('lastprefdir'),'DamnVid-'+dvversion+'-configuration.ini','INI files (*.ini)|*.ini|All files (*.*)|*.*',wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+                dlg=wx.FileDialog(self,DV.l('Where do you want to export DamnVid\'s configuration?'),tmpprefs.get('lastprefdir'),'DamnVid-'+dvversion+'-configuration.ini',DV.l('locale:browse-ini-files'),wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
                 if dlg.ShowModal()==wx.ID_OK:
                     path=dlg.GetPath()
                     f=open(path,'w')
@@ -3133,14 +3200,14 @@ class DamnMainFrame(wx.Frame): # The main window
         self.onListSelect()
         self.Center()
         if DV.first_run:
-            dlg=wx.MessageDialog(self,'Welcome to DamnVid '+DV.version+'!\nWould you like DamnVid to check for updates every time it starts?','Welcome to DamnVid '+DV.version+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
+            dlg=wx.MessageDialog(self,DV.l('Welcome to DamnVid ')+DV.version+'!\n'+DV.l('Would you like DamnVid to check for updates every time it starts?'),DV.l('Welcome to DamnVid ')+DV.version+'!',wx.YES|wx.NO|wx.ICON_QUESTION)
             if dlg.ShowModal()==wx.ID_YES:
                 DV.prefs.set('CheckForUpdates','True')
             else:
                 DV.prefs.set('CheckForUpdates','False')
         if DV.prefs.get('CheckForUpdates')=='True':
             self.onCheckUpdates(None)
-        self.SetStatusText('DamnVid ready.')
+        self.SetStatusText(DV.l('DamnVid ready.'))
     def onExit(self,event):
         self.Close(True)
     def onListSelect(self,event=None):
@@ -3159,9 +3226,9 @@ class DamnMainFrame(wx.Frame): # The main window
                 if int(self.meta[self.videos[i]]['profile'])!=uniprofile:
                     uniprofile=-2
             for p in range(-1,DV.prefs.profiles):
-                choices.append(DV.prefs.getp(p,'name'))
+                choices.append(DV.l(DV.prefs.getp(p,'name'),warn=False))
             if uniprofile==-2:
-                choices.insert(0,'(Multiple)')
+                choices.insert(0,DV.l('(Multiple)'))
             self.profiledropdown.SetItems(choices)
             if uniprofile==-2:
                 self.profiledropdown.SetSelection(0)
@@ -3170,7 +3237,7 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             self.btnMoveUp.Disable()
             self.btnMoveDown.Disable()
-            self.profiledropdown.SetItems(['(None)'])
+            self.profiledropdown.SetItems([DV.l('(None)')])
     def onListKeyDown(self,event):
         if (event.GetKeyCode()==8 or event.GetKeyCode()==127) and self.list.GetSelectedItemCount(): # Backspace or delete, but only when there's at least one selected video
             self.onDelSelection(None)
@@ -3182,7 +3249,7 @@ class DamnMainFrame(wx.Frame): # The main window
         elif os.path.lexists(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
             if os.path.isdir(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
                 d=DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')
-        dlg=wx.FileDialog(self,'Choose a damn video.',d,'','All files|*.*|AVI files (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',wx.OPEN|wx.FD_MULTIPLE)
+        dlg=wx.FileDialog(self,DV.l('Choose a damn video.'),d,'',DV.l('locale:browse-video-files'),wx.OPEN|wx.FD_MULTIPLE)
         dlg.SetIcon(DV.icon)
         if dlg.ShowModal()==wx.ID_OK:
             vids=dlg.GetPaths()
@@ -3232,9 +3299,9 @@ class DamnMainFrame(wx.Frame): # The main window
                     return DamnHtmlEntities(res.group(1)).strip()
         except:
             pass # Can't grab this? Return Unknown title
-        return u'Unknown title'
+        return DV.l('Unknown title')
     def onDropTargetClick(self,event):
-        dlg=wx.MessageDialog(self,'This is a droptarget: You may drop video files and folders here (or in the big list as well).','DamnVid Droptarget',wx.ICON_INFORMATION)
+        dlg=wx.MessageDialog(self,DV.l('This is a droptarget: You may drop video files and folders here (or in the big list as well).'),DV.l('DamnVid Droptarget'),wx.ICON_INFORMATION)
         dlg.SetIcon(DV.icon)
         dlg.ShowModal()
         dlg.Destroy()
@@ -3272,15 +3339,15 @@ class DamnMainFrame(wx.Frame): # The main window
             if info['updateinfo'].has_key('main'):
                 msg=None
                 if info['updateinfo']['main']!=DV.version and type(info['updateinfo']['main']) is type(''):
-                    dlg=wx.MessageDialog(self,'A new version ('+info['updateinfo']['main']+') is available! You are running DamnVid '+DV.version+'.\nWant to go to the download page and download the update?','Update available!',wx.YES|wx.NO|wx.YES_DEFAULT|wx.ICON_INFORMATION)
+                    dlg=wx.MessageDialog(self,DV.l('A new version (')+info['updateinfo']['main']+DV.l(') is available! You are running DamnVid ')+DV.version+'.\n'+DV.l('Want to go to the download page and download the update?'),DV.l('Update available!'),wx.YES|wx.NO|wx.YES_DEFAULT|wx.ICON_INFORMATION)
                     dlg.SetIcon(DV.icon)
                     if dlg.ShowModal()==wx.ID_YES:
                         webbrowser.open(DV.url_download,2)
                     dlg.Destroy()
                 elif verbose and type(info['updateinfo']['main']) is type(''):
-                    msg=('DamnVid is up-to-date.','DamnVid is up-to-date! The latest version is '+DV.version+'.',wx.ICON_INFORMATION)
+                    msg=(DV.l('DamnVid is up-to-date.'),DV.l('DamnVid is up-to-date! The latest version is ')+DV.version+'.',wx.ICON_INFORMATION)
                 elif verbose:
-                    msg=('Error!','There was a problem while checking for updates. You are running DamnVid '+DV.version+'.\nMake sure you are connected to the Internet, and that no firewall is blocking DamnVid.',wx.ICON_INFORMATION)
+                    msg=(DV.l('Error!'),DV.l('There was a problem while checking for updates. You are running DamnVid ')+DV.version+'.\n'+DV.l('Make sure you are connected to the Internet, and that no firewall is blocking DamnVid.'),wx.ICON_INFORMATION)
                 if msg is not None:
                     dlg=wx.MessageDialog(self,msg[1],msg[0],msg[2])
                     dlg.SetIcon(DV.icon)
@@ -3290,10 +3357,10 @@ class DamnMainFrame(wx.Frame): # The main window
                 msg=[]
                 for i in info['updateinfo']['modules'].iterkeys():
                     if type(info['updateinfo']['modules'][i]) is type(()):
-                        msg.append((True,DV.modules[i]['title']+' was updated to version '+info['updateinfo']['modules'][i][0]+'.'))
+                        msg.append((True,DV.modules[i]['title']+DV.l(' was updated to version ')+info['updateinfo']['modules'][i][0]+'.'))
                     elif type(info['updateinfo']['modules'][i]) is type('') and verbose:
                         if info['updateinfo']['modules'][i]=='error':
-                            msg.append((False,DV.modules[i]['title']+' is up-to-date (version '+DV.modules[i]['version']+').'))
+                            msg.append((False,DV.modules[i]['title']+DV.l(' is up-to-date (version ')+DV.modules[i]['version']+').'))
                 if len(msg):
                     msgs=[]
                     for i in msg:
@@ -3302,10 +3369,10 @@ class DamnMainFrame(wx.Frame): # The main window
                     if not len(msg) and verbose:
                         msgs=msg
                     if len(msgs):
-                        msg='DamnVid also checked for updates to its modules.\n'
+                        msg=DV.l('DamnVid also checked for updates to its modules.')+'\n'
                         for i in msgs:
                             msg+='\n'+i
-                        dlg=wx.MessageDialog(self,msg,'Module updates',wx.ICON_INFORMATION)
+                        dlg=wx.MessageDialog(self,msg,DV.l('Module updates'),wx.ICON_INFORMATION)
                         dlg.SetIcon(DV.icon)
                         dlg.ShowModal()
                         dlg.Destroy()
@@ -3342,23 +3409,23 @@ class DamnMainFrame(wx.Frame): # The main window
     def go(self,aborted=False):
         self.converting=-1
         for i in range(len(self.videos)):
-            if self.videos[i] not in self.thisvideo and self.meta[self.videos[i]]['status']!='Success!':
+            if self.videos[i] not in self.thisvideo and self.meta[self.videos[i]]['status']!=DV.l('Success!'):
                 self.converting=i
                 break
         if self.converting!=-1 and not aborted:
             # Let's go for the actual conversion...
-            self.meta[self.videos[self.converting]]['status']='In progress...'
-            self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,'In progress...')
+            self.meta[self.videos[self.converting]]['status']=DV.l('In progress...')
+            self.list.SetStringItem(self.converting,ID_COL_VIDSTAT,DV.l('In progress...'))
             self.thisbatch=self.thisbatch+1
             self.thread=DamnConverter(parent=self)
             self.thread.start()
         else:
             if not self.isclosing:
-                self.SetStatusText('DamnVid '+DV.version+', waiting for instructions.')
+                self.SetStatusText(DV.l('DamnVid, waiting for instructions.'))
                 if not aborted:
                     message='Done.'
                     if len(self.resultlist):
-                        message='Done!\nAll videos have been put into their respective output folders:\n'
+                        message=DV.l('Done!')+'\n'+DV.l('All videos have been put into their respective output folders:')+'\n'
                         dirs={}
                         for i in self.resultlist:
                             if not dirs.has_key(i[1]):
@@ -3379,9 +3446,9 @@ class DamnMainFrame(wx.Frame): # The main window
                                         vids+='"'+dirs[i][f]+'", '
                             message+='\n'+vids+' ha'+haveverb+' been put into '+DamnFriendlyDir(i)+'.'
                         del haveverb,dirs,vids
-                    dlg=wx.MessageDialog(self,message,'Done!',wx.OK|wx.ICON_INFORMATION)
+                    dlg=wx.MessageDialog(self,message,DV.l('Done!'),wx.OK|wx.ICON_INFORMATION)
                 else:
-                    dlg=wx.MessageDialog(self,'Video conversion aborted.','Aborted',wx.OK|wx.ICON_INFORMATION)
+                    dlg=wx.MessageDialog(self,DV.l('Video conversion aborted.'),DV.l('Aborted'),wx.OK|wx.ICON_INFORMATION)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
@@ -3391,22 +3458,22 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.gauge1.SetValue(0.0)
     def onGo(self,event=None):
         if not len(self.videos):
-            dlg=wx.MessageDialog(None,'Put some videos in the list first!','No videos!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg=wx.MessageDialog(None,DV.l('Put some videos in the list first!'),DV.l('No videos!'),wx.ICON_EXCLAMATION|wx.OK)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         elif self.converting!=-1:
-            dlg=wx.MessageDialog(None,'DamnVid '+DV.version+' is already converting!','Already converting!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg=wx.MessageDialog(None,DV.l('DamnVid is already converting!'),DV.l('Already converting!'),wx.ICON_EXCLAMATION|wx.OK)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         else:
             success=0
             for i in self.videos:
-                if self.meta[i]['status']=='Success!':
+                if self.meta[i]['status']==DV.l('Success!'):
                     success=success+1
             if success==len(self.videos):
-                dlg=wx.MessageDialog(None,'All videos in the list have already been processed!','Already done',wx.OK|wx.ICON_INFORMATION)
+                dlg=wx.MessageDialog(None,DV.l('All videos in the list have already been processed!'),DV.l('Already done'),wx.OK|wx.ICON_INFORMATION)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
@@ -3421,18 +3488,18 @@ class DamnMainFrame(wx.Frame): # The main window
     def onRename(self,event):
         item=self.list.getAllSelectedItems()
         if len(item)>1:
-            dlg=wx.MessageDialog(None,'You can only rename one video at a time.','Multiple videos selected.',wx.ICON_EXCLAMATION|wx.OK)
+            dlg=wx.MessageDialog(None,DV.l('You can only rename one video at a time.'),DV.l('Multiple videos selected.'),wx.ICON_EXCLAMATION|wx.OK)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         elif not len(item):
-            dlg=wx.MessageDialog(None,'Select a video in order to rename it.','No videos selected',wx.ICON_EXCLAMATION|wx.OK)
+            dlg=wx.MessageDialog(None,DV.l('Select a video in order to rename it.'),DV.l('No videos selected'),wx.ICON_EXCLAMATION|wx.OK)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
         else:
             item=item[0]
-            dlg=wx.TextEntryDialog(None,'Enter the new name for "'+self.meta[self.videos[item]]['name']+'".','Rename',self.meta[self.videos[item]]['name'])
+            dlg=wx.TextEntryDialog(None,DV.l('Enter the new name for "')+self.meta[self.videos[item]]['name']+'".',DV.l('Rename'),self.meta[self.videos[item]]['name'])
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             self.meta[self.videos[item]]['name']=dlg.GetValue()
@@ -3465,12 +3532,12 @@ class DamnMainFrame(wx.Frame): # The main window
                 for i in items:
                     self.invertVids(i,i-1)
             else:
-                dlg=wx.MessageDialog(None,'You\'ve selected the first item in the list, which cannot be moved further up!','Invalid selection',wx.OK|wx.ICON_EXCLAMATION)
+                dlg=wx.MessageDialog(None,DV.l('You\'ve selected the first item in the list, which cannot be moved further up!'),DV.l('Invalid selection'),wx.OK|wx.ICON_EXCLAMATION)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
         else:
-            dlg=wx.MessageDialog(None,'Select some videos in the list first.','No videos selected!',wx.OK|wx.ICON_EXCLAMATION)
+            dlg=wx.MessageDialog(None,DV.l('Select some videos in the list first.'),DV.l('No videos selected!'),wx.OK|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
@@ -3482,12 +3549,12 @@ class DamnMainFrame(wx.Frame): # The main window
                 for i in reversed(self.list.getAllSelectedItems()):
                     self.invertVids(i,i+1)
             else:
-                dlg=wx.MessageDialog(None,'You\'ve selected the last item in the list, which cannot be moved further down!','Invalid selection',wx.OK|wx.ICON_EXCLAMATION)
+                dlg=wx.MessageDialog(None,DV.l('You\'ve selected the last item in the list, which cannot be moved further down!'),DV.l('Invalid selection'),wx.OK|wx.ICON_EXCLAMATION)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
         else:
-            dlg=wx.MessageDialog(None,'Select some videos in the list first.','No videos selected!',wx.OK|wx.ICON_EXCLAMATION)
+            dlg=wx.MessageDialog(None,DV.l('Select some videos in the list first.'),DV.l('No videos selected!'),wx.OK|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
@@ -3508,7 +3575,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.onListSelect()
     def onPrefs(self,event):
         self.reopenprefs=False
-        prefs=DamnVidPrefEditor(self,-1,'DamnVid preferences',main=self)
+        prefs=DamnVidPrefEditor(self,-1,DV.l('DamnVid preferences'),main=self)
         prefs.ShowModal()
         prefs.Destroy()
         if self.reopenprefs:
@@ -3558,7 +3625,7 @@ class DamnMainFrame(wx.Frame): # The main window
         items=self.list.getAllSelectedItems()
         if len(items):
             if self.converting in items:
-                dlg=wx.MessageDialog(None,'Stop the video conversion before deleting the video being converted.','Cannot delete this video',wx.ICON_EXCLAMATION|wx.OK)
+                dlg=wx.MessageDialog(None,DV.l('Stop the video conversion before deleting the video being converted.'),DV.l('Cannot delete this video'),wx.ICON_EXCLAMATION|wx.OK)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
@@ -3566,13 +3633,13 @@ class DamnMainFrame(wx.Frame): # The main window
                 for i in reversed(items): # Sequence MUST be reversed, otherwise the first items get deleted first, which changes the indexes of the following items
                     self.delVid(i)
         else:
-            dlg=wx.MessageDialog(None,'You must select some videos from the list first!','Select some videos!',wx.ICON_EXCLAMATION|wx.OK)
+            dlg=wx.MessageDialog(None,DV.l('You must select some videos from the list first!'),DV.l('Select some videos!'),wx.ICON_EXCLAMATION|wx.OK)
             dlg.SetIcon(DV.icon)
             dlg.ShowModal()
             dlg.Destroy()
     def onDelAll(self,event):
         if len(self.videos):
-            dlg=wx.MessageDialog(None,'Are you sure? (This will not delete any files, it will just remove them from the list.)','Confirmation',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
+            dlg=wx.MessageDialog(None,DV.l('Are you sure? (This will not delete any files, it will just remove them from the list.)'),DV.l('Confirmation'),wx.YES_NO|wx.NO_DEFAULT|wx.ICON_QUESTION)
             dlg.SetIcon(DV.icon)
             if dlg.ShowModal()==wx.ID_YES:
                 if self.converting!=-1:
@@ -3583,7 +3650,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 self.thisbatch=0
                 self.meta={}
         else:
-            dlg=wx.MessageDialog(None,'Add some videos in the list first.','No videos!',wx.OK|wx.ICON_EXCLAMATION)
+            dlg=wx.MessageDialog(None,DV.l('Add some videos in the list first.'),DV.l('No videos!'),wx.OK|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
         dlg.Destroy()
     def onResize(self,event):
@@ -3615,7 +3682,7 @@ class DamnMainFrame(wx.Frame): # The main window
             pass # Sometimes the timer can still live while DamnMainFrame is closed, and if EVT_TIMER is then raised, error!
     def onClose(self,event):
         if self.converting!=-1:
-            dlg=wx.MessageDialog(None,'DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.\r\nContinue?','Conversion in progress',wx.YES_NO|wx.NO_DEFAULT|wx.ICON_EXCLAMATION)
+            dlg=wx.MessageDialog(None,DV.l('DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.')+'\r\n'+DV.l('Continue?'),DV.l('Conversion in progress'),wx.YES_NO|wx.NO_DEFAULT|wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
             if dlg.ShowModal()==wx.ID_YES:
                 self.shutdown()
@@ -3630,6 +3697,8 @@ class DamnVid(wx.App):
         showsplash=False
         try:
             DV.prefs=DamnVidPrefs()
+            DV.lang=DV.prefs.get('locale')
+            DamnLoadCurrentLocale()
             if DV.prefs.get('splashscreen')=='True':
                 splash=DamnSplashScreen()
                 clock=time.time()
@@ -3638,7 +3707,7 @@ class DamnVid(wx.App):
             DV.prefs=None
         except:
             pass
-        self.frame=DamnMainFrame(None,-1,'DamnVid')
+        self.frame=DamnMainFrame(None,-1,DV.l('DamnVid'))
         if showsplash:
             try:
                 while clock+.5>time.time():
@@ -3669,7 +3738,7 @@ class DamnVid(wx.App):
         if type(name) is not type([]):
             name=[name]
         self.loadArgs(name)
-Damnlog('All done, starting wx app.')
+Damnlog('All done, starting wx app already.')
 app=DamnVid(0)
 DV.gui_ok=True
 Damnlog('App up, entering main loop.')
