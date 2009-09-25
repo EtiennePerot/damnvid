@@ -2,6 +2,9 @@
 
 # Yes, I am aware that this is absolutely not the right way to build .deb's. But hey, if you wanna help me build .deb's, feel free! :)
 
+echo "This script does not check for dependencies - Please run ./dependencies.sh at least once!"
+
+echo "Building DamnVid."
 orig=$(pwd)
 damnroot=$orig/..
 builddir=$damnroot/package
