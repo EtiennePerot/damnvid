@@ -23,7 +23,7 @@ del ext
 if OSNAME=='nt':
     shutil.copyfile('./build-exe/DamnVid.exe.manifest','./DamnVid.exe.manifest')
     required_files.append('DamnVid.exe.manifest')
-required_dirs=['img','conf']
+required_dirs=['img','conf','locale']
 def addDir(d):
     global required_files
     for f in os.listdir(d):
