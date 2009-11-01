@@ -27,6 +27,7 @@ import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import os # Filesystem functions.
+import traceback # Traces, yay.
 import re # Regular expressions \o/
 import subprocess # Spawn sub-processes (ffmpeg, taskkill)
 import time # Sleepin'
@@ -54,13 +55,24 @@ try:
 except ImportError:
     import dummy_threading as thr # Moar threads
 
+# Yeah, declaring this very early
+def DamnUnicode(s):
+    if type(s) is type(u''):
+        return s
+    if type(s) is type(''):
+        return unicode(s,errors='ignore')
+    try:
+        return unicode(s)
+    except:
+        return s
+
 # Begin constants
 class DamnVid:
     pass
 DV=DamnVid() # The only global variable out there. Srsly.
-DV.curdir=os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep
+DV.curdir=DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep)
 versionfile=open(DV.curdir+'version.damnvid','r')
-DV.version=versionfile.readline().strip()
+DV.version=DamnUnicode(versionfile.readline().strip())
 DV.argv=sys.argv[1:]
 versionfile.close()
 del versionfile
@@ -68,18 +80,18 @@ DV.cookiejar=cookielib.CookieJar()
 DV.urllib2_urlopener=urllib2.build_opener(urllib2.HTTPCookieProcessor(DV.cookiejar))
 DV.urllib2_urlopener.addheaders=[('User-agent','DamnVid/'+DV.version)]
 urllib2.install_opener(DV.urllib2_urlopener) # All urllib2.urlopen() calls will have the DamnVid user-agent
-DV.url='http://code.google.com/p/damnvid/'
-DV.url_halp='http://code.google.com/p/damnvid/wiki/Help'
-DV.url_update='http://code.google.com/p/damnvid/wiki/CurrentVersion'
-DV.url_download='http://code.google.com/p/damnvid/downloads/'
+DV.url=u'http://code.google.com/p/damnvid/'
+DV.url_halp=u'http://code.google.com/p/damnvid/wiki/Help'
+DV.url_update=u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
+DV.url_download=u'http://code.google.com/p/damnvid/downloads/'
 DV.gui_ok=False
 DV.icon=None # This will be defined when DamnMainFrame is initialized
-DV.my_videos_path=''
-DV.appdata_path=''
-DV.os=os.name
+DV.my_videos_path=u''
+DV.appdata_path=u''
+DV.os=DamnUnicode(os.name)
 DV.bit64=False
 if DV.os=='posix' and sys.platform=='darwin':
-    DV.os='mac'
+    DV.os=u'mac'
     DV.border_padding=12
     DV.control_hgap=10
     DV.control_vgap=4
@@ -101,44 +113,34 @@ if DV.os=='nt':
     DV.appdata_path=ctypes.create_string_buffer(wintypes.MAX_PATH)
     ctypes.windll.shell32.SHGetFolderPathA(None,0xE,None,0,DV.my_videos_path)
     ctypes.windll.shell32.SHGetFolderPathA(None,0x1A,None,0,DV.appdata_path)
-    DV.my_videos_path=str(DV.my_videos_path.value)
-    DV.appdata_path=str(DV.appdata_path.value)
-    del ctypes
-    del wintypes
+    DV.my_videos_path=DamnUnicode(str(DV.my_videos_path.value))
+    DV.appdata_path=DamnUnicode(str(DV.appdata_path.value))
+    del ctypes, wintypes
     # Do not delete win32process, it is used in the DamnSpawner class.
 elif DV.os=='mac':
-    DV.my_videos_path=os.path.expanduser('~'+os.sep+'Movies')
+    DV.my_videos_path=DamnUnicode(os.path.expanduser('~'+os.sep+'Movies'))
 else:
-    DV.my_videos_path=os.path.expanduser('~'+os.sep+'Videos')
+    DV.my_videos_path=DamnUnicode(os.path.expanduser('~'+os.sep+'Videos'))
 
 DV.conf_file_location={
-    'nt':DV.appdata_path+os.sep+'DamnVid',
-    'posix':'~'+os.sep+'.damnvid',
-    'mac':'~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid'
+    'nt':DamnUnicode(DV.appdata_path+os.sep+'DamnVid'),
+    'posix':DamnUnicode('~'+os.sep+'.damnvid'),
+    'mac':DamnUnicode('~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid')
 }
 if DV.os=='posix' or DV.os=='mac':
-    DV.conf_file_location=os.path.expanduser(DV.conf_file_location[DV.os])
+    DV.conf_file_location=DamnUnicode(os.path.expanduser(DV.conf_file_location[DV.os]))
 else:
-    DV.conf_file_location=DV.conf_file_location[DV.os]
-DV.conf_file_directory=DV.conf_file_location+os.sep
+    DV.conf_file_location=DamnUnicode(DV.conf_file_location[DV.os])
+DV.conf_file_directory=DamnUnicode(DV.conf_file_location+os.sep)
 if not os.path.lexists(DV.conf_file_directory):
     os.makedirs(DV.conf_file_directory)
-DV.conf_file=DV.conf_file_directory+'damnvid.ini'
-DV.log_file=DV.conf_file_directory+'damnvid.log'
+DV.conf_file=DamnUnicode(DV.conf_file_directory+'damnvid.ini')
+DV.log_file=DamnUnicode(DV.conf_file_directory+'damnvid.log')
 if os.path.lexists(DV.log_file):
     try:
         os.remove(DV.log_file)
     except:
         DV.log_file=None
-def DamnUnicode(s):
-    if type(s) is type(u''):
-        return s
-    if type(s) is type(''):
-        return unicode(s,errors='ignore')
-    try:
-        return unicode(s)
-    except:
-        return s
 class DamnLog:
     def __init__(self):
         self.time=0
@@ -146,7 +148,7 @@ class DamnLog:
             if not exists(os.path.dirname(DV.log_file)):
                 self.makedirs(os.path.dirname(DV.log_file))
             self.stream=open(DV.log_file,'w')
-            self.stream.write(self.getPrefix()+u'Log opened.')
+            self.stream.write((self.getPrefix()+u'Log opened.').encode('utf8'))
         except:
             self.stream=None
     def getPrefix(self):
@@ -155,20 +157,23 @@ class DamnLog:
             self.time=t
             return u'['+DamnUnicode(time.strftime('%H:%M:%S'))+u'] '
         return u''
-    def log(self,message):
+    def log(self,message): # This function caused so much trouble, it has to die quietly if it ever has to. So yeah, overload of try/except here.
         s=u'\r\n'+self.getPrefix()+DamnUnicode(message.strip())
         try:
             print s,
         except:
             try:
-                print s.encode('utf8'),
+                print s.encode('utf8',errors='ignore'),
             except:
                 print 'Cannot echo log string; invalid characters and/or non-tolerant output?'
         if self.stream is not None:
             try:
                 return self.stream.write(s)
             except:
-                pass
+                try:
+                    return self.stream.write(s.encode('utf8'))
+                except:
+                    pass
     def close(self):
         self.log('Closing log.')
         try:
@@ -219,45 +224,45 @@ else:
     else:
         DV.updated=True
         lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
-        lastversion.write(DV.version)
+        lastversion.write(DV.version.encode('utf8'))
         lastversion.close()
     del lastversion
-DV.images_path=DV.curdir+'img/'.replace('/',os.sep)
-DV.bin_path=DV.curdir+'bin/'.replace('/',os.sep)
-DV.locale_path=DV.curdir+'locale/'.replace('/',os.sep)
-DV.tmp_path=tempfile.gettempdir()
+DV.images_path=DamnUnicode(DV.curdir+'img/'.replace('/',os.sep))
+DV.bin_path=DamnUnicode(DV.curdir+'bin/'.replace('/',os.sep))
+DV.locale_path=DamnUnicode(DV.curdir+'locale/'.replace('/',os.sep))
+DV.tmp_path=DamnUnicode(tempfile.gettempdir())
 if DV.tmp_path[-1]!=os.sep:
-    DV.tmp_path+=os.sep
-DV.tmp_path+='damnvid-'
+    DV.tmp_path+=DamnUnicode(os.sep)
+DV.tmp_path+=u'damnvid-'
 DV.file_ext={
-    'avi':'avi',
-    'flv':'flv',
-    'mpeg1video':'mpg',
-    'mpeg2video':'mpg',
-    'mpegts':'mpg',
-    'mp4':'mp4',
-    'ipod':'mp4',
-    'psp':'mp4',
-    'rm':'rm',
-    'matroska':'mkv',
-    'ogg':'ogg',
-    'vob':'vob',
-    '3gp':'3gp',
-    '3g2':'3g2',
-    'mp3':'mp3',
-    'mp2':'mp2'
+    'avi':u'avi',
+    'flv':u'flv',
+    'mpeg1video':u'mpg',
+    'mpeg2video':u'mpg',
+    'mpegts':u'mpg',
+    'mp4':u'mp4',
+    'ipod':u'mp4',
+    'psp':u'mp4',
+    'rm':u'rm',
+    'matroska':u'mkv',
+    'ogg':u'ogg',
+    'vob':u'vob',
+    '3gp':u'3gp',
+    '3g2':u'3g2',
+    'mp3':u'mp3',
+    'mp2':u'mp2'
 }
 DV.file_ext_by_codec={
-    'rv10':'rm',
-    'rv20':'rm',
-    'flv':'flv',
-    'theora':'ogg',
-    'wmv1':'wmv',
-    'wmv2':'wmv',
-    'ac3':'ac3',
-    'vorbis':'ogg',
-    'wmav1':'wma',
-    'wmav2':'wma'
+    'rv10':u'rm',
+    'rv20':u'rm',
+    'flv':u'flv',
+    'theora':u'ogg',
+    'wmv1':u'wmv',
+    'wmv2':u'wmv',
+    'ac3':u'ac3',
+    'vorbis':u'ogg',
+    'wmav1':u'wma',
+    'wmav2':u'wma'
 } # Just in case the format isn't defined, fall back to DV.file_ext_by_codec. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
 DV.codec_advanced_cl={
     'mpeg4':[('g','300'),('cmp','2'),('subcmp','2'),('trellis','2'),'+4mv'],
@@ -283,7 +288,7 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
             Damnlog('!Icon conflict found with handle',handle)
             handle=hashlib.md5(str(random.random())+str(random.random())).hexdigest()
         if self.init:
-            if type(bitmap) is type(''):
+            if type(bitmap) in (type(''),type(u'')):
                 bitmap=wx.Bitmap(bitmap)
             self.list[handle]=self.Add(bitmap)
         else:
@@ -512,6 +517,17 @@ class DamnModuleUpdateCheck(thr.Thread):
                                     self.postEvent(module2,'error')
                         else:
                             self.postEvent(module2,'uptodate')
+def DamnVersionCompare(v1,v2): # Returns 1 if v1 is newer, 0 is equal, -1 if v2 is newer.
+    v1=v1.split('.')
+    v2=v2.split('.')
+    for i in range(len(v1)):
+        if len(v2) <= i:
+            return 1
+        if v1[i] != v2[i]:
+            return 2*int(v1[i] > v2[i])-1
+    if len(v1)!=len(v2):
+        return 2*(len(v1)>len(v2))-1
+    return 0
 class DamnVidUpdater(thr.Thread):
     def __init__(self,parent,verbose=False,main=True,modules=True):
         Damnlog('Spawned main updater thread')
@@ -574,11 +590,13 @@ def DamnLoadConfig(forcemodules=False):
         'damnvid':DV.images_path+'video.png',
         'generic':DV.images_path+'online.png'
     })
-    if forcemodules:# or True: # Fixme: DEBUG ONLY
+    if forcemodules or '--rebuild-modules' in DV.argv:
         Damnlog('forcemodules is on; resetting modules.')
         shutil.rmtree(DV.modules_path)
         os.makedirs(DV.modules_path)
-        """if True: # Fixme: DEBUG ONLY; rebuilds all modules
+        if '--rebuild-modules' in DV.argv: # DEBUG ONLY; rebuilds all modules
+            Damnlog('Careful, rebuilding all modules!')
+            DV.argv=[x for x in DV.argv if x!='--rebuild-modules']
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
                     os.remove(i)
@@ -587,7 +605,7 @@ def DamnLoadConfig(forcemodules=False):
                     os.remove('modules/'+i)
             for i in os.listdir('modules'):
                 if os.path.isdir('modules/'+i) and i.find('svn')==-1:
-                    print 'Building module '+i
+                    Damnlog('Building module '+i)
                     p=os.popen('python build-any/module-package.py modules/'+i)
                     try:
                         p.close()
@@ -595,16 +613,19 @@ def DamnLoadConfig(forcemodules=False):
                         pass
             for i in os.listdir('./'):
                 if i[-15:]=='.module.damnvid':
-                    os.rename(i,'modules/'+i)"""
+                    os.rename(i,'modules/'+i)
         for i in os.listdir(DV.curdir+'modules'):
             if i[-15:]=='.module.damnvid':
-                print 'Installing',i
-                print DamnInstallModule(DV.curdir+'modules'+os.sep+i)
+                Damnlog('Installing',i)
+                DamnInstallModule(DV.curdir+'modules'+os.sep+i)
     for i in os.listdir(DV.modules_path):
         if os.path.isdir(DV.modules_path+i):
             DamnLoadModule(DV.modules_path+i)
     # End load modules
 DV.locale_warnings=[]
+DV.dumplocalewarnings='--dump-locale-warnings' in DV.argv
+if DV.dumplocalewarnings:
+    DV.argv=[x for x in DV.argv if x!='--dump-locale-warnings']
 def DamnLocale(s,asunicode=True,warn=True):
     k=str(s.encode('ascii','ignore'))
     s=DamnUnicode(s)
@@ -617,6 +638,7 @@ def DamnLocale(s,asunicode=True,warn=True):
         if warn and k not in DV.locale_warnings:
             DV.locale_warnings.append(k)
             Damnlog('Locale warning:',k,'has no key for language',DV.lang)
+            traceback.print_stack()
         if asunicode:
             return s
         return k
@@ -632,12 +654,12 @@ Damnlog('Loading initial config and modules.')
 DamnLoadConfig(forcemodules=(DV.first_run or DV.updated))
 Damnlog('Loading locales.')
 DV.languages={}
-DV.l=DamnLocale
+DV.l=DamnLocale # Function shortcut
 DV.locale=None
 DV.lang='English' # Default, will be overriden later if needed.
 for i in os.listdir(DV.locale_path):
     if i[-7:].lower()=='.locale':
-        Damnlog('Loading',DV.locale_path+i)
+        Damnlog('Loading locale',DV.locale_path+i)
         execfile(DV.locale_path+i)
 DamnLoadCurrentLocale()
 # Begin ID constants
@@ -1732,7 +1754,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.uppersizer=wx.BoxSizer(wx.HORIZONTAL)
         self.uppersizer.Add((DV.border_padding,0))
         self.topsizer.Add(self.uppersizer,1,wx.EXPAND)
-        # - Left part of the upperpanel
+        # -> Left part of the upperpanel
         self.upperleftpanel=wx.Panel(self.toppanel,-1)
         self.uppersizer.Add(self.upperleftpanel,0)
         self.uppersizer.Add((DV.control_hgap,0))
@@ -1757,16 +1779,16 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.upperleftsizer.Add(self.resetButton,0,wx.EXPAND)
         self.upperleftsizer.Add((0,DV.border_padding))
         self.upperleftpanel.SetSizer(self.upperleftsizer)
-        # - Right part of the upperpanel
+        # -> Right part of the upperpanel
         self.upperrightpanel=wx.Panel(self.toppanel,-1)
         self.uppersizer.Add(self.upperrightpanel,1,wx.EXPAND)
         self.prefpanelabel=wx.StaticBox(self.upperrightpanel,-1,'')
         self.upperrightsizer=wx.StaticBoxSizer(self.prefpanelabel,wx.VERTICAL)
-        # - - Preference pane creation
+        # -> -> Preference pane creation
         self.prefpane=wx.Panel(self.upperrightpanel,-1)
         self.prefpanesizer=wx.GridBagSizer(DV.control_vgap,DV.control_hgap) # Yes, it's vgap then hgap
         self.prefpane.SetSizer(self.prefpanesizer)
-        # - - End preference pane creation
+        # -> -> End preference pane creation
         self.upperrightsizer.Add(self.prefpane,1,wx.EXPAND)
         self.uppersizer.Add((DV.border_padding,0))
         self.upperrightpanel.SetSizer(self.upperrightsizer)
@@ -1795,7 +1817,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.Bind(wx.EVT_KEY_DOWN,self.onKeyDown,self.toppanel)
         self.Bind(DV.evt_load,self.onLoad)
         self.toppanel.SetFocus()
-        self.forceSelect(self.treeroot) # Will also resize the window on certain platforms since it fires the selection events, but not on Ubuntu it seems, so...
+        self.forceSelect(self.treeroot) # Will also resize the window on certain platforms since it fires the selection events, but not on Linux it seems, so...
         self.updatePrefPane('damnvid')
         self.Center()
     def buildTree(self):
@@ -2113,15 +2135,15 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                         if DV.lang==l:
                             lang=c
                         c+=1
-                        langs.append(l) # Enventually translate here, but I'm not sure. Maybe both translated and untranslated?
-                    self.controls[i]=self.makeList(DV.preferences[i]['strict'],langs,self.prefpane,None) # makeList takes care of the event binding
+                        langs.append(DV.languages[l]['title']) # Eventually translate here, but I'm not sure. Maybe both translated and untranslated?
+                    self.controls[i]=self.makeList(DV.preferences[i]['strict'],langs,self.prefpane,None,localize=False) # makeList takes care of the event binding
                     self.controls[i].SetSelection(lang)
                     self.prefpanesizer.Add(self.controls[i],controlposition,controlspan,wx.EXPAND)
                 elif DV.preferences[i]['kind']=='profile':
                     if DV.prefs.profiles:
                         choices=[]
                         for p in range(-1,DV.prefs.profiles):
-                            choices.append(DV.l(DV.prefs.getp(p,'name'),warn=False))
+                            choices.append(DV.prefs.getp(p,'name'))
                         self.controls[i]=self.makeList(DV.preferences[i]['strict'],choices,self.prefpane,None) # makeList takes care of the event binding
                         self.controls[i].SetSelection(int(val)+1) # +1 to compensate for -1 -> (Do not encode)
                     else:
@@ -2160,6 +2182,8 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             return 2
         if DV.preferences[pref]['kind']=='profile':
             return 2
+        if DV.preferences[pref]['kind']=='locale':
+            return 2
         if DV.preferences[pref]['kind'][0]=='%':
             return 2
         if DV.preferences[pref]['kind']=='text':
@@ -2176,6 +2200,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             return pref
         return (pref[0:pref.find(':')],pref[pref.find(':')+1:])
     def onPrefChange(self,event):
+        Damnlog('Preference changed event caught.')
         name=None
         for i in self.controls.iterkeys():
             pref=self.splitLongPref(i)
@@ -2195,7 +2220,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                         val=''
                 else:
                     val=self.controls[i].GetValue()
-                    if val==self.defaultvalue:
+                    if val==self.defaultvalue or val=='(default)':
                         val=''
                     elif type(DV.preferences[genericpref]['kind']) is type({}) and val in DV.preferences[genericpref]['kind'].values():
                         for j in DV.preferences[genericpref]['kind'].iterkeys():
@@ -2203,8 +2228,12 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
                                 val=j
             elif DV.preferences[genericpref]['kind']=='profile':
                 val=self.controls[i].GetSelection()-1
-            elif DV.preferences[genericpref]['kind']=='lang':
-                val=self.controls[i].GetValue()
+            elif DV.preferences[genericpref]['kind']=='locale':
+                val=self.controls[i].GetString(self.controls[i].GetSelection())
+                for loc in DV.languages.iterkeys():
+                    if DV.languages[loc]['title']==val:
+                        val=loc
+                        break
             elif DV.preferences[genericpref]['kind'][0:4]=='int:':
                 val=int(self.controls[i].GetValue())
             elif DV.preferences[genericpref]['kind'][0]=='%':
@@ -2361,13 +2390,16 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             self.buildTree()
             self.forceSelect(self.modulelistitem)
         dlg.Destroy()
-    def makeList(self,strict,choices,panel,value):
+    def makeList(self,strict,choices,panel,value,localize=True):
         choices2=[]
         for c in choices:
-            choices2.append(DV.l(c))
+            if not localize or c==self.defaultvalue:
+                choices2.append(c)
+            else:
+                choices2.append(DV.l(c))
         if strict:
             cont=wx.Choice(panel,-1,choices=choices2)
-            if value==self.defaultvalue:
+            if value==self.defaultvalue or value=='(default)':
                 cont.SetSelection(0)
             else:
                 for f in range(len(choices2)):
@@ -2403,7 +2435,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             val=self.listvalues[name][self.controls[name].GetSelection()]
         else:
             val=self.controls[name].GetValue()
-        if val==self.defaultvalue:
+        if val==self.defaultvalue or val=='(default)':
             val=''
         elif type(DV.preference_type[name]['kind']) is type({}):
             for key,i in DV.preference_type[name]['kind'].iteritems():
@@ -3178,7 +3210,7 @@ class DamnMainFrame(wx.Frame): # The main window
             os.remove(DV.conf_file)
             shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
             lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
-            lastversion.write(DV.version)
+            lastversion.write(DV.version.encode('utf8'))
             lastversion.close()
             del lastversion
             tmpprefs=DamnVidPrefs()
@@ -3338,14 +3370,18 @@ class DamnMainFrame(wx.Frame): # The main window
                 verbose=True
             if info['updateinfo'].has_key('main'):
                 msg=None
-                if info['updateinfo']['main']!=DV.version and type(info['updateinfo']['main']) is type(''):
+                if DamnVersionCompare(info['updateinfo']['main'],DV.version)==1 and type(info['updateinfo']['main']) is type(''):
                     dlg=wx.MessageDialog(self,DV.l('A new version (')+info['updateinfo']['main']+DV.l(') is available! You are running DamnVid ')+DV.version+'.\n'+DV.l('Want to go to the download page and download the update?'),DV.l('Update available!'),wx.YES|wx.NO|wx.YES_DEFAULT|wx.ICON_INFORMATION)
                     dlg.SetIcon(DV.icon)
                     if dlg.ShowModal()==wx.ID_YES:
                         webbrowser.open(DV.url_download,2)
                     dlg.Destroy()
                 elif verbose and type(info['updateinfo']['main']) is type(''):
-                    msg=(DV.l('DamnVid is up-to-date.'),DV.l('DamnVid is up-to-date! The latest version is ')+DV.version+'.',wx.ICON_INFORMATION)
+                    if DV.version!=info['updateinfo']['main']:
+                        versionwarning=DV.l(' However, your version ('+DV.version+') seems different than the latest version available online. Where would you get that?')
+                    else:
+                        versionwarning=''
+                    msg=(DV.l('DamnVid is up-to-date.'),DV.l('DamnVid is up-to-date! The latest version is ')+info['updateinfo']['main']+'.'+versionwarning,wx.ICON_INFORMATION)
                 elif verbose:
                     msg=(DV.l('Error!'),DV.l('There was a problem while checking for updates. You are running DamnVid ')+DV.version+'.\n'+DV.l('Make sure you are connected to the Internet, and that no firewall is blocking DamnVid.'),wx.ICON_INFORMATION)
                 if msg is not None:
@@ -3381,7 +3417,7 @@ class DamnMainFrame(wx.Frame): # The main window
     def addValid(self,meta):
         curvid=len(self.videos)
         self.list.InsertStringItem(curvid,meta['name'])
-        self.list.SetStringItem(curvid,ID_COL_VIDPROFILE,DV.prefs.getp(meta['profile'],'name'))
+        self.list.SetStringItem(curvid,ID_COL_VIDPROFILE,DV.l(DV.prefs.getp(meta['profile'],'name')))
         self.list.SetStringItem(curvid,ID_COL_VIDPATH,meta['dirname'])
         self.list.SetStringItem(curvid,ID_COL_VIDSTAT,meta['status'])
         self.list.SetItemImage(curvid,meta['icon'],meta['icon'])
@@ -3571,7 +3607,7 @@ class DamnMainFrame(wx.Frame): # The main window
             if self.meta[self.videos[i]]['profile']!=profile:
                 self.meta[self.videos[i]]['profile']=profile
                 self.meta[self.videos[i]]['profilemodified']=True
-                self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(profile,'name'))
+                self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.l(DV.prefs.getp(profile,'name')))
         self.onListSelect()
     def onPrefs(self,event):
         self.reopenprefs=False
@@ -3590,7 +3626,7 @@ class DamnMainFrame(wx.Frame): # The main window
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultprofile')
                     elif self.meta[self.videos[i]]['icon']==DamnGetListIcon('generic'):
                         self.meta[self.videos[i]]['profile']=DV.prefs.get('defaultwebprofile')
-                self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.prefs.getp(self.meta[self.videos[i]]['profile'],'name'))
+                self.list.SetStringItem(i,ID_COL_VIDPROFILE,DV.l(DV.prefs.getp(self.meta[self.videos[i]]['profile'],'name')))
         try:
             del self.reopenprefs
         except:
@@ -3746,3 +3782,12 @@ app.MainLoop()
 Damnlog('Main loop ended, saving prefs.')
 DV.prefs.save()
 DV.log.close()
+if DV.dumplocalewarnings:
+    Damnlog('Starting locale warnings dump')
+    try:
+        f=open('damnvid-locale-warnings.log','w')
+        f.write(u'\n'.join(DV.locale_warnings).encode('utf8'))
+        f.close()
+        Damnlog('Successful locale warnings dump.')
+    except:
+        Damnlog('Failed to dump locale warnings.')

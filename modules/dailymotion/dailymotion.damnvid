@@ -1,4 +1,4 @@
-#~DamnVid-module:escapistmagazine
+#~DamnVid-module:dailymotion
 
 class DamnModule_Dailymotion(DamnVideoModule):
     def __init__(self,uri):
@@ -6,7 +6,7 @@ class DamnModule_Dailymotion(DamnVideoModule):
         self.name='dailymotion'
         self.regex={
             'url':re.compile('dailymotion\.com/.*?video/(\w+)_?',re.IGNORECASE),
-            'title':re.compile('<h1(?: class="nav")?>\s*([^<>]+)\s*</h1>',re.IGNORECASE),
+            'title':re.compile('<h1[^<>]*>\s*([^<>]+)\s*</h1>',re.IGNORECASE),
             'ticket':(re.compile('\\.addVariable\\s*\\(\\s*([\'"])video\\1\\s*,\\s*([\'"])((?:(?!\\2).)+)\\2\\s*\\)',re.IGNORECASE),re.compile('(\d+)x(\d+)',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
@@ -35,14 +35,16 @@ class DamnModule_Dailymotion(DamnVideoModule):
                             if qualitys[l]==j:
                                 if l.find('@@')!=-1:
                                     l=l[0:l.find('@@')]
-                                finalurls.append('http://www.dailymotion.com'+l)
+                                if l[0:7]!='http://':
+                                    l+='http://www.dailymotion.com'
+                                finalurls.append(l)
                     finalurls.reverse() # From best to worst quality
                     self.newTicket(finalurls)
 DamnRegisterModule({
     'name':'dailymotion',
     'title':'Dailymotion',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',
