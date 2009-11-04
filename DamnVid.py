@@ -132,11 +132,11 @@ if DV.os=='posix' or DV.os=='mac':
 else:
     DV.conf_file_location=DamnUnicode(DV.conf_file_location[DV.os])
 DV.conf_file_directory=DamnUnicode(DV.conf_file_location+os.sep)
-if not os.path.lexists(DV.conf_file_directory):
+if not os.path.exists(DV.conf_file_directory):
     os.makedirs(DV.conf_file_directory)
 DV.conf_file=DamnUnicode(DV.conf_file_directory+'damnvid.ini')
 DV.log_file=DamnUnicode(DV.conf_file_directory+'damnvid.log')
-if os.path.lexists(DV.log_file):
+if os.path.exists(DV.log_file):
     try:
         os.remove(DV.log_file)
     except:
@@ -205,8 +205,8 @@ except:
     Damnlog('Psyco error. Continuing anyway.')
 DV.first_run=False
 DV.updated=False
-if not os.path.lexists(DV.conf_file):
-    if not os.path.lexists(os.path.dirname(DV.conf_file)):
+if not os.path.exists(DV.conf_file):
+    if not os.path.exists(os.path.dirname(DV.conf_file)):
         os.makedirs(os.path.dirname(DV.conf_file))
     shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
     lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
@@ -215,7 +215,7 @@ if not os.path.lexists(DV.conf_file):
     del lastversion
     DV.first_run=True
 else:
-    if os.path.lexists(DV.conf_file_directory+'lastversion.damnvid'):
+    if os.path.exists(DV.conf_file_directory+'lastversion.damnvid'):
         lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
         version=lastversion.readline().strip()
         lastversion.close()
@@ -321,7 +321,7 @@ def DamnGetListIcon(icon):
     return DV.listicons.get(icon)
 def DamnInstallModule(module):
     Damnlog('Attempting to install module',module)
-    if not os.path.lexists(module):
+    if not os.path.exists(module):
         return 'nofile'
     if not tarfile.is_tarfile(module):
         return 'nomodule'
@@ -337,7 +337,7 @@ def DamnInstallModule(module):
             return 'nomodule'
         if i[0:i.find('/')+1]!=prefix:
             return 'nomodule'
-    if os.path.lexists(DV.modules_path+prefix):
+    if os.path.exists(DV.modules_path+prefix):
         if os.path.isdir(DV.modules_path+prefix):
             shutil.rmtree(DV.modules_path+prefix)
         else:
@@ -581,7 +581,7 @@ def DamnLoadConfig(forcemodules=False):
     # Load modules
     Damnlog('Loading modules.')
     DV.modules_path=DV.conf_file_directory+'modules'+os.sep
-    if not os.path.lexists(DV.modules_path):
+    if not os.path.exists(DV.modules_path):
         os.makedirs(DV.modules_path)
     DV.modules={}
     DV.modulesstorage={}
@@ -784,7 +784,7 @@ def DamnURLPickerBySize(urls,array=False):
     return finalurls[0]
 def DamnTempFile():
     name=DV.tmp_path+str(random.random())+'.tmp'
-    while os.path.lexists(name):
+    while os.path.exists(name):
         name=DV.tmp_path+str(random.random())+'.tmp'
     Damnlog('Temp file requested. Return:',name)
     return name
@@ -1350,7 +1350,7 @@ class DamnYouTubeService(thr.Thread):
         return self.postEvent({'index':index,'query':self.queries[index],'result':result})
     def getTempFile(self):
         name=DV.tmp_path+str(random.random())+'.tmp'
-        while os.path.lexists(name):
+        while os.path.exists(name):
             name=DV.tmp_path+str(random.random())+'.tmp'
         return name
     def run(self):
@@ -2639,19 +2639,22 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
     def gettmpfilename(self,path,prefix,ext):
         tmpfilename=prefix+'-0'+ext
         tmpcount=0
-        while os.path.lexists(path+tmpfilename):
+        while os.path.exists(path+tmpfilename):
             tmpcount+=1
             tmpfilename=prefix+'-'+str(tmpcount)+ext
         f=open(path+tmpfilename,'wb')   # Just create the file
         f.close()
         return tmpfilename
     def getfinalfilename(self,path,prefix,ext):
-        if not os.path.lexists(path+prefix+ext):
+        ext=DamnUnicode(ext)
+        prefix=DamnUnicode(prefix)
+        path=DamnUnicode(path)
+        if not os.path.exists(path+prefix+ext):
             return prefix
         c=2
-        while os.path.lexists(path+prefix+' ('+str(c)+')'+ext):
+        while os.path.exists(path+prefix+u' ('+unicode(c)+u')'+ext):
             c=c+1
-        return prefix+' ('+str(c)+')'
+        return prefix+u' ('+unicode(c)+u')'
     def update(self,progress=None,statustext=None,status=None,dialog=None,go=None):
         info={}
         if progress is not None:
@@ -2676,7 +2679,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
                 self.filename=unicodedata.normalize('NFKD',DamnUnicode(REGEX_FILE_CLEANUP_FILENAME.sub('',self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8','ignore').replace('/','').replace('\\','').strip()
                 self.profile=int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
-                if os.path.lexists(self.uri):
+                if os.path.exists(self.uri):
                     Damnlog('We\'re dealing with a file stream here.')
                     self.stream=self.uri # It's a file stream, ffmpeg will take care of it
                     if self.outdir is None:
@@ -2688,7 +2691,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         self.outdir=DV.prefs.get('defaultweboutdir')
                 if self.outdir[-1:]==os.sep:
                     self.outdir=self.outdir[0:-1]
-                if not os.path.lexists(self.outdir):
+                if not os.path.exists(self.outdir):
                     os.makedirs(self.outdir)
                 elif not os.path.isdir(self.outdir):
                     os.remove(self.outdir)
@@ -2862,7 +2865,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 result=self.process.poll() # The process is complete, but .poll() still returns the process's return code
                 time.sleep(.25) # Wait a bit
                 self.grabberrun=False # That'll make the DamnConverterGrabber wake up just in case
-                if result and os.path.lexists(DV.tmp_path+self.tmpfilename):
+                if result and os.path.exists(DV.tmp_path+self.tmpfilename):
                     os.remove(DV.tmp_path+self.tmpfilename) # Delete the output file if ffmpeg has exitted with a bad return code
                 Damnlog('All the routine completed successfully.')
             else:
@@ -3183,7 +3186,7 @@ class DamnMainFrame(wx.Frame): # The main window
         DV.icon=wx.Icon(DV.images_path+'icon.ico',wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV.icon)
     def init2(self):
-        if os.path.lexists(DV.conf_file_directory+'lastversion.damnvid'):
+        if os.path.exists(DV.conf_file_directory+'lastversion.damnvid'):
             lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
             dvversion=lastversion.readline().strip()
             lastversion.close()
@@ -3275,10 +3278,10 @@ class DamnMainFrame(wx.Frame): # The main window
             self.onDelSelection(None)
     def onAddFile(self,event):
         d=os.getcwd()
-        if os.path.lexists(DV.prefs.get('LastFileDir')):
+        if os.path.exists(DV.prefs.get('LastFileDir')):
             if os.path.isdir(DV.prefs.get('LastFileDir')):
                 d=DV.prefs.get('LastFileDir')
-        elif os.path.lexists(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
+        elif os.path.exists(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
             if os.path.isdir(DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')):
                 d=DV.prefs.expandPath('?DAMNVID_MY_VIDEOS?')
         dlg=wx.FileDialog(self,DV.l('Choose a damn video.'),d,'',DV.l('locale:browse-video-files'),wx.OPEN|wx.FD_MULTIPLE)
@@ -3319,7 +3322,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 if i['class'](uri).validURI():
                     return 'Video site'
             return 'Online video' # Not necessarily true, but ffmpeg will tell
-        elif os.path.lexists(uri):
+        elif os.path.exists(uri):
             return 'Local file'
         return None
     def getVidName(self,uri):
