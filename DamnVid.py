@@ -45,6 +45,7 @@ import ConfigParser # INI file parsing and writing
 import base64 # Base64 encoding/decoding
 import gdata.youtube # YouTube API client
 import gdata.youtube.service # YouTube service
+import gdata.projecthosting # Google Code service
 import xmlrpclib # XML RPC server communication
 import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
 import unicodedata # Unicode normalization
@@ -145,12 +146,17 @@ class DamnLog:
     def __init__(self):
         self.time=0
         try:
-            if not exists(os.path.dirname(DV.log_file)):
+            if not os.path.exists(os.path.dirname(DV.log_file)):
                 self.makedirs(os.path.dirname(DV.log_file))
             self.stream=open(DV.log_file,'w')
             self.stream.write((self.getPrefix()+u'Log opened.').encode('utf8'))
         except:
             self.stream=None
+            try:
+                print 'Warning: No log stream!'
+                traceback.print_exc()
+            except:
+                pass
     def getPrefix(self):
         t=int(time.time())
         if self.time!=t:
@@ -638,7 +644,6 @@ def DamnLocale(s,asunicode=True,warn=True):
         if warn and k not in DV.locale_warnings:
             DV.locale_warnings.append(k)
             Damnlog('Locale warning:',k,'has no key for language',DV.lang)
-            traceback.print_stack()
         if asunicode:
             return s
         return k
@@ -671,6 +676,7 @@ ID_MENU_PREFERENCES=wx.ID_PREFERENCES
 ID_MENU_OUTDIR=106
 ID_MENU_HALP=wx.ID_HELP
 ID_MENU_UPDATE=108
+ID_MENU_REPORTBUG=109
 ID_MENU_ABOUT=wx.ID_ABOUT
 ID_COL_VIDNAME=0
 ID_COL_VIDPROFILE=1
@@ -1131,6 +1137,14 @@ class DamnEEgg(wx.Dialog):
             self.vbox.Add(hbox,0)
     def onBtn(self,event):
         self.Close(True)
+class DamnReportBug(wx.Dialog):
+    def __init__(self,parent,id,main):
+        self.parent=main
+        wx.Dialog.__init__(self,parent,id,DV.l('Report a bug'))
+        topvbox=wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(topvbox)
+        panel=wx.Panel(self,-1)
+        topvbox.Add(panel,1,wx.EXPAND)
 class DamnAboutDamnVid(wx.Dialog):
     def __init__(self,parent,id,main):
         self.parent=main
@@ -3039,6 +3053,8 @@ class DamnMainFrame(wx.Frame): # The main window
         halpmenu=wx.Menu()
         halpmenu.Append(ID_MENU_HALP,DV.l('&Help'),DV.l('Opens DamnVid\'s help.'))
         self.Bind(wx.EVT_MENU,self.onHalp,id=ID_MENU_HALP)
+        halpmenu.Append(ID_MENU_REPORTBUG,DV.l('Report a bug...'),DV.l('Submit a new bug report.'))
+        self.Bind(wx.EVT_MENU,self.onReportBug,id=ID_MENU_REPORTBUG)
         halpmenu.Append(ID_MENU_UPDATE,DV.l('Check for updates...'),DV.l('Checks if a new version of DamnVid is available.'))
         self.Bind(wx.EVT_MENU,self.onCheckUpdates,id=ID_MENU_UPDATE)
         halpmenu.AppendSeparator()
@@ -3139,7 +3155,7 @@ class DamnMainFrame(wx.Frame): # The main window
         sizer2.Add(self.delAll,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
-        self.gobutton1=wx.Button(panel2,-1,'Let\'s go!')
+        self.gobutton1=wx.Button(panel2,-1,DV.l('Let\'s go!'))
         sizer2.Add(self.gobutton1,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.border_padding))
         buttonwidth=sizer2.GetMinSizeTuple()[0]
@@ -3642,6 +3658,11 @@ class DamnMainFrame(wx.Frame): # The main window
             pass # Halp here?
     def onHalp(self,event):
         webbrowser.open(DV.url_halp,2)
+    def onReportBug(self,event):
+        dlg=DamnReportBug(None,-1,main=self)
+        dlg.SetIcon(DV.icon)
+        dlg.ShowModal()
+        dlg.Destroy()
     def onCheckUpdates(self,event=None):
         updater=DamnVidUpdater(self,verbose=event is not None)
         updater.start()
@@ -3777,20 +3798,29 @@ class DamnVid(wx.App):
         if type(name) is not type([]):
             name=[name]
         self.loadArgs(name)
-Damnlog('All done, starting wx app already.')
-app=DamnVid(0)
-DV.gui_ok=True
-Damnlog('App up, entering main loop.')
-app.MainLoop()
-Damnlog('Main loop ended, saving prefs.')
-DV.prefs.save()
-DV.log.close()
-if DV.dumplocalewarnings:
-    Damnlog('Starting locale warnings dump')
+def DamnMain():
+    Damnlog('All done, starting wx app already.')
+    app=DamnVid(0)
+    DV.gui_ok=True
+    Damnlog('App up, entering main loop.')
+    app.MainLoop()
+    Damnlog('Main loop ended, saving prefs.')
+    DV.prefs.save()
+    DV.log.close()
+    if DV.dumplocalewarnings:
+        Damnlog('Starting locale warnings dump')
+        try:
+            f=open('damnvid-locale-warnings.log','w')
+            f.write(u'\n'.join(DV.locale_warnings).encode('utf8'))
+            f.close()
+            Damnlog('Successful locale warnings dump.')
+        except:
+            Damnlog('Failed to dump locale warnings.')
+try:
+    DamnMain()
+except:
     try:
-        f=open('damnvid-locale-warnings.log','w')
-        f.write(u'\n'.join(DV.locale_warnings).encode('utf8'))
-        f.close()
-        Damnlog('Successful locale warnings dump.')
+        Damnlog(traceback.format_exc())
     except:
-        Damnlog('Failed to dump locale warnings.')
+        pass # Epic fail
+# Done!

@@ -366,6 +366,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Output directory for HD videos': u'Output directory for HD videos',
         'Maximum videos from playlists': u'Maximum videos from playlists',
         ' However, your version (': u' However, your version (',
-        ') seems different than the latest version available online. Where would you get that?': u') seems different than the latest version available online. Where would you get that?'
+        ') seems different than the latest version available online. Where would you get that?': u') seems different than the latest version available online. Where would you get that?',
+        'Let\'s go!':u'Let\'s go!'
     }
 }
