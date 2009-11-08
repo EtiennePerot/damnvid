@@ -2982,7 +2982,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         keepgoing=True
                         copied=0.0
                         lasttime=0.0
-                        self.update(statustext=u'Copying '+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+DamnUnicode(self.filename+ext)+u'...')
+                        self.update(statustext=DV.l('Copying ')+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+DV.l(' to ')+DamnUnicode(self.filename+ext)+DV.l('...'))
                         Damnlog('Starting raw download of stream',src)
                         while keepgoing and not self.abort:
                             i=src.read(4096)
@@ -3081,12 +3081,12 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 Damnlog('ffmpeg call has been generated:',cmd)
                 self.filename=self.filenamenoext+ext
                 self.duration=None
-                self.update(statustext=u'Converting '+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+u' to '+DamnUnicode(self.filename.decode('utf8'))+u'...')
+                self.update(statustext=DV.l('Converting ')+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+DV.l(' to ')+DamnUnicode(self.filename.decode('utf8'))+DV.l('...'))
                 while int(self.passes)<=int(self.totalpasses) and not self.abort:
                     Damnlog('Starting pass',self.passes,'out of',self.totalpasses)
                     if self.totalpasses!=1:
-                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...'
-                        self.update(status='Pass '+str(self.passes)+'/'+str(self.totalpasses)+'...')
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status']=DV.l('Pass ')+str(self.passes)+'/'+str(self.totalpasses)+DV.l('...')
+                        self.update(status=DV.l('Pass ')+str(self.passes)+'/'+str(self.totalpasses)+DV.l('...'))
                         if self.stream=='-':
                             if self.passes==1:
                                 self.tmppassfile=DV.tmp_path+self.gettmpfilename(DV.tmp_path,self.filenamenoext,ext)
@@ -3735,10 +3735,10 @@ class DamnMainFrame(wx.Frame): # The main window
                                 vids=''
                                 for f in range(len(dirs[i])):
                                     if f==len(dirs[i])-1:
-                                        vids+='and "'+dirs[i][f]+'"'
+                                        vids+=DV.l('and')+' "'+dirs[i][f]+'"'
                                     else:
                                         vids+='"'+dirs[i][f]+'", '
-                            message+='\n'+vids+' ha'+haveverb+' been put into '+DamnFriendlyDir(i)+'.'
+                            message+='\n'+vids+DV.l(' ha'+haveverb+' been put into ')+DamnFriendlyDir(i)+'.'
                         del haveverb,dirs,vids
                     dlg=wx.MessageDialog(self,message,DV.l('Done!'),wx.OK|wx.ICON_INFORMATION)
                 else:

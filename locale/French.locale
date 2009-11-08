@@ -386,6 +386,14 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Error while connecting':u'Erreur de connexion',
         'Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Impossible de se connecter à Google Code. Vérifiez que votre connexion fonctionne et qu\'aucun pare-feu ne bloque DamnVid.',
         'Error while submitting issue':u'Erreur lors de l\'envoi',
-        'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'impossible de soumettre le rapport de bug à Google Code. Vérifiez que votre connexion fonctionne et qu\'aucun pare-feu ne bloque DamnVid.'
+        'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'impossible de soumettre le rapport de bug à Google Code. Vérifiez que votre connexion fonctionne et qu\'aucun pare-feu ne bloque DamnVid.',
+        ' has been put into ':u' a été mis dans ',
+        ' have been put into ':u' ont été mises dans ',
+        'and':u'et',
+        'Converting ':u'Conversion de ',
+        ' to ':u' à ',
+        '...':u'...',
+        'Pass ':u'Passe ',
+        'Copying ':u'Copie de '
     }
 }

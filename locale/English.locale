@@ -4,16 +4,16 @@ DV.languages['English']={
     'title':u'English',
     'author':u'Etienne Perot',
     'strings':{
-        'locale:damnvid-profile-explanation':"""DamnVid lets you create multiple so-called "Encoding profiles". An encoding profile is a set of encoding preferences used to encode videos.
+        'locale:damnvid-profile-explanation':u"""DamnVid lets you create multiple so-called "Encoding profiles". An encoding profile is a set of encoding preferences used to encode videos.
 
 Being able to create multiple instances of these profiles allow you to easily convert a set of videos to the same format, while converting others to another format. For instance, you might want to convert some videos with low-quality settings so that they can be played on your iPod, while converting a few other videos with higher quality settings before burning them on a DVD.
 
 Additionally, one of your encoding profiles may be set as the default one for new videos added in the video list from a specific source. This way, you can, for instance, convert all YouTube videos to iPod format, while converting all local files to DVD format. Use the "Default profiles" configuration panel to customize which profiles are used as default for a certain video source.""",
-        'locale:successfully-converted-file-but-ioerror':'DamnVid successfully converted the file but something (File permissions? Disconnected removable device?) prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:',
-        'locale:damnvid-updated-export-prefs':'If anything fails, try to uninstall DamnVid before updating it again.\n\nFrom a version to another, DamnVid\'s default preferences may vary, and their structure may change.\nIf that is the case, your current preferences may not work anymore.\nAdditionally, new versions of DamnVid often come with new or updated encoding profiles. That is why DamnVid is going to overwrite your current configuration.\nDo you want to export your current preferences, before they get overwritten? You might then try to import them back using the "Import" button in the Preferences pane.',
-        'locale:browse-damnvid-modules':'DamnVid modules (*.module.damnvid)|*.module.damnvid|All files (*.*)|*.*',
-        'locale:browse-ini-files':'INI files (*.ini)|*.ini|All files (*.*)|*.*',
-        'locale:browse-video-files':'All files|*.*|AVI videos (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',
+        'locale:successfully-converted-file-but-ioerror':u'DamnVid successfully converted the file but something (File permissions? Disconnected removable device?) prevents it from moving it to the output directory.\nAll hope is not lost, you can still move the file by yourself. It is here:',
+        'locale:damnvid-updated-export-prefs':u'If anything fails, try to uninstall DamnVid before updating it again.\n\nFrom a version to another, DamnVid\'s default preferences may vary, and their structure may change.\nIf that is the case, your current preferences may not work anymore.\nAdditionally, new versions of DamnVid often come with new or updated encoding profiles. That is why DamnVid is going to overwrite your current configuration.\nDo you want to export your current preferences, before they get overwritten? You might then try to import them back using the "Import" button in the Preferences pane.',
+        'locale:browse-damnvid-modules':u'DamnVid modules (*.module.damnvid)|*.module.damnvid|All files (*.*)|*.*',
+        'locale:browse-ini-files':u'INI files (*.ini)|*.ini|All files (*.*)|*.*',
+        'locale:browse-video-files':u'All files|*.*|AVI videos (*.avi)|*.avi|MPEG Videos (*.mpg)|*.mpg|QuickTime movies (*.mov)|*.mov|Flash Video (*.flv)|*.flv|Windows Media Videos (*.wmv)|*.wmv',
         'Most viewed': u'Most viewed',
         'Adds damn videos from local files.': u'Adds damn videos from local files.',
         'Status': u'Status',
@@ -386,6 +386,14 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Error while connecting':u'Error while connecting',
         'Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.',
         'Error while submitting issue':u'Error while submitting issue',
-        'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.'
+        'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.',
+        ' has been put into ':u' has been put into ',
+        ' have been put into ':u' have been put into ',
+        'and':u'and',
+        'Converting ':u'Converting ',
+        ' to ':u' to ',
+        '...':u'...',
+        'Pass ':u'Pass ',
+        'Copying ':u'Copying '
     }
 }
