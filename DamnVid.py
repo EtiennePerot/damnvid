@@ -43,9 +43,8 @@ import sys # System stuff
 import platform # Platform information
 import ConfigParser # INI file parsing and writing
 import base64 # Base64 encoding/decoding
-import gdata.youtube # YouTube API client
 import gdata.youtube.service # YouTube service
-import gdata.projecthosting # Google Code service
+import gdata.projecthosting.client # Google Code service
 import xmlrpclib # XML RPC server communication
 import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
 import unicodedata # Unicode normalization
@@ -180,6 +179,15 @@ class DamnLog:
                     return self.stream.write(s.encode('utf8'))
                 except:
                     pass
+    def flush(self):
+        try:
+            self.stream.flush()
+        except:
+            pass
+        try:
+            os.fsync(self.stream)
+        except:
+            pass
     def close(self):
         self.log('Closing log.')
         try:
@@ -209,6 +217,41 @@ try:
     Damnlog('Psyco OK.')
 except:
     Damnlog('Psyco error. Continuing anyway.')
+def DamnSysinfo():
+    try:
+        sysinfo='DamnVid version: '+DV.version+'\nDamnVid mode: '
+        if DV.bit64:
+            sysinfo+='64-bit'
+        else:
+            sysinfo+='32-bit'
+        sysinfo+='\nDamnVid arguments: '
+        if len(sys.argv[1:]):
+            sysinfo+=' '.join(sys.argv[1:])
+        else:
+            sysinfo+='(None)'
+        sysinfo+='\nMachine name: '
+        if len(platform.node()):
+            sysinfo+=platform.node()
+        else:
+            sysinfo+='Unknown'
+        sysinfo+='\nPlatform: '
+        if len(platform.platform()):
+            sysinfo+=platform.platform()
+        else:
+            sysinfo+='Unknown platform'
+        if len(platform.release()):
+            sysinfo+=' / '+platform.release()
+        else:
+            sysinfo+=' / Unknown release'
+        sysinfo+='\nArchitecture: '+' '.join(platform.architecture())
+        if len(platform.machine()):
+            sysinfo+=' / '+platform.machine()
+        else:
+            sysinfo+=' / Unknown machine type'
+        return DamnUnicode(sysinfo)
+    except:
+        return u'System information collection failed.'
+Damnlog('System information:\n'+DamnSysinfo()+'\n(End of system information)')
 DV.first_run=False
 DV.updated=False
 if not os.path.exists(DV.conf_file):
@@ -822,6 +865,14 @@ class DamnLoadingEvent(wx.PyCommandEvent):
         self.info=eventinfo
     def GetInfo(self):
         return self.info
+DV.evt_bugreporting=wx.NewEventType()
+DV.evt_bugreport=wx.PyEventBinder(DV.evt_bugreporting,1)
+class DamnBugReportEvent(wx.PyCommandEvent):
+    def __init__(self,eventtype,eventid,eventinfo):
+        wx.PyCommandEvent.__init__(self,eventtype,eventid)
+        self.info=eventinfo
+    def GetInfo(self):
+        return self.info
 class DamnDropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
     def __init__(self,parent):
         wx.FileDropTarget.__init__(self)
@@ -1137,20 +1188,186 @@ class DamnEEgg(wx.Dialog):
             self.vbox.Add(hbox,0)
     def onBtn(self,event):
         self.Close(True)
+class DamnBugReporter(thr.Thread):
+    def __init__(self,desc,steps='',sysinfo='',email='',parent=None):
+        self.desc=desc
+        self.steps=steps
+        self.sysinfo=sysinfo
+        self.email=email
+        self.parent=parent
+        thr.Thread.__init__(self)
+    def postEvent(self,title=None,dialog=None,error=False,closedialog=True):
+        info={'title':title,'dialog':dialog,'error':error,'closedialog':closedialog}
+        Damnlog('Posting a bug report update event with info',info)
+        if self.parent is None:
+            Damnlog('Not posting anything, parent is none.')
+            return
+        try:
+            wx.PostEvent(self.parent,DamnBugReportEvent(DV.evt_bugreporting,-1,info))
+        except:
+            Damnlog('Posting event failed - Window was closed?')
+    def run(self):
+        Damnlog('Bug reporter thread launched.')
+        if not len(self.desc):
+            Damnlog('Bug reporter not sending anything - bug description is empty.')
+            self.postEvent(DV.l('Empty bug description field'),DV.l('You must enter a bug description.'),error=True,closedialog=False)
+            return
+        Damnlog('Ready to submit bug.')
+        Damnlog('Initiating Google Code API object.')
+        api=gdata.projecthosting.client.ProjectHostingClient()
+        Damnlog('Logging in with damnvid-user@gmail.com credentials')
+        try:
+            api.client_login('damnvid.user@gmail.com','damnviduser',source='DamnVid '+DV.version,service='code') # OMG! Raw password!
+        except:
+            Damnlog('Could not log in to Google Code (Invalid connection?)',traceback.format_exc())
+            self.postEvent(DV.l('Error while connecting'),DV.l('Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.'),error=True,closedialog=False)
+            return
+        summary=u'Bug: '+self.desc+u'\n\nSteps:\n'+self.steps+u'\n\n'+self.sysinfo+u'\n\n'
+        if len(self.email):
+            summary+=u'Email: '+self.email.replace(u'@',u' (at) ').replace(u'.', u' (dot) ').replace(u'+', u' (plus) ').replace(u'-', u' (minus) ')+u'\n\n'
+        try:
+            Damnlog('Starting log dump, flusing.')
+            DV.log.flush()
+            Damnlog('Flushed, dumping...')
+            logdump=''
+            f=open(DV.log_file,'r')
+            for i in f:
+                logdump+=i
+            f.close()
+            logdump=DamnUnicode(logdump.strip())
+            Damnlog('Log dump done, uploading to pastebin.')
+            http=urllib2.urlopen(urllib2.Request('http://pastehtml.com/upload/create?input_type=txt&result=address',urllib.urlencode({'txt':logdump})))
+            pasteurl=http.read(-1)
+            http.close()
+            Damnlog('Uploaded to',pasteurl)
+            summary+=u'damnvid.log: '+DamnUnicode(pasteurl)
+        except:
+            summary+=u'(Could not upload the contents of damnvid.log)'
+        Damnlog('Login successful, submitting issue...')
+        try:
+            api.add_issue('damnvid',self.desc.encode('utf8','ignore'),summary.encode('utf8','ignore'),'windypower',status='New',labels=['Type-Defect','Priority-Medium'])
+        except:
+            Damnlog('Issue submission failed.',traceback.format_exc())
+            self.postEvent(DV.l('Error while submitting issue'),DV.l('Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.'),error=True,closedialog=False)
+            return
+        Damnlog('Issue submission successful.')
+        self.postEvent(DV.l('Success'),DV.l('Bug report submitted successfully. Thanks!'),error=False,closedialog=True)
 class DamnReportBug(wx.Dialog):
     def __init__(self,parent,id,main):
+        Damnlog('Opening bug report form.')
         self.parent=main
         wx.Dialog.__init__(self,parent,id,DV.l('Report a bug'))
+        Damnlog('Building UI of bug dialog.')
         topvbox=wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(topvbox)
         panel=wx.Panel(self,-1)
+        panelvbox=wx.BoxSizer(wx.VERTICAL)
         topvbox.Add(panel,1,wx.EXPAND)
+        panel.SetSizer(panelvbox)
+        panelvbox.Add((0,DV.border_padding))
+        panelhbox=wx.BoxSizer(wx.HORIZONTAL)
+        panelvbox.Add(panelhbox)
+        panelvbox.Add((0,DV.border_padding))
+        panelhbox.Add((DV.border_padding,0))
+        panelbox=wx.BoxSizer(wx.VERTICAL)
+        panelhbox.Add(panelbox)
+        panelhbox.Add((DV.border_padding,0))
+        formtitle=wx.StaticText(panel,-1,DV.l('Report a bug'))
+        formtitle.SetFont(wx.Font(14,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
+        panelbox.Add(formtitle)
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('Thanks for taking the time to report a bug.')))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('Please fill the form below to complete your bug report.')))
+        panelbox.Add((0,DV.border_padding))
+        panelbox.Add(wx.StaticLine(self,-1))
+        panelbox.Add((0,DV.border_padding))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('Short description of the problem:')))
+        self.description=wx.TextCtrl(panel,-1)
+        panelbox.Add(self.description,0,wx.EXPAND)
+        panelbox.Add((0,2*DV.border_padding))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('What steps did you take for the problem to happen?')))
+        self.steps=wx.TextCtrl(panel,-1,value='1. \n2. \n3. ',style=wx.TE_MULTILINE)
+        panelbox.Add(self.steps,0,wx.EXPAND)
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('(If you tried to download a video, please include its URL.)')))
+        panelbox.Add((0,2*DV.border_padding))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('System information:')))
+        sysinfo=DamnSysinfo()
+        if sysinfo!=u'System information collection failed.':
+            sysinfo=u'-- Auto-collected system information --\n'+sysinfo+u'\n-- End of auto-collected system information --'
+        self.sysinfo=wx.TextCtrl(panel,-1,value=sysinfo,style=wx.TE_MULTILINE)
+        panelbox.Add(self.sysinfo,0,wx.EXPAND)
+        panelbox.Add((0,2*DV.border_padding))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('Email-address (Optional):')))
+        self.email=wx.TextCtrl(panel,-1)
+        panelbox.Add(self.email,0,wx.EXPAND)
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('(You will be notified at this address when there is progress about this bug.)')))
+        panelbox.Add((0,2*DV.border_padding))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('In addition to this information, DamnVid\'s log file will also be sent.')))
+        panelbox.Add(wx.StaticText(panel,-1,DV.l('This file is located here: ')+DamnUnicode(DV.log_file)))
+        panelbox.Add((0,2*DV.border_padding))
+        buttonsizer=wx.BoxSizer(wx.HORIZONTAL)
+        panelbox.Add(buttonsizer,0,wx.ALIGN_RIGHT)
+        self.loading=wx.animate.GIFAnimationCtrl(panel,-1,DV.images_path+'bugreportload.gif')
+        self.send=wx.Button(panel,-1,DV.l('Send'))
+        self.Bind(wx.EVT_BUTTON,self.onSend,self.send)
+        buttonsizer.Add(self.loading)
+        buttonsizer.Add(self.send)
+        self.loading.Hide()
+        buttonsizer.Add((DV.border_padding,0))
+        closebutton=wx.Button(panel,-1,DV.l('Cancel'))
+        self.Bind(wx.EVT_BUTTON,self.onCancel,closebutton)
+        buttonsizer.Add(closebutton)
+        self.Bind(DV.evt_bugreport,self.onReportUpdate)
+        Damnlog('UI built, centering report bug dialog.')
+        self.SetClientSize(panel.GetBestSize())
+        self.Center()
+        Damnlog('Report bug dialog ready to be shown.')
+    def onCancel(self,event=None):
+        self.Close(True)
+    def onReportUpdate(self,event):
+        info=event.GetInfo()
+        Damnlog('Bug report update event fired with info:',info)
+        self.send.Show()
+        self.loading.Stop()
+        self.loading.Hide()
+        self.Layout()
+        if info['error']:
+            icon=wx.ICON_ERROR
+        else:
+            icon=wx.ICON_INFORMATION
+        dlg=wx.MessageDialog(None,info['dialog'],info['title'],wx.OK|icon)
+        dlg.SetIcon(DV.icon)
+        dlg.ShowModal()
+        dlg.Destroy()
+        if info['closedialog']:
+            Damnlog('Closing bug report dialog as requested by event,')
+            self.onCancel()
+    def onSend(self,event):
+        Damnlog('Send bug report button clicked.')
+        self.send.Hide()
+        self.loading.Show()
+        self.loading.Play()
+        self.Layout()
+        desc=DamnUnicode(self.description.GetValue())
+        email=DamnUnicode(self.email.GetValue())
+        sysinfo=DamnUnicode(self.sysinfo.GetValue())
+        steps=DamnUnicode(self.steps.GetValue())
+        Damnlog('Spawning DamnBugReporter with information: \n\tDescription: '+desc+u'\n\tSystem info: '+sysinfo+'\n\tSteps:\n'+steps+u'\n\tEmail: ',email)
+        DamnBugReporter(desc,steps,sysinfo,email,parent=self).start()
+        Damnlog('DamnBugReporter spawned and launched.')
 class DamnAboutDamnVid(wx.Dialog):
     def __init__(self,parent,id,main):
         self.parent=main
         wx.Dialog.__init__(self,parent,id,DV.l('About DamnVid ')+DV.version)
+        absbox1=wx.BoxSizer(wx.VERTICAL)
+        absbox2=wx.BoxSizer(wx.VERTICAL)
+        self.SetSizer(absbox1)
+        absbox1.Add((0,DV.border_padding))
+        absbox1.Add(absbox2)
+        absbox1.Add((0,DV.border_padding))
         topvbox=wx.BoxSizer(wx.VERTICAL)
-        self.SetSizer(topvbox)
+        absbox2.Add((DV.border_padding,0))
+        absbox2.Add(topvbox)
+        absbox2.Add((DV.border_padding,0))
         panel=wx.Panel(self,-1)
         topvbox.Add(panel,1,wx.EXPAND)
         hbox=wx.BoxSizer(wx.HORIZONTAL)
@@ -1163,7 +1380,7 @@ class DamnAboutDamnVid(wx.Dialog):
         icon.Bind(wx.EVT_LEFT_DCLICK,self.eEgg)
         vbox1.Add(icon,1,wx.ALIGN_CENTER)
         title=wx.StaticText(panel,-1,DV.l('DamnVid ')+DV.version)
-        title.SetFont(wx.Font(24,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
+        title.SetFont(wx.Font(20,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_BOLD))
         vbox2.Add(title,1)
         author=wx.StaticText(panel,-1,DV.l('By Etienne Perot'))
         author.SetFont(wx.Font(16,wx.FONTFAMILY_DEFAULT,wx.FONTSTYLE_NORMAL,wx.FONTWEIGHT_NORMAL))
@@ -3053,7 +3270,7 @@ class DamnMainFrame(wx.Frame): # The main window
         halpmenu=wx.Menu()
         halpmenu.Append(ID_MENU_HALP,DV.l('&Help'),DV.l('Opens DamnVid\'s help.'))
         self.Bind(wx.EVT_MENU,self.onHalp,id=ID_MENU_HALP)
-        halpmenu.Append(ID_MENU_REPORTBUG,DV.l('Report a bug...'),DV.l('Submit a new bug report.'))
+        halpmenu.Append(ID_MENU_REPORTBUG,DV.l('Report a bug'),DV.l('Submit a new bug report.'))
         self.Bind(wx.EVT_MENU,self.onReportBug,id=ID_MENU_REPORTBUG)
         halpmenu.Append(ID_MENU_UPDATE,DV.l('Check for updates...'),DV.l('Checks if a new version of DamnVid is available.'))
         self.Bind(wx.EVT_MENU,self.onCheckUpdates,id=ID_MENU_UPDATE)
@@ -3147,14 +3364,10 @@ class DamnMainFrame(wx.Frame): # The main window
         sizer2.Add(self.btnMoveDown,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
         self.Bind(wx.EVT_BUTTON,self.onMoveDown,self.btnMoveDown)
-        self.delSelection=wx.Button(panel2,-1,DV.l('Remove'))
-        sizer2.Add(self.delSelection,0,wx.ALIGN_CENTER)
+        self.deletebutton=wx.Button(panel2,-1,DV.l('Remove'))
+        sizer2.Add(self.deletebutton,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.control_vgap))
-        self.Bind(wx.EVT_BUTTON,self.onDelSelection,self.delSelection)
-        self.delAll=wx.Button(panel2,-1,DV.l('Remove all'))
-        sizer2.Add(self.delAll,0,wx.ALIGN_CENTER)
-        sizer2.Add((0,DV.control_vgap))
-        self.Bind(wx.EVT_BUTTON,self.onDelAll,self.delAll)
+        self.Bind(wx.EVT_BUTTON,self.onDelete,self.deletebutton)
         self.gobutton1=wx.Button(panel2,-1,DV.l('Let\'s go!'))
         sizer2.Add(self.gobutton1,0,wx.ALIGN_CENTER)
         sizer2.Add((0,DV.border_padding))
@@ -3180,7 +3393,7 @@ class DamnMainFrame(wx.Frame): # The main window
         hboxwrapper4.Add((0,DV.border_padding))
         panel4.SetSizer(hboxwrapper4)
         self.stopbutton=wx.Button(panel4,-1,DV.l('Stop'))
-        for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.delSelection,self.delAll,self.gobutton1,self.stopbutton,self.btnSearch):
+        for button in (self.addByFile,self.addByURL,self.btnRename,self.btnMoveUp,self.btnMoveDown,self.deletebutton,self.gobutton1,self.stopbutton,self.btnSearch):
             button.SetMinSize((buttonwidth,button.GetSizeTuple()[1]))
         self.profiledropdown.SetMinSize((buttonwidth,tmplistheight))
         self.profiledropdown.Bind(wx.EVT_CHOICE,self.onChangeProfileDropdown)
@@ -3265,10 +3478,9 @@ class DamnMainFrame(wx.Frame): # The main window
         sel=self.list.getAllSelectedItems()
         gotstuff=bool(len(sel))
         self.btnRename.Enable(len(sel)==1)
-        self.delSelection.Enable(gotstuff)
-        self.delAll.Enable(gotstuff)
         self.profiledropdown.Enable(gotstuff)
         if gotstuff:
+            self.deletebutton.SetLabel(DV.l('Remove'))
             self.btnMoveUp.Enable(sel[0])
             self.btnMoveDown.Enable(sel[-1]!=self.list.GetItemCount()-1)
             choices=[]
@@ -3286,6 +3498,7 @@ class DamnMainFrame(wx.Frame): # The main window
             else:
                 self.profiledropdown.SetSelection(uniprofile+1)
         else:
+            self.deletebutton.SetLabel(DV.l('Remove all'))
             self.btnMoveUp.Disable()
             self.btnMoveDown.Disable()
             self.profiledropdown.SetItems([DV.l('(None)')])
@@ -3397,7 +3610,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     dlg.Destroy()
                 elif verbose and type(info['updateinfo']['main']) is type(''):
                     if DV.version!=info['updateinfo']['main']:
-                        versionwarning=DV.l(' However, your version ('+DV.version+') seems different than the latest version available online. Where would you get that?')
+                        versionwarning=DV.l(' However, your version (')+DV.version+DV.l(') seems different than the latest version available online. Where would you get that?')
                     else:
                         versionwarning=''
                     msg=(DV.l('DamnVid is up-to-date.'),DV.l('DamnVid is up-to-date! The latest version is ')+info['updateinfo']['main']+'.'+versionwarning,wx.ICON_INFORMATION)
@@ -3681,6 +3894,11 @@ class DamnMainFrame(wx.Frame): # The main window
         self.videos.pop(i)
         if self.converting>i:
             self.converting=self.converting-1
+    def onDelete(self,event):
+        if len(self.list.getAllSelectedItems()):
+            self.onDelSelection(event)
+        else:
+            self.onDelAll(event)
     def onDelSelection(self,event):
         items=self.list.getAllSelectedItems()
         if len(items):
@@ -3692,6 +3910,7 @@ class DamnMainFrame(wx.Frame): # The main window
             else:
                 for i in reversed(items): # Sequence MUST be reversed, otherwise the first items get deleted first, which changes the indexes of the following items
                     self.delVid(i)
+            self.onListSelect()
         else:
             dlg=wx.MessageDialog(None,DV.l('You must select some videos from the list first!'),DV.l('Select some videos!'),wx.ICON_EXCLAMATION|wx.OK)
             dlg.SetIcon(DV.icon)

@@ -367,6 +367,25 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Maximum videos from playlists': u'Maximum videos from playlists',
         ' However, your version (': u' However, your version (',
         ') seems different than the latest version available online. Where would you get that?': u') seems different than the latest version available online. Where would you get that?',
-        'Let\'s go!':u'Let\'s go!'
+        'Let\'s go!':u'Let\'s go!',
+        'Report a bug':u'Report a bug',
+        'Submit a new bug report.':u'Submit a new bug report.',
+        'Send':u'Send',
+        'Thanks for taking the time to report a bug.':u'Thanks for taking the time to report a bug.',
+        'Please fill the form below to complete your bug report.':u'Please fill the form below to complete your bug report.',
+        'Short description of the problem:':u'Short description of the problem:',
+        'What steps did you take for the problem to happen?':u'What steps did you take for the problem to happen?',
+        '(If you tried to download a video, please include its URL.)':u'(If you tried to download a video, please include its URL.)',
+        'System information:':u'System information:',
+        'Email-address (Optional):':u'Email-address (Optional, used for notifications only):',
+        '(You will be notified at this address when there is progress about this bug.)':u'(You will be notified at this address when there is progress about this bug.)',
+        'In addition to this information, DamnVid\'s log file will also be sent.':u'In addition to this information, DamnVid\'s log file will also be sent.',
+        'This file is located here: ':u'This file is located here: ',
+        'Empty bug description field':u'Empty bug description field',
+        'You must enter a bug description.':u'You must enter a bug description.',
+        'Error while connecting':u'Error while connecting',
+        'Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.',
+        'Error while submitting issue':u'Error while submitting issue',
+        'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.'
     }
 }

@@ -367,6 +367,25 @@ DV.languages['French']={
         'Maximum videos from playlists': u'Nombre maximal de vidéos dans une liste',
         ' However, your version (': u' Cependant, votre version (',
         ') seems different than the latest version available online. Where would you get that?': u') semble être différente de celle disponible en ligne. Où avez vous trouvé cela?',
-        'Let\'s go!':u'C\'est parti!'
+        'Let\'s go!':u'C\'est parti!',
+        'Report a bug':u'Signaler un bug',
+        'Submit a new bug report.':u'Soumettre un rapport de bug.',
+        'Send':u'Envoyer',
+        'Thanks for taking the time to report a bug.':u'Merci de prendre le temps de signaler un bug.',
+        'Please fill the form below to complete your bug report.':u'Veuillez remplir le formulaire pour compléter votre rapport.',
+        'Short description of the problem:':u'Brève description du problème:',
+        'What steps did you take for the problem to happen?':u'Quels étapes avez-vous pris pour obtenir ce problème?',
+        '(If you tried to download a video, please include its URL.)':u'(Si vous avez essayé de télécharger une vidéo, spécifiez son URL.)',
+        'System information:':u'Informations sur le système:',
+        'Email-address (Optional):':u'Adresse email (Optionnel):',
+        '(You will be notified at this address when there is progress about this bug.)':u'(Vous serez mis au courant à cet adresse à propos du bug.)',
+        'In addition to this information, DamnVid\'s log file will also be sent.':u'Le fichier de rapport de DamnVid sera aussi envoyé.',
+        'This file is located here: ':u'Ce fichier est ici: ',
+        'Empty bug description field':u'Champ de description vide',
+        'You must enter a bug description.':u'Vous devez entrer une description.',
+        'Error while connecting':u'Erreur de connexion',
+        'Could not connect to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'Impossible de se connecter à Google Code. Vérifiez que votre connexion fonctionne et qu\'aucun pare-feu ne bloque DamnVid.',
+        'Error while submitting issue':u'Erreur lors de l\'envoi',
+        'Could not submit bug report to Google Code. Please make sure that your Internet connection is active and that no firewall is blocking DamnVid.':u'impossible de soumettre le rapport de bug à Google Code. Vérifiez que votre connexion fonctionne et qu\'aucun pare-feu ne bloque DamnVid.'
     }
 }
