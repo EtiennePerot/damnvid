@@ -7,7 +7,7 @@ class DamnModule_YouTube(DamnVideoModule):
         self.regex={
             'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
             'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
-            'title':(re.compile('<title>\s*YouTube\s*-\s*([^<>]+)\s*</title>',re.IGNORECASE),self.regex['title']),
+            'title':(re.compile('<title>\s*YouTube\s*-\s*([^<>]+?)\s*</title>',re.IGNORECASE),self.regex['title']),
             'ticket':re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2',re.IGNORECASE)
         }
         self.hd=None
@@ -98,7 +98,7 @@ DamnRegisterModule({
     'name':'youtube',
     'title':'YouTube',
     'type':'video',
-    'version':'1.2',
+    'version':'1.3',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',

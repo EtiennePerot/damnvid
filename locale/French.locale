@@ -4,16 +4,16 @@ DV.languages['French']={
         'title':u'Français',
         'author':u'Benoît Philippe, Etienne Pérot',
         'strings':{
-        'locale:damnvid-profile-explanation':"""DamnVid vous permez de créer plusieurs "Profils d'encodage". Un profil d'encodage est un jeu de préférences utilisé pour le codage de vidéo.
+        'locale:damnvid-profile-explanation':u"""DamnVid vous permez de créer plusieurs "Profils d'encodage". Un profil d'encodage est un jeu de préférences utilisé pour le codage de vidéo.
 
-        Être capable de créer plusieurs profils vous permet de convertir facilement un paquet de vidéo à un même format, et de convertir d'autres vidéos à un autre format. Par exemple, vous pourriez vouloir convertir certaines vidéos avec une qualité moindre pour qu'elle puisse être lu sur votre iPod, pendant que vous convertissez une autre vidéo avec une meilleure qualité pour la graver sur DVD.
+Être capable de créer plusieurs profils vous permet de convertir facilement un paquet de vidéo à un même format, et de convertir d'autres vidéos à un autre format. Par exemple, vous pourriez vouloir convertir certaines vidéos avec une qualité moindre pour qu'elle puisse être lu sur votre iPod, pendant que vous convertissez une autre vidéo avec une meilleure qualité pour la graver sur DVD.
 
-        L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajoutées dans la liste depuis une source spécifique. De cette manière, vous pouvez, par exemple, convertir toutes de YouTube au format iPod, pendant que vous convertissez tout vos fichiers locaux en format DVD. Utilisez le panneau de configuration des "Profils par défauts" pour personnaliser quels profils sont utilisés par défaut pour une certaine source.""",
-        'locale:successfully-converted-file-but-ioerror':'DamnVid a converti avec succés le fichier, mais quelque chose (Permissions de fichier? Déconnexion d\'un disque dur portable?) a empéché qu\'il soit placé dans le dossier de destination. \nle fichier n\'est cependant pas perdu, vous pouvez toujours le déplacer vous-même. Il est ici:',
-        'locale:damnvid-updated-export-prefs':'Si quelque chose ne fonctionne pas, essayez de désinstaller Damnvid avant de le mettre à jour de nouveau. \n\nD\'une version à l\'autre, les préférences par défaut de DamnVid peuvent varier, et leur structure peut changer.\nSi c\'est le cas, vos préférences actuelles peuvent ne plus fonctionner.\nDe plus, une nouvelle version vient généralement avec des profils d\'encodage nouveaux ou améliorés. C\'est pourquoi DamnVid va remplacer votre configuration actuelle.\nVoulez-vous exporter vos préférences actuelles, avant qu\'elles ne soient remplacées? Vous pourrez par la suite essayer de les réimporter en utilisant le bouton "Importer" dans le panneau de préférences.',
-        'locale:browse-damnvid-modules':'Modules pour DamnVid (*.module.damnvid)|*.module.damnvid|Tous les fichiers (*.*)|*.*',
-        'locale:browse-ini-files':'Fichiers INI (*.ini)|*.ini|Tous les fichiers (*.*)|*.*',
-        'locale:browse-video-files':'All files|*.*|Vidéos AVI (*.avi)|*.avi|Vidéos MPEG (*.mpg)|*.mpg|Vidéos QuickTime (*.mov)|*.mov|Vidéos Flash (*.flv)|*.flv|Vidéos Windows Media (*.wmv)|*.wmv',
+L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajoutées dans la liste depuis une source spécifique. De cette manière, vous pouvez, par exemple, convertir toutes de YouTube au format iPod, pendant que vous convertissez tout vos fichiers locaux en format DVD. Utilisez le panneau de configuration des "Profils par défauts" pour personnaliser quels profils sont utilisés par défaut pour une certaine source.""",
+        'locale:successfully-converted-file-but-ioerror':u'DamnVid a converti avec succès le fichier, mais quelque chose (Permissions de fichier? Déconnexion d\'un disque dur portable?) a empéché qu\'il soit placé dans le dossier de destination. \nle fichier n\'est cependant pas perdu, vous pouvez toujours le déplacer vous-même. Il est ici:',
+        'locale:damnvid-updated-export-prefs':u'Si quelque chose ne fonctionne pas, essayez de désinstaller Damnvid avant de le mettre à jour de nouveau. \n\nD\'une version à l\'autre, les préférences par défaut de DamnVid peuvent varier, et leur structure peut changer.\nSi c\'est le cas, vos préférences actuelles peuvent ne plus fonctionner.\nDe plus, une nouvelle version vient généralement avec des profils d\'encodage nouveaux ou améliorés. C\'est pourquoi DamnVid va remplacer votre configuration actuelle.\nVoulez-vous exporter vos préférences actuelles, avant qu\'elles ne soient remplacées? Vous pourrez par la suite essayer de les réimporter en utilisant le bouton "Importer" dans le panneau de préférences.',
+        'locale:browse-damnvid-modules':u'Modules pour DamnVid (*.module.damnvid)|*.module.damnvid|Tous les fichiers (*.*)|*.*',
+        'locale:browse-ini-files':u'Fichiers INI (*.ini)|*.ini|Tous les fichiers (*.*)|*.*',
+        'locale:browse-video-files':u'All files|*.*|Vidéos AVI (*.avi)|*.avi|Vidéos MPEG (*.mpg)|*.mpg|Vidéos QuickTime (*.mov)|*.mov|Vidéos Flash (*.flv)|*.flv|Vidéos Windows Media (*.wmv)|*.wmv',
         'Most viewed': u'Plus visionnées',
         'Adds damn videos from local files.': u'Ajoute des vidéos depuis les fichiers locaux.',
         'Status': u'Statut',
@@ -128,7 +128,7 @@ DV.languages['French']={
         ' was updated to version ': u' a été mis à jour à la version ',
         '&About DamnVid ': u'À p&ropos de DamnVid ',
         'There was an error while checking for updates to ': u'Erreur pendant la recherche de mises à jour pour ',
-        'Success!': u'Succés!',
+        'Success!': u'Succès!',
         'No videos!': u'Aucune vidéo!',
         'No videos selected': u'Aucune vidéo sélectionnée',
         ') is available! You are running DamnVid ': u') est disponible! Vous utilisez DamnVid ',

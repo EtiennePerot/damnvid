@@ -136,6 +136,7 @@ DV.conf_file_location={
 }
 if DV.os=='posix' or DV.os=='mac':
     DV.conf_file_location=DamnUnicode(os.path.expanduser(DV.conf_file_location[DV.os]))
+    DV.appdata_path=os.path.dirname(DV.conf_file_location)
 else:
     DV.conf_file_location=DamnUnicode(DV.conf_file_location[DV.os])
 DV.conf_file_directory=DamnUnicode(DV.conf_file_location+DV.sep)
@@ -152,8 +153,8 @@ class DamnLog:
     def __init__(self):
         self.time=0
         try:
-            if not os.path.exists(os.path.dirname(DV.log_file)):
-                self.makedirs(os.path.dirname(DV.log_file))
+            if not os.path.exists(DV.appdata_path):
+                self.makedirs(DV.appdata_path)
             self.stream=open(DV.log_file,'w')
             self.stream.write((self.getPrefix()+u'Log opened.').encode('utf8'))
         except:
@@ -522,7 +523,7 @@ class DamnVideoModule:
     def addVid(self,parent):
         parent.addValid(self.getVidObject())
     def getVidObject(self):
-        obj={'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':'Pending.','icon':self.getIcon(),'module':self,'downloadgetter':self.getDownloadGetter()}
+        obj={'name':self.getTitle(),'profile':self.getProfile(),'profilemodified':False,'fromfile':self.getTitle(),'dirname':self.getLink(),'uri':self.getID(),'status':DV.l('Pending.'),'icon':self.getIcon(),'module':self,'downloadgetter':self.getDownloadGetter()}
         Damnlog('Module',self.name,'returning video object:',obj)
         return obj
 class DamnModuleUpdateCheck(thr.Thread):
@@ -3175,18 +3176,26 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
         Damnlog('I\'m gonna kill dash nine, cause it\'s my time to shine.')
         self.abort=True # This prevents the converter from going to the next file
-        if self.profile!=-1:
-            if DV.os=='nt':
-                DamnSpawner('"'+DV.bin_path+'taskkill.exe" /PID '+str(self.process.pid)+' /F').wait()
-            elif DV.os=='mac':
-                DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # From http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
-            else:
-                os.kill(self.process.pid,signal.SIGTERM)
-            time.sleep(.5) # Wait a bit, let the files get unlocked
-            try:
-                os.remove(self.outdir+self.tmpfilename)
-            except:
-                pass # Maybe the file wasn't created yet
+        try:
+            killit=True
+            if self.__dict__.has_key('profile'):
+                if self.profile==-1:
+                    killit=False
+            Damnlog('Killing process?',killit)
+            if killit:
+                if DV.os=='nt':
+                    DamnSpawner('"'+DV.bin_path+'taskkill.exe" /PID '+str(self.process.pid)+' /F').wait()
+                elif DV.os=='mac':
+                    DamnSpawner('kill -SIGTERM '+str(self.process.pid)).wait() # From http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
+                else:
+                    os.kill(self.process.pid,signal.SIGTERM)
+                time.sleep(.5) # Wait a bit, let the files get unlocked
+                try:
+                    os.remove(self.outdir+self.tmpfilename)
+                except:
+                    pass # Maybe the file wasn't created yet
+        except:
+            Damnlog('Error while trying to stop encoding process.')
 class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
     def __init__(self,uri,pipe,copy=None):
         Damnlog('DamnDownloader spawned. URI:',uri,'; Pipe:',pipe)
