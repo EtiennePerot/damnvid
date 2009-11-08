@@ -60,7 +60,13 @@ def DamnUnicode(s):
     if type(s) is type(u''):
         return s
     if type(s) is type(''):
-        return unicode(s,errors='ignore')
+        try:
+            return unicode(s)
+        except:
+            try:
+                return unicode(s.decode('windows-1252')) # Windows file paths with accents and weird characters
+            except:
+                return unicode(s,errors='ignore')
     try:
         return unicode(s)
     except:
@@ -70,7 +76,8 @@ def DamnUnicode(s):
 class DamnVid:
     pass
 DV=DamnVid() # The only global variable out there. Srsly.
-DV.curdir=DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))+os.sep)
+DV.sep=DamnUnicode(os.sep)
+DV.curdir=DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0])))+DV.sep
 versionfile=open(DV.curdir+'version.damnvid','r')
 DV.version=DamnUnicode(versionfile.readline().strip())
 DV.argv=sys.argv[1:]
@@ -113,25 +120,25 @@ if DV.os=='nt':
     DV.appdata_path=ctypes.create_string_buffer(wintypes.MAX_PATH)
     ctypes.windll.shell32.SHGetFolderPathA(None,0xE,None,0,DV.my_videos_path)
     ctypes.windll.shell32.SHGetFolderPathA(None,0x1A,None,0,DV.appdata_path)
-    DV.my_videos_path=DamnUnicode(str(DV.my_videos_path.value))
-    DV.appdata_path=DamnUnicode(str(DV.appdata_path.value))
+    DV.my_videos_path=DamnUnicode(DV.my_videos_path.value)
+    DV.appdata_path=DamnUnicode(DV.appdata_path.value)
     del ctypes, wintypes
     # Do not delete win32process, it is used in the DamnSpawner class.
 elif DV.os=='mac':
-    DV.my_videos_path=DamnUnicode(os.path.expanduser('~'+os.sep+'Movies'))
+    DV.my_videos_path=DamnUnicode(os.path.expanduser('~'+DV.sep+'Movies'))
 else:
-    DV.my_videos_path=DamnUnicode(os.path.expanduser('~'+os.sep+'Videos'))
+    DV.my_videos_path=DamnUnicode(os.path.expanduser('~'+DV.sep+'Videos'))
 
 DV.conf_file_location={
-    'nt':DamnUnicode(DV.appdata_path+os.sep+'DamnVid'),
-    'posix':DamnUnicode('~'+os.sep+'.damnvid'),
-    'mac':DamnUnicode('~'+os.sep+'Library'+os.sep+'Preferences'+os.sep+'DamnVid')
+    'nt':DamnUnicode(DV.appdata_path+DV.sep+'DamnVid'),
+    'posix':DamnUnicode('~'+DV.sep+'.damnvid'),
+    'mac':DamnUnicode('~'+DV.sep+'Library'+DV.sep+'Preferences'+DV.sep+'DamnVid')
 }
 if DV.os=='posix' or DV.os=='mac':
     DV.conf_file_location=DamnUnicode(os.path.expanduser(DV.conf_file_location[DV.os]))
 else:
     DV.conf_file_location=DamnUnicode(DV.conf_file_location[DV.os])
-DV.conf_file_directory=DamnUnicode(DV.conf_file_location+os.sep)
+DV.conf_file_directory=DamnUnicode(DV.conf_file_location+DV.sep)
 if not os.path.exists(DV.conf_file_directory):
     os.makedirs(DV.conf_file_directory)
 DV.conf_file=DamnUnicode(DV.conf_file_directory+'damnvid.ini')
@@ -257,7 +264,7 @@ DV.updated=False
 if not os.path.exists(DV.conf_file):
     if not os.path.exists(os.path.dirname(DV.conf_file)):
         os.makedirs(os.path.dirname(DV.conf_file))
-    shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
+    shutil.copyfile(DV.curdir+'conf'+DV.sep+'conf.ini',DV.conf_file)
     lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
     lastversion.write(DV.version)
     lastversion.close()
@@ -276,12 +283,12 @@ else:
         lastversion.write(DV.version.encode('utf8'))
         lastversion.close()
     del lastversion
-DV.images_path=DamnUnicode(DV.curdir+'img/'.replace('/',os.sep))
-DV.bin_path=DamnUnicode(DV.curdir+'bin/'.replace('/',os.sep))
-DV.locale_path=DamnUnicode(DV.curdir+'locale/'.replace('/',os.sep))
+DV.images_path=DamnUnicode(DV.curdir+'img/'.replace('/',DV.sep))
+DV.bin_path=DamnUnicode(DV.curdir+'bin/'.replace('/',DV.sep))
+DV.locale_path=DamnUnicode(DV.curdir+'locale/'.replace('/',DV.sep))
 DV.tmp_path=DamnUnicode(tempfile.gettempdir())
-if DV.tmp_path[-1]!=os.sep:
-    DV.tmp_path+=DamnUnicode(os.sep)
+if DV.tmp_path[-1]!=DV.sep:
+    DV.tmp_path+=DamnUnicode(DV.sep)
 DV.tmp_path+=u'damnvid-'
 DV.file_ext={
     'avi':u'avi',
@@ -319,6 +326,17 @@ DV.codec_advanced_cl={
 }
 DV.youtube_service=gdata.youtube.service.YouTubeService()
 Damnlog('Init underway, starting to declare fancier stuff.')
+def DamnExecFile(f):
+    try:
+        execfile(DamnUnicode(f))
+    except:
+        try:
+            execfile(DamnUnicode(f).encode('utf8'))
+        except:
+            try:
+                execfile(DamnUnicode(f).encode('windows-1252'))
+            except:
+                pass
 class DamnIconList(wx.ImageList): # An imagelist with dictionary-like association, not stupid IDs, and graceful failure. Can also be initialized with delay.
     def __init__(self,width=16,height=16,mask=True,initialCount=0,fail=None,initNow=False):
         self.list={}
@@ -418,7 +436,7 @@ def DamnRegisterModule(module):
         if module['register'].has_key('listicons'):
             module['class'].register['listicons']={}
             for icon in module['register']['listicons'].iterkeys():
-                DV.listicons.add(DV.modules_path+module['name']+os.sep+module['register']['listicons'][icon],icon)
+                DV.listicons.add(DV.modules_path+module['name']+DV.sep+module['register']['listicons'][icon],icon)
     if module.has_key('preferences'):
         for pref in module['preferences'].iterkeys():
             DV.preferences['damnvid-module-'+module['name']+':'+pref]=module['preferences'][pref]
@@ -607,15 +625,12 @@ class DamnVidUpdater(thr.Thread):
         self.postEvent()
 def DamnLoadModule(module):
     for i in os.listdir(module):
-        if not os.path.isdir(module+os.sep+i) and i[-8:]=='.damnvid':
-            execfile(module+os.sep+i)
+        if not os.path.isdir(module+DV.sep+i) and i[-8:]=='.damnvid':
+            DamnExecFile(module+DV.sep+i)
 def DamnLoadConfig(forcemodules=False):
     Damnlog('Loading config.')
     DV.preferences=None
-    try:
-        execfile(DV.curdir+'conf'+os.sep+'preferences.damnvid') # Load preferences
-    except:
-        pass # Someone's been messing around with the conf.py file?
+    DamnExecFile(DV.curdir+u'conf'+DV.sep+u'preferences.damnvid')
     DV.path_prefs=[]
     DV.defaultprefs={
     }
@@ -629,7 +644,7 @@ def DamnLoadConfig(forcemodules=False):
     DV.prefs=None # Will be loaded later
     # Load modules
     Damnlog('Loading modules.')
-    DV.modules_path=DV.conf_file_directory+'modules'+os.sep
+    DV.modules_path=DV.conf_file_directory+'modules'+DV.sep
     if not os.path.exists(DV.modules_path):
         os.makedirs(DV.modules_path)
     DV.modules={}
@@ -666,7 +681,7 @@ def DamnLoadConfig(forcemodules=False):
         for i in os.listdir(DV.curdir+'modules'):
             if i[-15:]=='.module.damnvid':
                 Damnlog('Installing',i)
-                DamnInstallModule(DV.curdir+'modules'+os.sep+i)
+                DamnInstallModule(DV.curdir+'modules'+DV.sep+i)
     for i in os.listdir(DV.modules_path):
         if os.path.isdir(DV.modules_path+i):
             DamnLoadModule(DV.modules_path+i)
@@ -708,7 +723,7 @@ DV.lang='English' # Default, will be overriden later if needed.
 for i in os.listdir(DV.locale_path):
     if i[-7:].lower()=='.locale':
         Damnlog('Loading locale',DV.locale_path+i)
-        execfile(DV.locale_path+i)
+        DamnExecFile(DV.locale_path+i)
 DamnLoadCurrentLocale()
 # Begin ID constants
 ID_MENU_EXIT=wx.ID_EXIT
@@ -742,7 +757,8 @@ REGEX_THOUSAND_SEPARATORS=re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 Damnlog('End init, begin declarations.')
 def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
     finalcmd=[]
-    oldcmd=cmd
+    oldcmd=DamnUnicode(cmd)
+    cwd=DamnUnicode(cwd)
     while cmd:
         if cmd[0]=='"':
             arg=cmd[1:cmd.find('"',1)]
@@ -760,7 +776,7 @@ def DamnSpawner(cmd,shell=False,stderr=None,stdout=None,stdin=None,cwd=None):
         cwd=os.getcwd()
     if DV.os=='nt':
         Damnlog('Spawning subprocess',oldcmd)
-        return subprocess.Popen(oldcmd,shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd,executable=exe,bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+        return subprocess.Popen(oldcmd.encode('windows-1252'),shell=shell,creationflags=win32process.CREATE_NO_WINDOW,stderr=subprocess.PIPE,stdout=subprocess.PIPE,stdin=subprocess.PIPE,cwd=cwd.encode('windows-1252'),executable=DamnUnicode(exe).encode('windows-1252'),bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
     else:
         Damnlog('Spawning subprocess',finalcmd)
         return subprocess.Popen(finalcmd,shell=shell,stderr=stderr,stdout=stdout,stdin=stdin,cwd=cwd,executable=exe,bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
@@ -843,8 +859,8 @@ def DamnFriendlyDir(d):
     else:
         myvids=DV.l('My Videos')
     d=d.replace('?DAMNVID_MY_VIDEOS?',myvids)
-    d=os.path.expanduser(d).replace(DV.my_videos_path,myvids).replace('/',os.sep).replace('\\',os.sep)
-    while d[-1:]==os.sep:
+    d=os.path.expanduser(d).replace(DV.my_videos_path,myvids).replace('/',DV.sep).replace('\\',DV.sep)
+    while d[-1:]==DV.sep:
         d=d[0:-1]
     return d
 def DamnHtmlEntities(html):
@@ -1055,7 +1071,7 @@ class DamnAddURLDialog(wx.Dialog):
                     scrollinglistsizer.Add((0,DV.control_vgap))
                     sitesizer=wx.BoxSizer(wx.HORIZONTAL)
                     scrollinglistsizer.Add(sitesizer)
-                    sitesizer.Add(wx.StaticBitmap(scrollinglist,-1,wx.Bitmap(DV.modules_path+i['name']+os.sep+site['icon'])),0,wx.ALIGN_CENTER_VERTICAL)
+                    sitesizer.Add(wx.StaticBitmap(scrollinglist,-1,wx.Bitmap(DV.modules_path+i['name']+DV.sep+site['icon'])),0,wx.ALIGN_CENTER_VERTICAL)
                     sitesizer.Add((DV.control_hgap,0))
                     sitesizer.Add(DamnHyperlink(scrollinglist,-1,site['title'],site['url']),0,wx.ALIGN_CENTER_VERTICAL)
         scrollinglist.SetMinSize((-1,220))
@@ -1422,12 +1438,12 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
             if i[0:16]=='damnvid-profile-':
                 self.profiles=self.profiles+1
     def expandPath(self,value):
-        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace('?DAMNVID_MY_VIDEOS?',DV.my_videos_path.replace(os.sep,'/'))).replace('/',os.sep)
-        if value[-1:]!=os.sep:
-            value+=os.sep
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(DV.sep,'/').replace('?DAMNVID_MY_VIDEOS?',DV.my_videos_path.replace(DV.sep,'/'))).replace('/',DV.sep)
+        if value[-1:]!=DV.sep:
+            value+=DV.sep
         return value
     def reducePath(self,value):
-        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(os.sep,'/').replace(DV.my_videos_path.replace(os.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace(os.sep,'/')
+        value=REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/',value.replace(DV.sep,'/').replace(DV.my_videos_path.replace(DV.sep,'/'),'?DAMNVID_MY_VIDEOS?')).replace(DV.sep,'/')
         if value[-1:]!='/':
             value+='/'
         return value
@@ -1738,6 +1754,7 @@ class DamnVidBrowser(wx.Dialog):
         self.searchbox.SetValue(searchlabel)
         Damnlog('Youtube browser API prefix is',prefix)
         self.buildSearchbox()
+        search=DamnUnicode(search)
         Damnlog('YouTube browser search box populating complete, beginning actual search for',search)
         self.getService().query(('feed',prefix+urllib2.quote(search)))
         Damnlog('YouTube browser search results for',search,'are in, destroying interface.')
@@ -2065,7 +2082,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.moduledescs={}
         for i in DamnIterModules():
             self.modules[i]=self.tree.AppendItem(self.modulelistitem,DV.modules[i]['title'])
-            self.tree.SetItemImage(self.modules[i],self.treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+os.sep+DV.modules[i]['icon']['small'])))
+            self.tree.SetItemImage(self.modules[i],self.treeimages.Add(wx.Bitmap(DV.modules_path+DV.modules[i]['name']+DV.sep+DV.modules[i]['icon']['small'])))
         self.profileroot=self.tree.AppendItem(self.treeroot,DV.l('Encoding profiles'))
         self.tree.SetItemImage(self.profileroot,self.treeimages.Add(wx.Bitmap(DV.images_path+'profiles.png')))
         self.profiles=[]
@@ -2133,7 +2150,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         # Construct top row of the module item
         tehrow=wx.BoxSizer(wx.HORIZONTAL)
         tmptopsizer.Add(tehrow,1,wx.EXPAND)
-        tehrow.Add(wx.StaticBitmap(tmppanel,-1,wx.Bitmap(DV.modules_path+module+os.sep+mod['icon']['large'])))
+        tehrow.Add(wx.StaticBitmap(tmppanel,-1,wx.Bitmap(DV.modules_path+module+DV.sep+mod['icon']['large'])))
         tehrow.Add((DV.control_hgap,0))
         rightcol=wx.BoxSizer(wx.VERTICAL)
         tehrow.Add(rightcol,1,wx.EXPAND)
@@ -2476,7 +2493,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             elif DV.preferences[genericpref]['kind']=='bool':
                 val=self.controls[i].IsChecked() # The str() representation takes care of True/False
             if val is not None:
-                DV.prefs.sets(self.pane,prefname,str(val))
+                DV.prefs.sets(self.pane,prefname,DamnUnicode(val))
         if name!=None and self.tree.GetSelection()!=self.treeroot and self.tree.GetItemParent(self.tree.GetSelection())==self.profileroot:
             self.tree.SetItemText(self.tree.GetSelection(),name)
             self.prefpanelabel.SetLabel(name)
@@ -2701,7 +2718,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             checkupdates=DV.prefs.get('checkforupdates')
             DV.prefs=None
             os.remove(DV.conf_file)
-            shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
+            shutil.copyfile(DV.curdir+'conf'+DV.sep+'conf.ini',DV.conf_file)
             DamnLoadConfig(forcemodules=True)
             DV.prefs=DamnVidPrefs()
             DV.prefs.set('checkforupdates',checkupdates)
@@ -2821,7 +2838,7 @@ class DamnVideoLoader(thr.Thread):
                     if os.path.isdir(uri):
                         if DV.prefs.get('DirRecursion')=='True':
                             for i in os.listdir(uri):
-                                self.vidLoop([uri+os.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
+                                self.vidLoop([uri+DV.sep+i]) # This is recursive; if i is a directory, this block will be executed for it too
                         else:
                             if len(uris)==1: # Only one dir, so an alert here is tolerable
                                 self.showDialog(DV.l('Recursion is disabled.'),DV.l('This is a directory, but recursion is disabled in the preferences. Please enable it if you want DamnVid to go through directories.'),wx.OK|wx.ICON_EXCLAMATION)
@@ -2920,14 +2937,14 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     self.stream='-' # It's another stream, spawn a downloader thread to take care of it and pipe the content to ffmpeg via stdin
                     if self.outdir is None:
                         self.outdir=DV.prefs.get('defaultweboutdir')
-                if self.outdir[-1:]==os.sep:
+                if self.outdir[-1:]==DV.sep:
                     self.outdir=self.outdir[0:-1]
                 if not os.path.exists(self.outdir):
                     os.makedirs(self.outdir)
                 elif not os.path.isdir(self.outdir):
                     os.remove(self.outdir)
                     os.makedirs(self.outdir)
-                self.outdir=self.outdir+os.sep
+                self.outdir=self.outdir+DV.sep
                 Damnlog('Profile is',self.profile,'; Output directory is',self.outdir)
                 if self.profile==-1: # Do not encode, just copy
                     Damnlog('We\'re in raw copy mode')
@@ -3126,7 +3143,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                     except:
                                         pass
                                 except:
-	                            self.update(dialog=(DV.l('Cannot move file!'),DV.l('locale:successfully-converted-file-but-ioerror')+'\n'+DV.tmp_path+i,wx.OK|wx.ICON_EXCLAMATION))
+                                    self.update(dialog=(DV.l('Cannot move file!'),DV.l('locale:successfully-converted-file-but-ioerror')+'\n'+DV.tmp_path+i,wx.OK|wx.ICON_EXCLAMATION))
                     else:
                         try:
                             os.remove(DV.tmp_path+i)
@@ -3440,7 +3457,7 @@ class DamnMainFrame(wx.Frame): # The main window
             # Now, overwrite the preferences!
             del tmpprefs
             os.remove(DV.conf_file)
-            shutil.copyfile(DV.curdir+'conf'+os.sep+'conf.ini',DV.conf_file)
+            shutil.copyfile(DV.curdir+'conf'+DV.sep+'conf.ini',DV.conf_file)
             lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
             lastversion.write(DV.version.encode('utf8'))
             lastversion.close()
