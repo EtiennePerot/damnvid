@@ -391,7 +391,6 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         ' have been put into ':u' ont été mises dans ',
         'and':u'et',
         'Converting ':u'Conversion de ',
-        ' to ':u' à ',
         '...':u'...',
         'Pass ':u'Passe ',
         'Copying ':u'Copie de '

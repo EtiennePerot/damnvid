@@ -72,13 +72,25 @@ def DamnUnicode(s):
     except:
         return s
 
+def DamnOpenFile(f,m):
+    f=DamnUnicode(f)
+    try:
+        return open(f,m)
+    except:
+        try:
+            return open(f.encode('utf8'),m)
+        except:
+            try:
+                return open(f.encode('windows-1252'),m)
+            except:
+                return open(f.encode('utf8','ignore'),m)
 # Begin constants
 class DamnVid:
     pass
 DV=DamnVid() # The only global variable out there. Srsly.
 DV.sep=DamnUnicode(os.sep)
 DV.curdir=DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0])))+DV.sep
-versionfile=open(DV.curdir+'version.damnvid','r')
+versionfile=DamnOpenFile(DV.curdir+'version.damnvid','r')
 DV.version=DamnUnicode(versionfile.readline().strip())
 DV.argv=sys.argv[1:]
 versionfile.close()
@@ -155,7 +167,7 @@ class DamnLog:
         try:
             if not os.path.exists(DV.appdata_path):
                 self.makedirs(DV.appdata_path)
-            self.stream=open(DV.log_file,'w')
+            self.stream=DamnOpenFile(DV.log_file,'w')
             self.stream.write((self.getPrefix()+u'Log opened.').encode('utf8'))
         except:
             self.stream=None
@@ -226,38 +238,38 @@ try:
 except:
     Damnlog('Psyco error. Continuing anyway.')
 def DamnSysinfo():
-    try:
-        sysinfo='DamnVid version: '+DV.version+'\nDamnVid mode: '
+    if True:
+        sysinfo=u'DamnVid version: '+DV.version+u'\nDamnVid mode: '
         if DV.bit64:
-            sysinfo+='64-bit'
+            sysinfo+=u'64-bit'
         else:
-            sysinfo+='32-bit'
-        sysinfo+='\nDamnVid arguments: '
+            sysinfo+=u'32-bit'
+        sysinfo+=u'\nDamnVid arguments: '
         if len(sys.argv[1:]):
-            sysinfo+=' '.join(sys.argv[1:])
+            sysinfo+=DamnUnicode(' '.join(sys.argv[1:]))
         else:
-            sysinfo+='(None)'
-        sysinfo+='\nMachine name: '
+            sysinfo+=u'(None)'
+        sysinfo+=u'\nMachine name: '
         if len(platform.node()):
-            sysinfo+=platform.node()
+            sysinfo+=DamnUnicode(platform.node())
         else:
-            sysinfo+='Unknown'
-        sysinfo+='\nPlatform: '
+            sysinfo+=u'Unknown'
+        sysinfo+=u'\nPlatform: '
         if len(platform.platform()):
-            sysinfo+=platform.platform()
+            sysinfo+=DamnUnicode(platform.platform())
         else:
-            sysinfo+='Unknown platform'
+            sysinfo+=u'Unknown platform'
         if len(platform.release()):
-            sysinfo+=' / '+platform.release()
+            sysinfo+=u' / '+DamnUnicode(platform.release())
         else:
-            sysinfo+=' / Unknown release'
-        sysinfo+='\nArchitecture: '+' '.join(platform.architecture())
+            sysinfo+=u' / Unknown release'
+        sysinfo+=u'\nArchitecture: '+DamnUnicode(' '.join(platform.architecture()))
         if len(platform.machine()):
-            sysinfo+=' / '+platform.machine()
+            sysinfo+=u' / '+DamnUnicode(platform.machine())
         else:
-            sysinfo+=' / Unknown machine type'
+            sysinfo+=u' / Unknown machine type'
         return DamnUnicode(sysinfo)
-    except:
+    else:
         return u'System information collection failed.'
 Damnlog('System information:\n'+DamnSysinfo()+'\n(End of system information)')
 DV.first_run=False
@@ -266,21 +278,21 @@ if not os.path.exists(DV.conf_file):
     if not os.path.exists(os.path.dirname(DV.conf_file)):
         os.makedirs(os.path.dirname(DV.conf_file))
     shutil.copyfile(DV.curdir+'conf'+DV.sep+'conf.ini',DV.conf_file)
-    lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
+    lastversion=DamnOpenFile(DV.conf_file_directory+'lastversion.damnvid','w')
     lastversion.write(DV.version)
     lastversion.close()
     del lastversion
     DV.first_run=True
 else:
     if os.path.exists(DV.conf_file_directory+'lastversion.damnvid'):
-        lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
+        lastversion=DamnOpenFile(DV.conf_file_directory+'lastversion.damnvid','r')
         version=lastversion.readline().strip()
         lastversion.close()
         DV.updated=version!=DV.version
         del version
     else:
         DV.updated=True
-        lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
+        lastversion=DamnOpenFile(DV.conf_file_directory+'lastversion.damnvid','w')
         lastversion.write(DV.version.encode('utf8'))
         lastversion.close()
     del lastversion
@@ -574,7 +586,7 @@ class DamnModuleUpdateCheck(thr.Thread):
                                 try:
                                     http=urllib2.urlopen(url)
                                     tmpname=DamnTempFile()
-                                    tmp=open(tmpname,'wb')
+                                    tmp=DamnOpenFile(tmpname,'wb')
                                     for i in http:
                                         tmp.write(i)
                                     tmp.close()
@@ -1242,12 +1254,12 @@ class DamnBugReporter(thr.Thread):
         summary=u'Bug: '+self.desc+u'\n\nSteps:\n'+self.steps+u'\n\n'+self.sysinfo+u'\n\n'
         if len(self.email):
             summary+=u'Email: '+self.email.replace(u'@',u' (at) ').replace(u'.', u' (dot) ').replace(u'+', u' (plus) ').replace(u'-', u' (minus) ')+u'\n\n'
-        try:
+        if True:
             Damnlog('Starting log dump, flusing.')
             DV.log.flush()
             Damnlog('Flushed, dumping...')
             logdump=''
-            f=open(DV.log_file,'r')
+            f=DamnOpenFile(DV.log_file,'r')
             for i in f:
                 logdump+=i
             f.close()
@@ -1258,8 +1270,9 @@ class DamnBugReporter(thr.Thread):
             http.close()
             Damnlog('Uploaded to',pasteurl)
             summary+=u'damnvid.log: '+DamnUnicode(pasteurl)
-        except:
+        else:
             summary+=u'(Could not upload the contents of damnvid.log)'
+            Damnlog('Impossible to send contents of damnvid.log!')
         Damnlog('Login successful, submitting issue...')
         try:
             api.add_issue('damnvid',self.desc.encode('utf8','ignore'),summary.encode('utf8','ignore'),'windypower',status='New',labels=['Type-Defect','Priority-Medium'])
@@ -1430,7 +1443,7 @@ class DamnSplashScreen(wx.SplashScreen):
 class DamnVidPrefs: # Preference manager (backend, not GUI)
     def __init__(self):
         self.conf={}
-        f=open(DV.conf_file,'r')
+        f=DamnOpenFile(DV.conf_file,'r')
         self.ini=ConfigParser.SafeConfigParser()
         self.ini.readfp(f)
         f.close()
@@ -1554,7 +1567,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
     def seta(self,section,name,value):
         return self.sets(section,name,base64.b64encode(str(value)))
     def save(self):
-        f=open(DV.conf_file,'w')
+        f=DamnOpenFile(DV.conf_file,'w')
         self.ini.write(f)
         f.close()
 class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
@@ -1615,7 +1628,7 @@ class DamnYouTubeService(thr.Thread):
             elif query[0]=='image':
                 http=urllib2.urlopen(query[1])
                 tmpf=self.getTempFile()
-                tmpfstream=open(tmpf,'wb')
+                tmpfstream=DamnOpenFile(tmpf,'wb')
                 for i in http.readlines():
                     tmpfstream.write(i)
                 http.close()
@@ -2737,7 +2750,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             path=dlg.GetPath()
             dlg.Destroy()
             DV.prefs.set('lastprefdir',path)
-            f=open(path,'r')
+            f=DamnOpenFile(path,'r')
             testprefs=ConfigParser.SafeConfigParser()
             allOK=False
             try:
@@ -2774,7 +2787,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         if dlg.ShowModal()==wx.ID_OK:
             path=dlg.GetPath()
             DV.prefs.set('lastprefdir',path)
-            f=open(path,'w')
+            f=DamnOpenFile(path,'w')
             DV.prefs.ini.write(f)
             f.close()
         dlg.Destroy()
@@ -2891,7 +2904,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
         while os.path.exists(path+tmpfilename):
             tmpcount+=1
             tmpfilename=prefix+'-'+str(tmpcount)+ext
-        f=open(path+tmpfilename,'wb')   # Just create the file
+        f=DamnOpenFile(path+tmpfilename,'wb')   # Just create the file
         f.close()
         return tmpfilename
     def getfinalfilename(self,path,prefix,ext):
@@ -2968,7 +2981,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                             Damnlog('Temp URI is',tmpuri)
                         else: # Just copy the file, lol
                             total=int(os.lstat(self.stream).st_size)
-                            src=open(self.stream,'rb')
+                            src=DamnOpenFile(self.stream,'rb')
                             tmpuri=self.stream
                             Damnlog('Total is',total,'; Temp URI is',tmpuri)
                         if REGEX_URI_EXTENSION_EXTRACT.search(tmpuri):
@@ -2977,12 +2990,12 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                             ext='.avi' # And pray for the best again!
                         self.filename=self.getfinalfilename(self.outdir,self.filename,ext)
                         Damnlog('Filename is',self.filename,'; opening local stream.')
-                        dst=open(self.outdir+self.filename+ext,'wb')
+                        dst=DamnOpenFile(self.outdir+self.filename+ext,'wb')
                         Damnlog(self.outdir+self.filename+ext,'opened.')
                         keepgoing=True
                         copied=0.0
                         lasttime=0.0
-                        self.update(statustext=DV.l('Copying ')+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+DV.l(' to ')+DamnUnicode(self.filename+ext)+DV.l('...'))
+                        self.update(statustext=DV.l('Copying ')+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+DV.l('...'))
                         Damnlog('Starting raw download of stream',src)
                         while keepgoing and not self.abort:
                             i=src.read(4096)
@@ -3035,11 +3048,18 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                 cmd.append('-sameq')
                             else:
                                 cmd.extend(['-'+i[9:],pref])
-                self.encodevideo=DV.prefs.getp(self.profile,'video')
-                self.encodeaudio=DV.prefs.getp(self.profile,'audio')
-                if not self.encodevideo:
+                self.encodevideo=DamnUnicode(DV.prefs.getp(self.profile,'video'))==u'True'
+                self.encodeaudio=DamnUnicode(DV.prefs.getp(self.profile,'audio'))==u'True'
+                print '>>>>',DamnUnicode(DV.prefs.getp(self.profile,'audio')),DamnUnicode(DV.prefs.getp(self.profile,'video'))
+                if self.encodevideo:
+                    Damnlog('Encoding video.')
+                else:
+                    Damnlog('Not encoding video.')
                     cmd.append('-vn')
-                if not self.encodeaudio:
+                if self.encodeaudio:
+                    Damnlog('Encoding audio.')
+                else:
+                    Damnlog('Not encoding audio.')
                     cmd.append('-an')
                 vidformat=DV.prefs.getp(self.profile,'Encoding_f')
                 self.vcodec=DV.prefs.getp(self.profile,'Encoding_vcodec')
@@ -3081,7 +3101,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 Damnlog('ffmpeg call has been generated:',cmd)
                 self.filename=self.filenamenoext+ext
                 self.duration=None
-                self.update(statustext=DV.l('Converting ')+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+DV.l(' to ')+DamnUnicode(self.filename.decode('utf8'))+DV.l('...'))
+                self.update(statustext=DV.l('Converting ')+DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name'])+DV.l('...'))
                 while int(self.passes)<=int(self.totalpasses) and not self.abort:
                     Damnlog('Starting pass',self.passes,'out of',self.totalpasses)
                     if self.totalpasses!=1:
@@ -3133,8 +3153,8 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                 os.rename(DV.tmp_path+i,self.outdir+self.filename)
                             except: # Now this is really bad, alert the user
                                 try: # Manual copy, might be needed if we're working on two different filesystems on a non-Windows platform
-                                    src=open(DV.tmp_path+i,'rb')
-                                    dst=open(self.outdir+self.filename,'wb')
+                                    src=DamnOpenFile(DV.tmp_path+i,'rb')
+                                    dst=DamnOpenFile(self.outdir+self.filename,'wb')
                                     for fileline in src.readlines():
                                         dst.write(fileline)
                                     try: # Another try block in order to avoid raising the huge except block with the dialog
@@ -3226,7 +3246,7 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
         writing=''
         direct=False
         if self.copy!=None:
-            copystream=open(self.copy,'wb')
+            copystream=DamnOpenFile(self.copy,'wb')
         i='letsgo'
         while len(i):
             tmptimer=thr.Timer(10.0,self.timeouterror)
@@ -3442,7 +3462,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.SetIcon(DV.icon)
     def init2(self):
         if os.path.exists(DV.conf_file_directory+'lastversion.damnvid'):
-            lastversion=open(DV.conf_file_directory+'lastversion.damnvid','r')
+            lastversion=DamnOpenFile(DV.conf_file_directory+'lastversion.damnvid','r')
             dvversion=lastversion.readline().strip()
             lastversion.close()
             del lastversion
@@ -3457,7 +3477,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 dlg=wx.FileDialog(self,DV.l('Where do you want to export DamnVid\'s configuration?'),tmpprefs.get('lastprefdir'),'DamnVid-'+dvversion+'-configuration.ini',DV.l('locale:browse-ini-files'),wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
                 if dlg.ShowModal()==wx.ID_OK:
                     path=dlg.GetPath()
-                    f=open(path,'w')
+                    f=DamnOpenFile(path,'w')
                     tmpprefs.ini.write(f)
                     f.close()
                 dlg.Destroy()
@@ -3467,7 +3487,7 @@ class DamnMainFrame(wx.Frame): # The main window
             del tmpprefs
             os.remove(DV.conf_file)
             shutil.copyfile(DV.curdir+'conf'+DV.sep+'conf.ini',DV.conf_file)
-            lastversion=open(DV.conf_file_directory+'lastversion.damnvid','w')
+            lastversion=DamnOpenFile(DV.conf_file_directory+'lastversion.damnvid','w')
             lastversion.write(DV.version.encode('utf8'))
             lastversion.close()
             del lastversion
@@ -4055,7 +4075,7 @@ def DamnMain():
     if DV.dumplocalewarnings:
         Damnlog('Starting locale warnings dump')
         try:
-            f=open('damnvid-locale-warnings.log','w')
+            f=DamnOpenFile('damnvid-locale-warnings.log','w')
             f.write(u'\n'.join(DV.locale_warnings).encode('utf8'))
             f.close()
             Damnlog('Successful locale warnings dump.')

@@ -391,7 +391,6 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         ' have been put into ':u' have been put into ',
         'and':u'and',
         'Converting ':u'Converting ',
-        ' to ':u' to ',
         '...':u'...',
         'Pass ':u'Pass ',
         'Copying ':u'Copying '
