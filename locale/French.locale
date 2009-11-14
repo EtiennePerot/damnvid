@@ -393,6 +393,8 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Converting ':u'Conversion de ',
         '...':u'...',
         'Pass ':u'Passe ',
-        'Copying ':u'Copie de '
+        'Copying ':u'Copie de ',
+        'Added ':u'Ajouté ',
+        'Done.':u'Fait.'
     }
 }

@@ -34,11 +34,11 @@ class DamnModule_WatTV(DamnVideoModule):
         for i in html:
             res=self.regex['ticket'][1].search(i)
             if res:
-                ticketurl=res.group(1).replace('\\','')+'?getURL=1'
+                ticketurl=res.group(1).replace('\\','')
         if ticketurl is None:
             return
-        finalhttp=urllib2.urlopen(ticketurl)
-        self.newTicket(finalhttp.read(-1))
+        finalhttp=urllib2.urlopen(ticketurl+'?getURL=1')
+        self.newTicket([finalhttp.read(-1),ticketurl])
         finalhttp.close()
 DamnRegisterModule({
     'name':'wattv',

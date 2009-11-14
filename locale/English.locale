@@ -393,6 +393,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Converting ':u'Converting ',
         '...':u'...',
         'Pass ':u'Pass ',
-        'Copying ':u'Copying '
+        'Copying ':u'Copying ',
+        'Added ':u'Added ',
+        'Done.':u'Done.'
     }
 }

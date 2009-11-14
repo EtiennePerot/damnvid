@@ -5,28 +5,28 @@ import py2exe
 import os
 import shutil
 
-path2src='../../DamnVid/'
-versionfile=open(path2src+'version.damnvid','r')
-version=versionfile.readline().strip()
+path2src = '../../DamnVid/'
+versionfile = open(path2src + 'version.damnvid', 'r')
+version = versionfile.readline().strip()
 versionfile.close()
-description='DamnVid'
-files=open(path2src+'required-files.txt','r')
-data_files=[]
+description = 'DamnVid'
+files = open(path2src + 'required-files.txt', 'r')
+data_files = []
 for f in files.readlines():
-    curfile=f.strip()
-    if curfile and curfile!='DamnVid.exe':
-        if curfile.find(os.sep)==-1:
-            data_files.append(path2src+curfile)
+    curfile = f.strip()
+    if curfile and curfile != 'DamnVid.exe':
+        if curfile.find(os.sep) == -1:
+            data_files.append(path2src + curfile)
         else:
-            data_files.append((curfile[0:curfile.rfind(os.sep)],[path2src+curfile]))
+            data_files.append((curfile[0:curfile.rfind(os.sep)], [path2src + curfile]))
 files.close()
 class Target:
-    def __init__(self,**kw):
+    def __init__(self, **kw):
         self.__dict__.update(kw)
-        self.version=version
-        self.company_name='Etienne Perot'
-        self.copyright='',
-        self.name='DamnVid'
+        self.version = version
+        self.company_name = 'Etienne Perot'
+        self.copyright = '',
+        self.name = 'DamnVid'
 
 setup(
     name='DamnVid',
@@ -46,14 +46,11 @@ setup(
     url='http://code.google.com/p/damnvid/',
     windows=[
         {
-            'script':path2src+'DamnVid.py',
+            'script':path2src + 'DamnVid.py',
             'icon_resources':[
-                (0,path2src+'img/icon.ico')
+                (0, path2src + 'img/icon.ico')
             ]
         }
     ],
     data_files=data_files
 )
-shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\gdiplus.dll','dist/gdiplus.dll')
-shutil.copyfile('C:\\Python25\\lib\\site-packages\\wx-2.8-msw-unicode\\wx\\msvcp71.dll','dist/MSVCP71.dll')
-shutil.copyfile('C:\\Python25\\unicows.dll','dist/unicows.dll')
