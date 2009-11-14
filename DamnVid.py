@@ -3118,7 +3118,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                 self.stream = self.tmppassfile
                         if self.passes != 1:
                             self.tmpfilename = self.gettmpfilename(DV.tmp_path, self.filenamenoext, ext)
-                    self.process = DamnSpawner(self.cmd2str(cmd), stdout=subprocess, stderr=subprocess.PIPE, stdin=subprocess.PIPE, cwd=os.path.dirname(DV.tmp_path))
+                    self.process = DamnSpawner(self.cmd2str(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, cwd=os.path.dirname(DV.tmp_path))
                     if self.stream == '-':
                         if self.totalpasses != 1:
                             self.feeder = DamnDownloader(self.uris, self.process.stdin, self.tmppassfile)

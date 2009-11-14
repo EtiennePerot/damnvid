@@ -394,7 +394,10 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         '...':u'...',
         'Pass ':u'Pass ',
         'Copying ':u'Copying ',
+        'Bug report submitted successfully. Thanks!':u'Bug report submitted successfully. Thanks!',
         'Added ':u'Added ',
-        'Done.':u'Done.'
+        'Done.':u'Done.',
+        'Number of videos to download':u'Number of videos to download',
+        'Video only (no audio)':u'Video only (no audio)'
     }
 }
