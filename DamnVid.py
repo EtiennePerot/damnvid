@@ -26,6 +26,7 @@
 import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
+import wx.lib.stattext # Static texts that respond to mouse events
 import os # Filesystem functions.
 import traceback # Traces, yay.
 import re # Regular expressions \o/
@@ -365,6 +366,7 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
         self.fail = fail
         self.width = width
         self.height = height
+        self.rawbitmaps = {}
         if initNow:
             self.initWX()
     def initWX(self):
@@ -380,13 +382,20 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
             if type(bitmap) in (type(''), type(u'')):
                 bitmap = wx.Bitmap(bitmap)
             self.list[handle] = self.Add(bitmap)
+            self.rawbitmaps[handle] = bitmap
         else:
             self.list[handle] = bitmap
         return handle
+    def getRawBitmap(self, handle):
+        if type(handle) not in (type(''),type(u'')):
+            for k in self.list.iterkeys():
+                if self.list[k] == handle:
+                    handle = k
+        return self.rawbitmaps[handle]
     def get(self, handle):
         if not self.init:
             return
-        if type(handle) is type(''):
+        if type(handle) in (type(''),type(u'')):
             if handle in self.list.keys():
                 handle = self.list[handle]
             else:
@@ -774,19 +783,24 @@ REGEX_THOUSAND_SEPARATORS = re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 Damnlog('End init, begin declarations.')
 def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None):
     finalcmd = []
-    oldcmd = DamnUnicode(cmd)
+    if cwd is None:
+        cwd = DV.curdir
     cwd = DamnUnicode(cwd)
-    while cmd:
-        if cmd[0] == '"':
-            arg = cmd[1:cmd.find('"', 1)]
-            cmd = cmd[2 + len(arg):].strip()
-        else:
-            if cmd.find(' ') != -1:
-                arg = cmd[0:cmd.find(' ')]
+    if type(cmd) in (type(''),type(u'')):
+        oldcmd = DamnUnicode(cmd)
+        while cmd:
+            if cmd[0] == '"':
+                arg = cmd[1:cmd.find('"', 1)]
+                cmd = cmd[2 + len(arg):].strip()
             else:
-                arg = cmd
-            cmd = cmd[len(arg):].strip()
-        finalcmd.append(arg)
+                if cmd.find(' ') != -1:
+                    arg = cmd[0:cmd.find(' ')]
+                else:
+                    arg = cmd
+                cmd = cmd[len(arg):].strip()
+            finalcmd.append(arg)
+    else:
+        finalcmd = cmd
     if DV.os == 'nt':
         Damnlog('Spawning subprocess', oldcmd)
         return subprocess.Popen(oldcmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
@@ -1384,12 +1398,152 @@ class DamnReportBug(wx.Dialog):
         Damnlog('Spawning DamnBugReporter with information: \n\tDescription: ' + desc + u'\n\tSystem info: ' + sysinfo + '\n\tSteps:\n' + steps + u'\n\tEmail: ', email)
         DamnBugReporter(desc, steps, sysinfo, email, parent=self).start()
         Damnlog('DamnBugReporter spawned and launched.')
+def DamnOpenFileManager(directory,selectfile=None,*args):
+    if directory is not None:
+        directory=DamnUnicode(directory)
+    if selectfile is not None:
+        selectfile=DamnUnicode(selectfile)
+        if selectfile.find(DV.sep)==-1 and directory is not None:
+            selectfile=(directory+DV.sep+selectfile).replace(DV.sep+DV.sep,DV.sep)
+    Damnlog('opening default file manager at directory',directory,'; selecting file',selectfile)
+    if DV.os == 'nt':
+        if selectfile is not None:
+            DamnSpawner(['explorer.exe','/select,',DamnUnicode(selectfile)])
+        else:
+            DamnSpawner(['explorer.exe','/e,',DamnUnicode(directory)])
+    elif DV.os == 'mac':
+        if selectfile is not None:
+            DamnSpawner(['open',os.path.dirname(DamnUnicode(selectfile))])
+        else:
+            DamnSpawner(['open',DamnUnicode(directory)])
+    else:
+        if selectfile is not None:
+            DamnSpawner(['xdg-open',os.path.dirname(DamnUnicode(selectfile))])
+        else:
+            DamnSpawner(['xdg-open',DamnUnicode(directory)])
+def DamnLaunchFile(f,*args):
+    f = DamnUnicode(f)
+    if DV.os == 'nt':
+        DamnSpawner(['start.exe',f])
+    else:
+        DamnOpenFileManager(f) # Hax! It works because 'open' or 'xdg-open' do not only open directories.
+class DamnDoneDialog(wx.Dialog):
+    def __init__(self, content, aborted=False, main=None):
+        Damnlog('Done dialog opening with parameters content =',content,'; aborted?',aborted)
+        dirs=[]
+        files={}
+        icons={}
+        for i in content:
+            if i[1] not in dirs:
+                dirs.append(i[1])
+                files[i[1]]=[]
+            files[i[1]].append(i[0])
+            icons[i[1]+i[0]]=i[2]
+        dirs.sort()
+        for i in dirs:
+            files[i].sort()
+        Damnlog('Done dialog parsed content; dirs =',dirs,'; files =',files)
+        self.parent=main
+        title='Processing done.'
+        if aborted:
+            title='Processing aborted.'
+        wx.Dialog.__init__(self, None, -1, DV.l(title))
+        absbox1 = wx.BoxSizer(wx.VERTICAL)
+        absbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        self.SetSizer(absbox1)
+        absbox1.Add((0, DV.border_padding))
+        absbox1.Add(absbox2)
+        absbox1.Add((0, DV.border_padding))
+        topvbox = wx.BoxSizer(wx.VERTICAL)
+        absbox2.Add((DV.border_padding, 0))
+        absbox2.Add(topvbox)
+        absbox2.Add((DV.border_padding, 0))
+        panel = wx.Panel(self, -1)
+        topvbox.Add(panel, 1, wx.EXPAND)
+        mainvbox=wx.BoxSizer(wx.VERTICAL)
+        panel.SetSizer(mainvbox)
+        self.underlined=wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+        self.underlined.SetUnderlined(True)
+        # Build UI
+        Damnlog('Building center UI of done dialog.')
+        if aborted:
+            title = wx.StaticText(panel, -1, DV.l('Video conversion aborted.'))
+            title.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        else:
+            title = wx.StaticText(panel, -1, DV.l('Video conversion successful.'))
+            title.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        mainvbox.Add(title)
+        mainvbox.Add((0,DV.border_padding*2))
+        if len(content):
+            Damnlog('There is content, so we\'re gonna build tree.')
+            mainvbox.Add(wx.StaticText(panel,-1,DV.l('The following videos have been processed:')))
+            foldericon=wx.Bitmap(DV.images_path + 'foldermovie.png')
+            for d in dirs:
+                Damnlog('Building videos list for directory',d)
+                tmpvbox=wx.BoxSizer(wx.VERTICAL)
+                mainvbox.Add(tmpvbox)
+                tmphbox=wx.BoxSizer(wx.HORIZONTAL)
+                tmpvbox.Add(tmphbox)
+                tmphbox.Add(self.bindAndCursor(wx.StaticBitmap(panel, -1, foldericon), launchdir=d), 0, wx.ALIGN_CENTER_VERTICAL)
+                tmphbox.Add((DV.border_padding/2,0))
+                tmphbox.Add(self.makeLabel(panel, d, launchdir=d))
+                tmpinnerhbox=wx.BoxSizer(wx.HORIZONTAL)
+                tmpvbox.Add(tmpinnerhbox)
+                tmpinnerhbox.Add((foldericon.GetWidth()+DV.border_padding,0))
+                tmpinnervbox=wx.BoxSizer(wx.VERTICAL)
+                tmpinnerhbox.Add(tmpinnervbox,1)
+                for f in files[d]:
+                    tmphbox2=wx.BoxSizer(wx.HORIZONTAL)
+                    tmpinnervbox.Add(tmphbox2)
+                    tmphbox2.Add(self.bindAndCursor(wx.StaticBitmap(panel, -1, DV.listicons.getRawBitmap(icons[d+f])), launchfile=d+f), 0, wx.ALIGN_CENTER_VERTICAL)
+                    tmphbox2.Add((DV.border_padding/2,0))
+                    tmphbox2.Add(self.makeLabel(panel, f, launchfile=d+f))
+                mainvbox.Add((0,DV.border_padding))
+        else:
+            Damnlog('There\'s no content, so we\'re not gonna build much.')
+            mainvbox.Add(wx.StaticText(panel,-1,DV.l('No videos were processed.')))
+            mainvbox.Add((0,DV.border_padding))
+        mainvbox.Add((0,DV.border_padding)) # Again!
+        okhbox=wx.BoxSizer(wx.HORIZONTAL)
+        mainvbox.Add(okhbox,0,wx.ALIGN_RIGHT)
+        okButton = wx.Button(panel,-1,DV.l('OK'))
+        okhbox.Add(okButton)
+        self.Bind(wx.EVT_BUTTON, self.onOK, okButton)
+        Damnlog('Finished building done dialog UI, displaying it.')
+        # Finished building UI
+        self.SetClientSize(self.GetBestSize())
+        self.Center()
+        Damnlog('Done dialog displayed and centered.')
+    def makeLabel(self, panel, text, launchdir=None, launchfile=None):
+        Damnlog('Making label with text',text,'launchdir =',launchdir,'; launchfile =',launchfile)
+        label=wx.lib.stattext.GenStaticText(panel, -1, DamnUnicode(text))
+        label.SetFont(self.underlined)
+        return self.bindAndCursor(label, launchdir=launchdir, launchfile=launchfile)
+    def bindAndCursor(self, element, launchdir=None, launchfile=None):
+        Damnlog('Binding',element,'to display hand cursor, and launchdir =',launchdir,'; launchfile =',launchfile)
+        element.Bind(wx.EVT_ENTER_WINDOW, DamnCurry(self.handCursor, element))
+        element.Bind(wx.EVT_LEAVE_WINDOW, DamnCurry(self.normalCursor, element))
+        if launchfile is not None:
+            element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnLaunchFile,launchfile))
+        elif launchdir is not None:
+            element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnOpenFileManager,launchdir))
+        return element
+    def handCursor(self, element, event):
+        Damnlog('Displaying hand cursor due to event',event,'over element',element)
+        self.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+        element.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+    def normalCursor(self, element, event):
+        Damnlog('Displaying normal cursor due to event',event,'over element',element)
+        self.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
+        element.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
+    def onOK(self, event):
+        self.Close(True)
 class DamnAboutDamnVid(wx.Dialog):
     def __init__(self, parent, id, main):
         self.parent = main
         wx.Dialog.__init__(self, parent, id, DV.l('About DamnVid ') + DV.version)
         absbox1 = wx.BoxSizer(wx.VERTICAL)
-        absbox2 = wx.BoxSizer(wx.VERTICAL)
+        absbox2 = wx.BoxSizer(wx.HORIZONTAL)
         self.SetSizer(absbox1)
         absbox1.Add((0, DV.border_padding))
         absbox1.Add(absbox2)
@@ -1411,10 +1565,12 @@ class DamnAboutDamnVid(wx.Dialog):
         vbox1.Add(icon, 1, wx.ALIGN_CENTER)
         title = wx.StaticText(panel, -1, DV.l('DamnVid ') + DV.version)
         title.SetFont(wx.Font(20, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-        vbox2.Add(title, 1)
+        vbox2.Add(title)
+        vbox2.Add((0,DV.border_padding*2))
         author = wx.StaticText(panel, -1, DV.l('By Etienne Perot'))
         author.SetFont(wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL))
-        vbox2.Add(author, 1)
+        vbox2.Add(author)
+        vbox2.Add((0,DV.border_padding*2))
         vbox2.Add(DamnHyperlink(panel, -1, DV.url, DV.url))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('Contributors:')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- Tatara (Linux compatibility/packaging)')))
@@ -1423,12 +1579,14 @@ class DamnAboutDamnVid(wx.Dialog):
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- The FFmpeg team')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- Every stoat on the planet')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- You!')))
+        vbox2.Add((0,DV.border_padding*2))
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         vbox2.Add(hbox2, 0, wx.ALIGN_RIGHT)
         okButton = wx.Button(panel, -1, DV.l('OK'))
         self.Bind(wx.EVT_BUTTON, self.onOK, okButton)
         hbox2.Add(okButton)
-        self.SetClientSize(panel.GetBestSize())
+        self.SetClientSize(self.GetBestSize())
+        self.Layout()
         self.Center()
     def eEgg(self, event):
         dlg = DamnEEgg(None, -1)
@@ -3025,7 +3183,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                     else:
                         self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = 'Success!'
                         self.update(status='Success!')
-                        self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'], self.outdir))
+                        self.parent.resultlist.append((self.filename + ext, self.outdir, self.parent.meta[self.parent.videos[self.parent.converting]]['icon']))
                     self.update(go=self.abort)
                     return
                 Damnlog('We\'re in on-the-fly conversion mode.')
@@ -3054,7 +3212,6 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                                 cmd.extend(['-' + i[9:], pref])
                 self.encodevideo = DamnUnicode(DV.prefs.getp(self.profile, 'video')) == u'True'
                 self.encodeaudio = DamnUnicode(DV.prefs.getp(self.profile, 'audio')) == u'True'
-                print '>>>>', DamnUnicode(DV.prefs.getp(self.profile, 'audio')), DamnUnicode(DV.prefs.getp(self.profile, 'video'))
                 if self.encodevideo:
                     Damnlog('Encoding video.')
                 else:
@@ -3188,7 +3345,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
             Damnlog('End cleanup, returning. Result?', result, '; Abort?', self.abort)
             if not result and not self.abort:
                 self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = DV.l('Success!')
-                self.parent.resultlist.append((self.parent.meta[self.parent.videos[self.parent.converting]]['name'], self.outdir))
+                self.parent.resultlist.append((self.filename, self.outdir, self.parent.meta[self.parent.videos[self.parent.converting]]['icon']))
                 self.update(status=DV.l('Success!'), go=self.abort)
                 return
             self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = DV.l('Failure.')
@@ -3205,7 +3362,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
             res = REGEX_FFMPEG_TIME_EXTRACT.search(line)
             if res:
                 wx.PostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, {
-                    'progress':float(float(res.group(1)) / self.duration / float(self.totalpasses) + float(float(self.passes - 1) / float(self.totalpasses))) * 100.0,
+                    'progress':min(100.0, float(float(res.group(1)) / self.duration / float(self.totalpasses) + float(float(self.passes - 1) / float(self.totalpasses))) * 100.0),
                     'status':self.parent.meta[self.parent.videos[self.parent.converting]]['status'] + ' [' + str(int(100.0 * float(res.group(1)) / self.duration)) + '%]'
                 }))
     def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
@@ -3803,33 +3960,7 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             if not self.isclosing:
                 self.SetStatusText(DV.l('DamnVid, waiting for instructions.'))
-                if not aborted:
-                    message = DV.l('Done.')
-                    if len(self.resultlist):
-                        message = DV.l('Done!') + '\n' + DV.l('All videos have been put into their respective output folders:') + '\n'
-                        dirs = {}
-                        for i in self.resultlist:
-                            if not dirs.has_key(i[1]):
-                                dirs[i[1]] = []
-                            dirs[i[1]].append(i[0])
-                        self.resultlist = []
-                        for i in dirs.iterkeys():
-                            if len(dirs[i]) == 1:
-                                haveverb = 's'
-                                vids = '"' + dirs[i][0] + '"'
-                            else:
-                                haveverb = 've'
-                                vids = ''
-                                for f in range(len(dirs[i])):
-                                    if f == len(dirs[i]) - 1:
-                                        vids += DV.l('and') + ' "' + dirs[i][f] + '"'
-                                    else:
-                                        vids += '"' + dirs[i][f] + '", '
-                            message += '\n' + vids + DV.l(' ha' + haveverb + ' been put into ') + DamnFriendlyDir(i) + '.'
-                        del haveverb, dirs, vids
-                    dlg = wx.MessageDialog(self, message, DV.l('Done!'), wx.OK | wx.ICON_INFORMATION)
-                else:
-                    dlg = wx.MessageDialog(self, DV.l('Video conversion aborted.'), DV.l('Aborted'), wx.OK | wx.ICON_INFORMATION)
+                dlg = DamnDoneDialog(content=self.resultlist,aborted=aborted,main=self)
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()

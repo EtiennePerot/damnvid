@@ -398,6 +398,11 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Added ':u'Ajouté ',
         'Done.':u'Fait.',
         'Number of videos to download':u'Nombre de vidéos à télécharger',
-        'Video only (no audio)':u'Vidéo seulement (pas d\'audio)'
+        'Video only (no audio)':u'Vidéo seulement (pas d\'audio)',
+        'Processing done.':u'Encodage terminé.',
+        'Processing aborted.':u'Encodage interrompu.',
+        'The following videos have been processed:':u'Les vidéos suivantes ont été converties:',
+        'No videos were processed.':u'Aucune vidéo n\'a été convertie.',
+        'Video conversion successful.':u'Conversion terminée.'
     }
 }
