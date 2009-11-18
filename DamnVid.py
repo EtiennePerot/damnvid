@@ -124,7 +124,7 @@ else:
     if platform.architecture()[0] == '64bit':
         DV.bit64 = True
 if DV.os == 'nt':
-    import win32process
+    import win32process, win32api
     # Need to determine the location of the "My Videos" and "Application Data" folder.
     import ctypes
     from ctypes import wintypes
@@ -614,6 +614,32 @@ class DamnModuleUpdateCheck(thr.Thread):
                                     self.postEvent(module2, 'error')
                         else:
                             self.postEvent(module2, 'uptodate')
+def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None):
+    finalcmd = []
+    if cwd is None:
+        cwd = DV.curdir
+    cwd = DamnUnicode(cwd)
+    if type(cmd) in (type(''),type(u'')):
+        oldcmd = DamnUnicode(cmd)
+        while cmd:
+            if cmd[0] == '"':
+                arg = cmd[1:cmd.find('"', 1)]
+                cmd = cmd[2 + len(arg):].strip()
+            else:
+                if cmd.find(' ') != -1:
+                    arg = cmd[0:cmd.find(' ')]
+                else:
+                    arg = cmd
+                cmd = cmd[len(arg):].strip()
+            finalcmd.append(arg)
+    else:
+        finalcmd = cmd
+    if DV.os == 'nt':
+        Damnlog('Spawning subprocess', oldcmd)
+        return subprocess.Popen(oldcmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+    else:
+        Damnlog('Spawning subprocess', finalcmd)
+        return subprocess.Popen(finalcmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 is equal, -1 if v2 is newer.
     v1 = v1.split('.')
     v2 = v2.split('.')
@@ -700,7 +726,7 @@ def DamnLoadConfig(forcemodules=False):
             for i in os.listdir(DV.curdir + 'modules'):
                 if os.path.isdir(DV.curdir + 'modules/' + i) and i.find('svn') == -1:
                     Damnlog('Building module ' + i)
-                    subprocess.Popen(['python', 'build-any/module-package.py', DV.curdir + 'modules/' + i ], cwd=DV.curdir).wait()
+                    DamnSpawner(['python', 'build-any/module-package.py', DV.curdir + 'modules/' + i ], cwd=DV.curdir).wait()
             for i in os.listdir(DV.curdir):
                 if i[-15:] == '.module.damnvid':
                     os.rename(DV.curdir + i, DV.curdir + 'modules/' + i)
@@ -781,25 +807,6 @@ REGEX_THOUSAND_SEPARATORS = re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 # End regex constants
 # End constants
 Damnlog('End init, begin declarations.')
-def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None):
-    if cwd is None:
-        cwd = DV.curdir
-    cwd = DamnUnicode(cwd)
-    if type(cmd) in (type(''), type(u'')):
-        cmd = DamnUnicode(cmd)
-    if DV.os == 'nt':
-        if type(cmd) in (type([]), type(())):
-            tempcmd = []
-            for i in cmd:
-                tempcmd.append(DamnUnicode(i).encode('windows-1252'))
-            Damnlog('Spawning subprocess on NT:', tempcmd)
-            return subprocess.Popen(tempcmd, shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
-        else:
-            Damnlog('Spawning subprocess on NT:', cmd)
-            return subprocess.Popen(cmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128)
-    else:
-        Damnlog('Spawning subprocess on UNIX:', cmd)
-        return subprocess.Popen(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnURLPicker(urls, urlonly=False, resumeat=None):
     tried = []
     if resumeat == 0:
@@ -1404,7 +1411,7 @@ def DamnOpenFileManager(directory, *args):
 def DamnLaunchFile(f, *args):
     f = DamnUnicode(f)
     if DV.os == 'nt':
-        DamnSpawner([u'cmd', u'/c', u'start "' + f.replace(u'"', u'\\"') + u'"'])
+        DamnSpawner([u'cmd', u'/c', u'start ' + DamnUnicode(win32api.GetShortPathName(f)).replace(u'"', u'\\"')])
     else:
         DamnOpenFileManager(f) # Hax! It works because 'open' or 'xdg-open' do not only open directories.
 class DamnDoneDialog(wx.Dialog):
@@ -3972,6 +3979,7 @@ class DamnMainFrame(wx.Frame): # The main window
             else:
                 self.thisbatch = 0
                 self.thisvideo = []
+                self.resultlist = []
                 self.stopbutton.Enable()
                 self.gobutton1.Disable()
                 self.go()
