@@ -403,6 +403,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Processing aborted.':u'Encodage interrompu.',
         'The following videos have been processed:':u'Les vidéos suivantes ont été converties:',
         'No videos were processed.':u'Aucune vidéo n\'a été convertie.',
-        'Video conversion successful.':u'Conversion terminée.'
+        'Video conversion successful.':u'Conversion terminée.',
+        'Translation:': u'Traduction:'
     }
 }

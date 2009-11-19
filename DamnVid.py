@@ -1566,6 +1566,11 @@ class DamnAboutDamnVid(wx.Dialog):
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- The FFmpeg team')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- Every stoat on the planet')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- You!')))
+        for l in DV.languages.iterkeys():
+            if DV.lang == l and DV.languages[l].has_key('author'):
+                vbox2.Add((0, DV.border_padding))
+                vbox2.Add(wx.StaticText(panel, -1, DV.l('Translation:')))
+                vbox2.Add(wx.StaticText(panel, -1, DamnUnicode(DV.languages[l]['author'])))
         vbox2.Add((0, DV.border_padding * 2))
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         vbox2.Add(hbox2, 0, wx.ALIGN_RIGHT)
@@ -3680,10 +3685,10 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             dvversion = 'old' # This is not just an arbitrary erroneous value, it's actually handy in the concatenation on the wx.FileDialog line below
         if dvversion != DV.version: # Just updated to new version, ask what to do about the preferences
-            dlg = wx.MessageDialog(self, DV.l('DamnVid was updated to ') + DV.version + '.\n' + DV.l('locale:damnvid-updated-export-prefs'), DV.l('DamnVid was successfully updated'), wx.YES | wx.NO | wx.ICON_QUESTION)
+            #dlg = wx.MessageDialog(self, DV.l('DamnVid was updated to ') + DV.version + '.\n' + DV.l('locale:damnvid-updated-export-prefs'), DV.l('DamnVid was successfully updated'), wx.YES | wx.NO | wx.ICON_QUESTION)
             tmpprefs = DamnVidPrefs()
             checkupdates = tmpprefs.get('CheckForUpdates')
-            if dlg.ShowModal() == wx.ID_YES:
+            if False: #dlg.ShowModal() == wx.ID_YES:
                 dlg.Destroy()
                 dlg = wx.FileDialog(self, DV.l('Where do you want to export DamnVid\'s configuration?'), tmpprefs.get('lastprefdir'), 'DamnVid-' + dvversion + '-configuration.ini', DV.l('locale:browse-ini-files'), wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
                 if dlg.ShowModal() == wx.ID_OK:
@@ -3693,7 +3698,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     f.close()
                 dlg.Destroy()
             else:
-                dlg.Destroy()
+                pass#dlg.Destroy()
             # Now, overwrite the preferences!
             del tmpprefs
             os.remove(DV.conf_file)

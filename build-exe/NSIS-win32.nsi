@@ -69,7 +69,7 @@ delete "$INSTDIR\MSVCR71.dll"
 delete "$INSTDIR\MSVCP71.dll"
 <delete>
 delete "$INSTDIR\uninstall.exe"
-rmDir "$INSTDIR"
+rmDir /r "$INSTDIR"
 !insertmacro MUI_STARTMENU_GETFOLDER Application $StartMenuFolder
 delete "$SMPROGRAMS\$StartMenuFolder\${APP}.lnk"
 delete "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk"
