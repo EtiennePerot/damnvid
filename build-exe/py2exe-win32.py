@@ -32,10 +32,10 @@ setup(
     name='DamnVid',
     options={
         'py2exe':{
-            'compressed':0,
+            'compressed':1,
             'optimize':2,
             'ascii':1,
-            'bundle_files':1,
+            'bundle_files':3,
             'packages':[
                 'encodings'
             ]

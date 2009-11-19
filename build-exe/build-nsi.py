@@ -1,12 +1,29 @@
 import os
 
 path2src='./../../'
+curfiles = []
+def addToCurFiles(d):
+    global curfiles
+    if len(d):
+        d=d+os.sep
+    for i in os.listdir(d):
+        if os.path.isdir(d+i):
+            addToCurFiles(d+i)
+        else:
+            curfiles.append(d+i)
+addToCurFiles('')
 requiredfiles=open(path2src+'required-files.txt','r')
+reqfiles=requiredfiles.readlines()
+reqfiles.extend(curfiles)
 delete=[]
 rmdirs=[]
 files=[]
+alreadydone=[]
 curdir='$INSTDIR'+os.sep
-for f in requiredfiles.readlines():
+for f in reqfiles:
+    if f in alreadydone:
+        continue
+    alreadydone.append(f)
     curfile=f.strip()
     if curfile.find(os.sep)==-1 and curdir!='$INSTDIR'+os.sep:
         curdir='$INSTDIR'+os.sep
