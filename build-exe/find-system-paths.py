@@ -2,7 +2,7 @@ import os, sys
 
 paths={
 	'nsis':['C:\Program Files\NSIS','C:\Program Files (x86)\NSIS'],
-	'python32':['C:\Python26-x86'],
+	'python32':['C:\Python25-x86','C:\Python25'],
 	'python64':['C:\Python26','C:\Python26-x64']
 }
 for k in paths.iterkeys():

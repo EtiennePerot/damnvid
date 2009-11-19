@@ -35,7 +35,10 @@ setup(
             'compressed':0,
             'optimize':2,
             'ascii':1,
-            'bundle_files':1
+            'bundle_files':1,
+            'packages':[
+                'encodings'
+            ]
         }
     },
     zipfile=None,
