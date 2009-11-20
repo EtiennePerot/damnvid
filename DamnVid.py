@@ -4136,7 +4136,7 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             self.onDelAll(event)
     def confirmDeletion(self):
-        if self.DV.get('warnremove'):
+        if DV.prefs.get('warnremove')!='True':
             return True
         dlg = wx.MessageDialog(None, DV.l('Are you sure? (This will not delete any files, it will just remove them from the list.)'), DV.l('Confirmation'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
         dlg.SetIcon(DV.icon)
@@ -4171,7 +4171,7 @@ class DamnMainFrame(wx.Frame): # The main window
         else:
             dlg = wx.MessageDialog(None, DV.l('Add some videos in the list first.'), DV.l('No videos!'), wx.OK | wx.ICON_EXCLAMATION)
             dlg.SetIcon(DV.icon)
-        dlg.Destroy()
+            dlg.Destroy()
     def onResize(self, event):
         self.Layout()
     def onClipboardTimer(self, event):
