@@ -42,7 +42,6 @@ class DamnModule_YouTube(DamnVideoModule):
                 res2=self.regex['ticket'].search(html)
                 if res2:
                     self.newTicket(res2.group(3))
-                    print self.id[3:],'|',res2.group(3)
                     url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)],True)
                     if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22':
                         self.hd=True
@@ -87,7 +86,6 @@ class DamnModule_YouTube(DamnVideoModule):
     def addVid(self,parent):
         if not self.playlist:
             return DamnVideoModule.addVid(self,parent)
-        print 'Grabbin','http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist'))
         playlist=DV.youtube_service.GetYouTubeVideoFeed('http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
         for i in playlist.entry:
             try:

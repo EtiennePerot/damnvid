@@ -362,6 +362,14 @@ DV.preferences={
         'align':False,
         'default':False
     },
+    'damnvid:warnremove':{
+        'name':'Warn when removing a video from the list',
+        'type':DV.preference_type_misc,
+        'kind':'bool',
+        'strict':True,
+        'align':False,
+        'default':True
+    },
     'damnvid:locale':{
         'name':'Language (requires restart)',
         'type':DV.preference_type_misc,
@@ -369,7 +377,7 @@ DV.preferences={
         'strict':True,
         'default':'English'
     },
-    #'damnvid-showdailytip':{
+    #'damnvid:showdailytip':{
         #'name':'Show Daily Tip when DamnVid starts',
         #'type':DV.preference_type_misc,
         #'kind':'bool',
@@ -404,7 +412,7 @@ DV.preferences={
     }
 }
 DV.preference_order={
-    'damnvid':['checkforupdates','locale','splashscreen','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
+    'damnvid':['checkforupdates','locale','splashscreen','warnremove','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
     'damnvid-search':['autoconvert','default_search','history_length']
 }

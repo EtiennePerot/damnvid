@@ -1,0 +1,115 @@
+#~DamnVid-module:clubic
+
+class DamnModule_Clubic(DamnVideoModule):
+    def __init__(self,uri,parent=None):
+        DamnVideoModule.__init__(self,uri)
+        self.name='clubic'
+        self.regex={
+            'url':re.compile('^https?://(?:[-_\w]+\.)*clubic\.com/(.+)$',re.IGNORECASE),
+            'title':(re.compile('<title>\s*(?:\[Vid.o\])?\s*([^<>]+?)\s*</title>',re.IGNORECASE),self.regex['title']),
+            'ticket':(re.compile('https?://(?:[-_\w]+\.)*clubic.com/v/(\w+)',re.IGNORECASE),re.compile('<location>\s*(https?://.+)\s*</location>',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.clubic_videoids=[]
+        if self.valid:
+            self.id='cl:'+self.valid.group(1)
+            self.link='http://www.clubic.com/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is None:
+            if self.id[3:5]=='v/':
+                self.title=self.id[self.id.find('|')+1:]
+                return DamnVideoModule.getTitle(self)
+            http=urllib2.urlopen(self.link)
+            html=''
+            for i in http:
+                res=self.regex['title'][0].search(i)
+                if res:
+                    self.title=DamnHtmlEntities(res.group(1).replace('\n','').replace('\r',''))
+                else:
+                    res=self.regex['title'][1].search(i)
+                    if res:
+                        self.title=DamnHtmlEntities(res.group(1).replace('\n','').replace('\r',''))
+                res2=self.regex['ticket'][0].search(i)
+                if res2:
+                    if res2.group(1) not in self.clubic_videoids:
+                        self.clubic_videoids.append(res2.group(1))
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        self.getTitle()
+        if self.id[3:5]!='v/':
+            return None
+        if self.ticket is None:
+            html=urllib2.urlopen('http://www.clubic.com/api/tv/xml.php?id='+self.id[5:self.id.find('|')])
+            for i in html:
+                res=self.regex['ticket'][1].search(i)
+                if res:
+                    self.newTicket(res.group(1))
+    def getDownload(self):
+        if self.id[3:5]!='v/':
+            return None
+        self.renewTicket()
+        return self.ticket
+    def addVid(self,parent):
+        self.getTitle()
+        if self.id[3:5]=='v/':
+            return DamnVideoModule.addVid(self,parent)
+        counter=0
+        count=u''
+        for i in self.clubic_videoids:
+            counter+=1
+            if len(self.clubic_videoids)>1:
+                count=u' ('+DamnUnicode(counter)+u')'
+            try:
+                self.__class__(DamnUnicode('http://www.clubic.com/v/'+i+'|')+DamnUnicode(self.title)+count).addVid(parent)
+            except:
+                pass
+DamnRegisterModule({
+    'name':'clubic',
+    'title':'Clubic',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'clubic.png',
+        'large':'clubic-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for Clubic.',
+        'long':"""This is a video plugin for DamnVid that adds Clubic video downloading capabilities.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'Clubic',
+            'icon':'clubic.png',
+            'url':'http://www.clubic.com/'
+        }
+    ],
+    'class':DamnModule_Clubic,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Clubic/'
+        }
+    },
+    'preferences_order':['profile','outdir'],
+    'register':{
+        'listicons':{
+            'clubic':'clubic.png'
+        }
+    }
+})

@@ -30,7 +30,7 @@ class DamnModule_Newgrounds(DamnVideoModule):
         self.getTitle()
 DamnRegisterModule({
     'name':'newgrounds',
-    'title':'Newgrounds',
+    'title':'Newgrounds Audio',
     'type':'video',
     'version':'1.0',
     'author':{

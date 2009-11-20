@@ -508,9 +508,9 @@ class DamnVideoModule:
     def validURI(self):
         return not not self.valid
     def getLink(self):
-        return self.link
+        return DamnUnicode(self.link)
     def getURI(self):
-        return self.uri
+        return DamnUnicode(self.uri)
     def getID(self):
         return self.id
     def getStorage(self):
@@ -523,9 +523,9 @@ class DamnVideoModule:
                 total += i
             res = self.regex['title'].search(total)
             if res:
-                self.title = DamnHtmlEntities(res.group(1))
+                self.title = DamnUnicode(DamnHtmlEntities(res.group(1)))
         if self.title is not None:
-            return self.title
+            return DamnUnicode(self.title)
         return DV.l('Unknown title')
     def getIcon(self):
         return DamnGetListIcon(self.name)
@@ -615,31 +615,24 @@ class DamnModuleUpdateCheck(thr.Thread):
                         else:
                             self.postEvent(module2, 'uptodate')
 def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None):
-    finalcmd = []
     if cwd is None:
         cwd = DV.curdir
     cwd = DamnUnicode(cwd)
-    if type(cmd) in (type(''),type(u'')):
-        oldcmd = DamnUnicode(cmd)
-        while cmd:
-            if cmd[0] == '"':
-                arg = cmd[1:cmd.find('"', 1)]
-                cmd = cmd[2 + len(arg):].strip()
-            else:
-                if cmd.find(' ') != -1:
-                    arg = cmd[0:cmd.find(' ')]
-                else:
-                    arg = cmd
-                cmd = cmd[len(arg):].strip()
-            finalcmd.append(arg)
-    else:
-        finalcmd = cmd
+    if type(cmd) in (type(''), type(u'')):
+        cmd = DamnUnicode(cmd)
     if DV.os == 'nt':
-        Damnlog('Spawning subprocess', oldcmd)
-        return subprocess.Popen(oldcmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+        if type(cmd) in (type([]), type(())):
+            tempcmd = []
+            for i in cmd:
+                tempcmd.append(DamnUnicode(i).encode('windows-1252'))
+            Damnlog('Spawning subprocess on NT:', tempcmd)
+            return subprocess.Popen(tempcmd, shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+        else:
+            Damnlog('Spawning subprocess on NT:', cmd)
+            return subprocess.Popen(cmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128)
     else:
-        Damnlog('Spawning subprocess', finalcmd)
-        return subprocess.Popen(finalcmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
+        Damnlog('Spawning subprocess on UNIX:', cmd)
+        return subprocess.Popen(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
 def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 is equal, -1 if v2 is newer.
     v1 = v1.split('.')
     v2 = v2.split('.')
@@ -2981,17 +2974,23 @@ class DamnVideoLoader(thr.Thread):
     def showDialog(self, title, content, icon):
         self.postEvent({'dialog':(title, content, icon)})
     def vidLoop(self, uris):
+        Damnlog('Starting vidLoop with URIs:',uris)
         for uri in uris:
+            Damnlog('vidLoop considering URI:',uri)
             self.originaluri = uri
             bymodule = False
             for module in DamnIterModules(False):
+                Damnlog('Trying module',module['class'],'for URI',uri)
                 mod = module['class'](uri)
                 if mod.validURI():
+                    Damnlog('Module has been chosen for URI',uri,':',mod)
                     mod.addVid(self)
                     bymodule = True
                     break
             if not bymodule:
+                Damnlog('No module found for URI:',uri)
                 if REGEX_HTTP_GENERIC.match(uri):
+                    Damnlog('HTTP regex still matches URI:',uri)
                     name = self.getVidName(uri)
                     if name == DV.l('Unknown title'):
                         name = REGEX_HTTP_EXTRACT_FILENAME.sub('', uri)
@@ -2999,6 +2998,7 @@ class DamnVideoLoader(thr.Thread):
                 else:
                     # It's a file or a directory
                     if os.path.isdir(uri):
+                        Damnlog('URI',uri,'is a directory.')
                         if DV.prefs.get('DirRecursion') == 'True':
                             for i in os.listdir(uri):
                                 self.vidLoop([uri + DV.sep + i]) # This is recursive; if i is a directory, this block will be executed for it too
@@ -3008,6 +3008,7 @@ class DamnVideoLoader(thr.Thread):
                             else:
                                 self.SetStatusText(DV.l('Skipped ') + uri + DV.l(' (directory recursion disabled).'))
                     else:
+                        Damnlog('URI',uri,'is a file.')
                         filename = os.path.basename(uri)
                         if uri in self.parent.videos:
                             self.SetStatusText(DV.l('Skipped ') + filename + DV.l(' (already in list).'))
@@ -3039,14 +3040,10 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 return uri
         return [uri]
     def cmd2str(self, cmd):
-        s = ''
+        s = []
         for i in cmd:
-            i = i.replace('?DAMNVID_VIDEO_STREAM?', '-').replace('?DAMNVID_VIDEO_PASS?', str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?', DV.tmp_path + self.tmpfilename)
-            if i.find(' ') != -1 or i.find('&') != -1 or i.find('|') != -1 or i.find('<') != -1 or i.find('>') != -1:
-                s += '"' + i.replace('"', '\'\'') + '" '
-            else:
-                s += i + ' '
-        return s[0:len(s) - 1]
+            s.append(i.replace('?DAMNVID_VIDEO_STREAM?', '-').replace('?DAMNVID_VIDEO_PASS?', str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?', DV.tmp_path + self.tmpfilename))
+        return s
     def gettmpfilename(self, path, prefix, ext):
         prefix = DamnUnicode(DamnUnicode(prefix).encode('ascii', 'ignore'))
         ext = DamnUnicode(ext)
@@ -3784,6 +3781,7 @@ class DamnMainFrame(wx.Frame): # The main window
             self.addVid(vids)
         dlg.Destroy()
     def onAddURL(self, event):
+        Damnlog('onAddURL event fired:',event)
         default = ''
         try:
             if wx.TheClipboard.Open():
@@ -3791,6 +3789,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 wx.TheClipboard.GetData(dataobject)
                 default = dataobject.GetText()
                 wx.TheClipboard.Close()
+                Damnlog('Text scavenged from clipboard:',default)
                 if not self.validURI(default):
                     default = '' # Only set that as default text if the clipboard's text content is not a URL
         except:
@@ -4136,6 +4135,12 @@ class DamnMainFrame(wx.Frame): # The main window
             self.onDelSelection(event)
         else:
             self.onDelAll(event)
+    def confirmDeletion(self):
+        if self.DV.get('warnremove'):
+            return True
+        dlg = wx.MessageDialog(None, DV.l('Are you sure? (This will not delete any files, it will just remove them from the list.)'), DV.l('Confirmation'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+        dlg.SetIcon(DV.icon)
+        return dlg.ShowModal() == wx.ID_YES
     def onDelSelection(self, event):
         items = self.list.getAllSelectedItems()
         if len(items):
@@ -4144,7 +4149,7 @@ class DamnMainFrame(wx.Frame): # The main window
                 dlg.SetIcon(DV.icon)
                 dlg.ShowModal()
                 dlg.Destroy()
-            else:
+            elif self.confirmDeletion():
                 for i in reversed(items): # Sequence MUST be reversed, otherwise the first items get deleted first, which changes the indexes of the following items
                     self.delVid(i)
             self.onListSelect()
@@ -4155,9 +4160,7 @@ class DamnMainFrame(wx.Frame): # The main window
             dlg.Destroy()
     def onDelAll(self, event):
         if len(self.videos):
-            dlg = wx.MessageDialog(None, DV.l('Are you sure? (This will not delete any files, it will just remove them from the list.)'), DV.l('Confirmation'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
-            dlg.SetIcon(DV.icon)
-            if dlg.ShowModal() == wx.ID_YES:
+            if self.confirmDeletion():
                 if self.converting != -1:
                     self.onStop(None) # Stop conversion if it's in progress
                 self.list.DeleteAllItems()

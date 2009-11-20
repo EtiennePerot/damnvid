@@ -378,7 +378,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         '(If you tried to download a video, please include its URL.)':u'(Si vous avez essayé de télécharger une vidéo, spécifiez son URL.)',
         'System information:':u'Informations sur le système:',
         'Email-address (Optional):':u'Adresse email (Optionnel):',
-        '(You will be notified at this address when there is progress about this bug.)':u'(Vous serez mis au courant à cet adresse à propos du bug.)',
+        '(You will be notified at this address when there is progress about this bug.)':u'(Vous serez mis au courant à cette adresse à propos du bug.)',
         'In addition to this information, DamnVid\'s log file will also be sent.':u'Le fichier de rapport de DamnVid sera aussi envoyé.',
         'This file is located here: ':u'Ce fichier est ici: ',
         'Empty bug description field':u'Champ de description vide',
@@ -399,11 +399,13 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Done.':u'Fait.',
         'Number of videos to download':u'Nombre de vidéos à télécharger',
         'Video only (no audio)':u'Vidéo seulement (pas d\'audio)',
+        'iPhone 3GS':u'iPhone 3GS',
         'Processing done.':u'Encodage terminé.',
         'Processing aborted.':u'Encodage interrompu.',
         'The following videos have been processed:':u'Les vidéos suivantes ont été converties:',
         'No videos were processed.':u'Aucune vidéo n\'a été convertie.',
         'Video conversion successful.':u'Conversion terminée.',
-        'Translation:': u'Traduction:'
+        'Translation:': u'Traduction:',
+        'Warn when removing a video from the list':u'M\'avertir lorsque j\'enlève une vidéo'
     }
 }

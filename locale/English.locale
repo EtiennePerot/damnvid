@@ -399,11 +399,13 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Done.':u'Done.',
         'Number of videos to download':u'Number of videos to download',
         'Video only (no audio)':u'Video only (no audio)',
+        'iPhone 3GS':u'iPhone 3GS',
         'Processing done.':u'Processing done.',
         'Processing aborted.':u'Processing aborted.',
         'The following videos have been processed:':u'The following videos have been processed:',
         'No videos were processed.':u'No videos were processed.',
         'Video conversion successful.':u'Video conversion successful.',
-        'Translation:': u'Translation:'
+        'Translation:': u'Translation:',
+        'Warn when removing a video from the list':u'Warn when removing a video from the list'
     }
 }
