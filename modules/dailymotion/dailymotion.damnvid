@@ -16,7 +16,7 @@ class DamnModule_Dailymotion(DamnVideoModule):
     def renewTicket(self):
         if self.ticket is not None:
             return
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         for i in html:
             res=self.regex['ticket'][0].search(i)
             if res:

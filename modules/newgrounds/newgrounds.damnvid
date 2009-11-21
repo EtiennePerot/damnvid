@@ -15,7 +15,7 @@ class DamnModule_Newgrounds(DamnVideoModule):
             self.link='http://www.newgrounds.com/audio/listen/'+self.valid.group(1)
     def getTitle(self):
         if self.title is None:
-            html=urllib2.urlopen(self.link)
+            html=DamnURLOpen(self.link)
             for i in html:
                 res,res1=self.regex['title'].search(i),self.regex['ticket'].search(i)
                 if res:

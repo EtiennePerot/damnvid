@@ -16,7 +16,7 @@ class DamnModule_Metacafe(DamnVideoModule):
     def getTitle(self):
         if self.title is not None:
             return self.title
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         total=''
         for i in html:
             total+=i
@@ -29,7 +29,7 @@ class DamnModule_Metacafe(DamnVideoModule):
     def renewTicket(self):
         if self.ticket is not None and self.ticketdate+15>time.time():
             return
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         for i in html:
             res=self.regex['ticket'].search(i)
             if res:

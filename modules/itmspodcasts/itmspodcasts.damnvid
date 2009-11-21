@@ -46,7 +46,7 @@ class DamnModule_ITMSPodcasts(DamnVideoModule):
     def addVid(self,parent):
         if not self.playlist:
             return DamnVideoModule.addVid(self,parent)
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         count=0
         maxcount=int(self.pref('maxepisodes'))
         lasturl=None

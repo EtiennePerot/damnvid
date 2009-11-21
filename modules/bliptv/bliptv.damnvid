@@ -17,7 +17,7 @@ class DamnModule_bliptv(DamnVideoModule):
         if self.title is not None:
             return self.title
         urls=[]
-        html=urllib2.urlopen(self.link+'?skin=api')
+        html=DamnURLOpen(self.link+'?skin=api')
         for i in html:
             res1,res2=self.regex['title'].search(i),self.regex['ticket'].search(i)
             if res1:
@@ -30,7 +30,7 @@ class DamnModule_bliptv(DamnVideoModule):
     def renewTicket(self):
         if self.ticket is not None:
             return
-        html=urllib2.urlopen(self.link+'?skin=api')
+        html=DamnURLOpen(self.link+'?skin=api')
         urls=[]
         for i in html:
             res=self.regex['ticket'].search(i)

@@ -20,7 +20,7 @@ class DamnModule_Youku(DamnVideoModule):
         longid=''
         key1=''
         key2=''
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         for i in html:
             res1,res2=self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i)
             if res1:
@@ -28,7 +28,7 @@ class DamnModule_Youku(DamnVideoModule):
             if res2:
                 longid=res2.group(1)
         if shortid and longid:
-            html=urllib2.urlopen('http://v.youku.com/player/getPlayList/VideoIDS/'+shortid)
+            html=DamnURLOpen('http://v.youku.com/player/getPlayList/VideoIDS/'+shortid)
             for i in html:
                 res=self.regex['ticket'][2].search(i)
                 if res:

@@ -23,7 +23,7 @@ class DamnModule_LiveVideo(DamnVideoModule):
             self.secretdate=0
         if self.secret is not None and self.secretdate+15>time.time():
             return
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         for i in html:
             res=self.regex['ticket'][0].search(i)
             if res:
@@ -31,7 +31,7 @@ class DamnModule_LiveVideo(DamnVideoModule):
     def getTitle(self):
         if self.title is not None:
             return self.title
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         for i in html:
             res1,res2=self.regex['title'].search(i),self.regex['ticket'][0].search(i)
             if res1:
@@ -43,7 +43,7 @@ class DamnModule_LiveVideo(DamnVideoModule):
         if self.ticket is not None and self.ticketdate+15>time.time():
             return
         self.livevideo_renewSecret()
-        html=urllib2.urlopen(self.secret+'&flash=flashundefined&h='+hashlib.md5(self.secret+'&flash=flashundefinedLVX*7x8yzwe').hexdigest())
+        html=DamnURLOpen(self.secret+'&flash=flashundefined&h='+hashlib.md5(self.secret+'&flash=flashundefinedLVX*7x8yzwe').hexdigest())
         for i in html:
             res=self.regex['ticket'][1].search(i)
             if res:

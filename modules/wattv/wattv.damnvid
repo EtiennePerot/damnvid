@@ -16,7 +16,7 @@ class DamnModule_WatTV(DamnVideoModule):
             self.link='http://www.wat.tv/video/'+self.valid.group(1)
     def getTitle(self):
         if self.title is None:
-            html=urllib2.urlopen(self.link)
+            html=DamnURLOpen(self.link)
             for i in html:
                 res1,res2=self.regex['title'].search(i),self.regex['ticket'][0].search(i)
                 if res1:
@@ -30,14 +30,14 @@ class DamnModule_WatTV(DamnVideoModule):
         if self.wattv_requestid is None:
             return None
         ticketurl=None
-        html=urllib2.urlopen('http://www.wat.tv/interface/contentv2/'+self.wattv_requestid)
+        html=DamnURLOpen('http://www.wat.tv/interface/contentv2/'+self.wattv_requestid)
         for i in html:
             res=self.regex['ticket'][1].search(i)
             if res:
                 ticketurl=res.group(1).replace('\\','')
         if ticketurl is None:
             return
-        finalhttp=urllib2.urlopen(ticketurl+'?getURL=1')
+        finalhttp=DamnURLOpen(ticketurl+'?getURL=1')
         self.newTicket([finalhttp.read(-1),ticketurl])
         finalhttp.close()
 DamnRegisterModule({

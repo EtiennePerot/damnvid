@@ -27,7 +27,7 @@ class DamnModule_EscapistMagazine(DamnVideoModule):
     def renewTicket(self):
         if self.ticket is not None:
             return
-        html=urllib2.urlopen('http://www.themis-group.com/global/castfire/m4v/'+self.id[3:],urllib.urlencode({
+        html=DamnURLOpen('http://www.themis-group.com/global/castfire/m4v/'+self.id[3:],urllib.urlencode({
             'version':'ThemisMedia1.2',
             'format':hashlib.md5('Video '+self.id[3:]+' Hash').hexdigest()
         }))

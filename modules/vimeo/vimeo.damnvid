@@ -19,7 +19,7 @@ class DamnModule_Vimeo(DamnVideoModule):
     def getTitle(self):
         if self.title is not None:
             return self.title
-        html=urllib2.urlopen(self.link) # Sadly, can't use the open API, cause we need to determine HD-ness as well in a minimal number of requests, and the API doesn't give that info, while the video webpage does.
+        html=DamnURLOpen(self.link) # Sadly, can't use the open API, cause we need to determine HD-ness as well in a minimal number of requests, and the API doesn't give that info, while the video webpage does.
         for i in html:
             res1,res2=self.regex['title'].search(i),self.regex['ticket'][2].search(i)
             if res1:
@@ -42,7 +42,7 @@ class DamnModule_Vimeo(DamnVideoModule):
             if self.vimeo_expires is not None:
                 if int(self.vimeo_expires)>time.time():
                     return
-        html=urllib2.urlopen('http://vimeo.com/moogaloop/load/clip:'+self.id[3:]+'/local')
+        html=DamnURLOpen('http://vimeo.com/moogaloop/load/clip:'+self.id[3:]+'/local')
         for i in html:
             res1,res2,res3=self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
             if res1:

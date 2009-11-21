@@ -95,7 +95,7 @@ class DamnModule_Megavideo(DamnVideoModule):
     def getTitle(self):
         if self.title is not None:
             return self.title
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         for i in html:
             res1,res2,res3,res4,res5=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i),self.regex['ticket'][3].search(i)
             if res1:

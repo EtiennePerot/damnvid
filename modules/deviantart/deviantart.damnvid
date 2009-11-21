@@ -23,7 +23,7 @@ class DamnModule_deviantART(DamnVideoModule):
             self.link=self.valid.group(0)
     def getTitle(self):
         if self.title is None:
-            html=urllib2.urlopen(self.link)
+            html=DamnURLOpen(self.link)
             for i in html:
                 res,res1,res2,res3=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
                 if res:
@@ -39,10 +39,10 @@ class DamnModule_deviantART(DamnVideoModule):
         if self.ticket is not None:
             return
         if self.deviantart_id:
-            loc=urllib2.urlopen('http://www.deviantart.com/film/'+str(self.deviantart_id)+'/1/').geturl()
+            loc=DamnURLOpen('http://www.deviantart.com/film/'+str(self.deviantart_id)+'/1/').geturl()
             res=self.regex['ticket'][3].search(loc)
             if res:
-                html=urllib2.urlopen('http://deviantart.com/global/difi/?c[]=Film;metadata;'+str(self.deviantart_id)+','+res.group(1)+'&t=xml')
+                html=DamnURLOpen('http://deviantart.com/global/difi/?c[]=Film;metadata;'+str(self.deviantart_id)+','+res.group(1)+'&t=xml')
                 for i in html:
                     res=self.regex['ticket'][4].search(i)
                     if res:

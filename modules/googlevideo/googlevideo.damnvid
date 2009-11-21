@@ -15,7 +15,7 @@ class DamnModule_GoogleVideo(DamnVideoModule):
             self.link='http://video.google.com/videoplay?docid='+self.valid.group(1)
     def getTitle(self):
         if self.title is None:
-            html=urllib2.urlopen(self.link)
+            html=DamnURLOpen(self.link)
             for i in html:
                 res,res2=self.regex['title'].search(i),self.regex['ticket'].search(i)
                 if res:

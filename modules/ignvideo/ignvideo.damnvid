@@ -16,7 +16,7 @@ class DamnModule_IGNVideo(DamnVideoModule):
             self.link=self.valid.group(0)
     def getTitle(self):
         if self.title is None:
-            html=urllib2.urlopen(self.link)
+            html=DamnURLOpen(self.link)
             for i in html:
                 res,res1,res2,res3,res4=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i),self.regex['ticket'][3].search(i)
                 if res:

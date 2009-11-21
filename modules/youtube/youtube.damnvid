@@ -27,7 +27,7 @@ class DamnModule_YouTube(DamnVideoModule):
             return None
         if self.title is None:
             gotticket=False
-            http=urllib2.urlopen('http://www.youtube.com/watch?v='+self.id[3:])
+            http=DamnURLOpen('http://www.youtube.com/watch?v='+self.id[3:])
             html=''
             for i in http:
                 html+=i
@@ -44,34 +44,35 @@ class DamnModule_YouTube(DamnVideoModule):
                     self.newTicket(res2.group(3))
                     url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)],True)
                     if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22':
-                        self.hd=True
+                        if DamnURLOpen('http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=37') is None:
+                            self.hd='720'
+                        else:
+                            self.hd='1080'
                     gotticket=True
-        if self.hd is None:
-            self.hd=False
         return DamnVideoModule.getTitle(self)
     def getProfile(self):
         if self.playlist:
             return None
-        if self.hd:
-            return self.pref('profilehd')
+        if self.hd is not None:
+            return self.pref('profilehd'+self.hd)
         return self.pref('profile')
     def getOutdir(self):
         if self.playlist:
             return None
-        if self.hd:
-            return self.pref('outdirhd')
+        if self.hd is not None:
+            return self.pref('outdirhd'+self.hd)
         return self.pref('outdir')
     def getIcon(self):
         if self.playlist:
             return None
-        if self.hd:
+        if self.hd is not None:
             return DamnGetListIcon('youtubehd')
         return DamnGetListIcon('youtube')
     def renewTicket(self):
         if self.playlist:
             return None
         if self.ticket is None or self.ticketdate+15<time.time():
-            html=urllib2.urlopen('http://www.youtube.com/watch?v='+self.id[3:])
+            html=DamnURLOpen('http://www.youtube.com/watch?v='+self.id[3:])
             for i in html:
                 res=self.regex['ticket'].search(i)
                 if res:
@@ -80,8 +81,10 @@ class DamnModule_YouTube(DamnVideoModule):
         if self.playlist:
             return None
         self.renewTicket()
-        if self.hd:
+        if self.hd == '720':
             return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=22'
+        elif self.hd == '1080':
+            return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=37'
         return DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket],True)
     def addVid(self,parent):
         if not self.playlist:
@@ -96,7 +99,7 @@ DamnRegisterModule({
     'name':'youtube',
     'title':'YouTube',
     'type':'video',
-    'version':'1.3',
+    'version':'1.4',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',
@@ -109,7 +112,7 @@ DamnRegisterModule({
     'about':{
         'short':'DamnVid module for YouTube, YouTube HD, and YouTube playlists.',
         'long':"""This is a video plugin for DamnVid that adds YouTube video downloading capabilities.
-YouTube HD is also supported, as well as playlist batch downloading.""",
+YouTube HD (720p/1080p) is also supported, as well as playlist batch downloading.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
     'sites':[
@@ -133,12 +136,19 @@ YouTube HD is also supported, as well as playlist batch downloading.""",
             'strict':True,
             'default':3
         },
-        'profilehd':{
-            'name':'Default profile for HD Videos',
+        'profilehd720':{
+            'name':'Default profile for 720p videos',
             'type':DV.preference_type_profile,
             'kind':'profile',
             'strict':True,
-            'default':5
+            'default':-1
+        },
+        'profilehd1080':{
+            'name':'Default profile for 1080p videos',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':-1
         },
         'outdir':{
             'name':'Output directory',
@@ -147,8 +157,15 @@ YouTube HD is also supported, as well as playlist batch downloading.""",
             'strict':True,
             'default':'?DAMNVID_MY_VIDEOS?/DamnVid/YouTube/'
         },
-        'outdirhd':{
-            'name':'Output directory for HD videos',
+        'outdirhd720':{
+            'name':'Output directory for 720p videos',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+        },
+        'outdirhd1080':{
+            'name':'Output directory for 1080p videos',
             'type':DV.preference_type_misc,
             'kind':'dir',
             'strict':True,
@@ -162,7 +179,7 @@ YouTube HD is also supported, as well as playlist batch downloading.""",
             'default':'50'
         }
     },
-    'preferences_order':['profile','outdir','profilehd','outdirhd','maxplaylist'],
+    'preferences_order':['profile','outdir','profilehd720','outdirhd720','profilehd1080','outdirhd1080','maxplaylist'],
     'register':{
         'listicons':{
             'youtube':'youtube.png',

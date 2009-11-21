@@ -225,6 +225,16 @@ def Damnlog(*args):
         else:
             s.append(DamnUnicode(i))
     return DV.log.log(' '.join(s))
+def DamnlogException(typ, value, tb):
+    try:
+        Damnlog('!!',traceback.format_exception(typ, value, tb))
+        print traceback.format_exception(typ, value, tb)
+    except:
+        pass
+try:
+    sys,excepthook = DamnlogException
+except:
+    pass
 if DV.bit64:
     Damnlog('DamnVid started in 64-bit mode on', sys.platform)
 else:
@@ -481,14 +491,17 @@ def DamnRegisterModule(module):
     Damnlog('Module registered:', module)
 def DamnGetAlternateModule(uri):
     Damnlog('Got request to get new module for URI:', uri)
-    urlgrabber = DamnVideoLoader(None, [uri], feedback=False)
+    urlgrabber = DamnVideoLoader(None, [uri], feedback=False, allownonmodules=False)
     urlgrabber.start()
     time.sleep(.1)
     while not urlgrabber.done:
         time.sleep(.05)
     res = urlgrabber.result
     urlgrabber.done = False
-    Damnlog('Module found, returning', res['module'])
+    if res is None:
+        Damnlog('No module found for URI:',uri,'; DamnGetAlternateModule returning None.')
+        return None
+    Damnlog('Module found for URI:',uri,'; returning', res['module'])
     return res['module']
 class DamnVideoModule:
     def __init__(self, uri):
@@ -517,7 +530,7 @@ class DamnVideoModule:
         return DV.modulesstorage[self.name]
     def getTitle(self):
         if self.title is None:
-            html = urllib2.urlopen(self.link)
+            html = DamnURLOpen(self.link)
             total = ''
             for i in html:
                 total += i
@@ -580,7 +593,7 @@ class DamnModuleUpdateCheck(thr.Thread):
                 self.postEvent(module, 'cannot')
             elif module['about']['url'] not in self.downloaded:
                 self.downloaded.append(module['about']['url'])
-                http = urllib2.urlopen(module['about']['url'])
+                http = DamnURLOpen(module['about']['url'])
                 checkingfor = [module]
                 for module2 in self.modules:
                     if module2['about'].has_key('url'):
@@ -594,14 +607,14 @@ class DamnModuleUpdateCheck(thr.Thread):
                     if not res:
                         self.postEvent(module2, 'error')
                     else:
-                        vers = DamnHtmlEntities(res.group(1))
-                        if vers != DamnUnicode(module2['version']):
+                        vers = DamnUnicode(DamnHtmlEntities(res.group(1)))
+                        if DamnVersionCompare(vers,DamnUnicode(module2['version']))==2:
                             url = DamnHtmlEntities(res.group(2)).strip()
                             if not REGEX_HTTP_GENERIC.match(url):
                                 self.postEvent(module2, 'error')
                             else:
                                 try:
-                                    http = urllib2.urlopen(url)
+                                    http = DamnURLOpen(url)
                                     tmpname = DamnTempFile()
                                     tmp = DamnOpenFile(tmpname, 'wb')
                                     for i in http:
@@ -633,7 +646,7 @@ def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None
     else:
         Damnlog('Spawning subprocess on UNIX:', cmd)
         return subprocess.Popen(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
-def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 is equal, -1 if v2 is newer.
+def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 if equal, -1 if v2 is newer.
     v1 = v1.split('.')
     v2 = v2.split('.')
     for i in range(len(v1)):
@@ -662,7 +675,7 @@ class DamnVidUpdater(thr.Thread):
         if self.todo['main']:
             regex = re.compile('<tt>([^<>]+)</tt>', re.IGNORECASE)
             try:
-                html = urllib2.urlopen(DV.url_update)
+                html = DamnURLOpen(DV.url_update)
                 for i in html:
                     if regex.search(i):
                         self.info['main'] = regex.search(i).group(1).strip()
@@ -800,6 +813,21 @@ REGEX_THOUSAND_SEPARATORS = re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 # End regex constants
 # End constants
 Damnlog('End init, begin declarations.')
+def DamnURLOpen(req, throwerror=False):
+    Damnlog('DamnURLOpen called with request',req,'; Throw error?',throwerror)
+    if type(req) in (type(''), type(u'')):
+        req = urllib2.Request(DamnUnicode(req))
+        Damnlog('Request was string; request is now',req)
+    try:
+        pipe = urllib2.urlopen(req)
+        Damnlog('DamnURLOpen successful, returning stream.')
+        return pipe
+    except Exception, e:
+        if throwerror:
+            Damnlog('DamnURLOpen failed on request',req,' with exception',e,'; throwing error because throwerror is True.')
+            raise e
+        Damnlog('DamnURLOpen failed on request',req,' with exception',e,'; returning None because throwerror is False.')
+        return None
 def DamnURLPicker(urls, urlonly=False, resumeat=None):
     tried = []
     if resumeat == 0:
@@ -813,7 +841,7 @@ def DamnURLPicker(urls, urlonly=False, resumeat=None):
             else:
                 request = urllib2.Request(i, None, {'Range':'bytes=' + str(resumeat) + '-*'})
             try:
-                pipe = urllib2.urlopen(request)
+                pipe = DamnURLOpen(request, throwerror=True)
                 if urlonly:
                     try:
                         pipe.close()
@@ -826,7 +854,6 @@ def DamnURLPicker(urls, urlonly=False, resumeat=None):
                 if not hasattr(err, 'reason') and not hasattr(err, 'code'):
                     Damnlog('DamnURLPicker returning none because of an IOError without reason or code')
                     return None
-                pass
     Damnlog('DamnURLPicker returning none because no URLs are valid')
     return None
 def DamnURLPickerBySize(urls, array=False):
@@ -842,7 +869,7 @@ def DamnURLPickerBySize(urls, array=False):
         if i not in tried:
             tried.append(i)
             try:
-                handle = urllib2.urlopen(i)
+                handle = DamnURLOpen(i)
                 size = int(handle.info()['Content-Length'])
                 handle.close()
                 maxlen.append(size)
@@ -1272,7 +1299,7 @@ class DamnBugReporter(thr.Thread):
             f.close()
             logdump = DamnUnicode(logdump.strip())
             Damnlog('Log dump done, uploading to pastebin.')
-            http = urllib2.urlopen(urllib2.Request('http://pastehtml.com/upload/create?input_type=txt&result=address', urllib.urlencode({'txt':logdump.encode('utf8')})))
+            http = DamnURLOpen(urllib2.Request('http://pastehtml.com/upload/create?input_type=txt&result=address', urllib.urlencode({'txt':logdump.encode('utf8')})))
             pasteurl = http.read(-1)
             http.close()
             Damnlog('Uploaded to', pasteurl)
@@ -1486,7 +1513,7 @@ class DamnDoneDialog(wx.Dialog):
         mainvbox.Add((0, DV.border_padding)) # Again!
         okhbox = wx.BoxSizer(wx.HORIZONTAL)
         mainvbox.Add(okhbox, 0, wx.ALIGN_RIGHT)
-        okButton = wx.Button(panel, -1, DV.l('OK'))
+        okButton = wx.Button(panel, wx.ID_OK, DV.l('OK'))
         okhbox.Add(okButton)
         self.Bind(wx.EVT_BUTTON, self.onOK, okButton)
         Damnlog('Finished building done dialog UI, displaying it.')
@@ -1770,7 +1797,7 @@ class DamnYouTubeService(thr.Thread):
             if query[0] == 'feed':
                 self.returnResult(DV.youtube_service.GetYouTubeVideoFeed(query[1]))
             elif query[0] == 'image':
-                http = urllib2.urlopen(query[1])
+                http = DamnURLOpen(query[1])
                 tmpf = self.getTempFile()
                 tmpfstream = DamnOpenFile(tmpf, 'wb')
                 for i in http.readlines():
@@ -2942,7 +2969,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         DV.prefs = DamnVidPrefs() # Reload from ini
         self.Close(True)
 class DamnVideoLoader(thr.Thread):
-    def __init__(self, parent, uris, thengo=False, feedback=True):
+    def __init__(self, parent, uris, thengo=False, feedback=True, allownonmodules=True):
         thr.Thread.__init__(self)
         self.uris = uris
         self.parent = parent
@@ -2950,6 +2977,8 @@ class DamnVideoLoader(thr.Thread):
         self.feedback = feedback
         self.done = False
         self.result = None
+        self.allownonmodules = allownonmodules
+        Damnlog('DamnVideoLoader spawned with parameters: parent =',parent,'; thengo?',thengo,'; feedback?',feedback,'; allow non-modules?',allownonmodules)
     def run(self):
         if self.feedback:
             self.parent.toggleLoading(True)
@@ -2989,6 +3018,10 @@ class DamnVideoLoader(thr.Thread):
                     break
             if not bymodule:
                 Damnlog('No module found for URI:',uri)
+                if not self.allownonmodules:
+                    Damnlog('DamnVideoLoader exitting because no module was found and non-modules are not allowed.')
+                    self.result = None
+                    return
                 if REGEX_HTTP_GENERIC.match(uri):
                     Damnlog('HTTP regex still matches URI:',uri)
                     name = self.getVidName(uri)
@@ -3184,7 +3217,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 if DV.bit64:
                     os_exe_ext = '64' + os_exe_ext
                 self.passes = 1
-                cmd = [DV.bin_path + 'ffmpeg' + os_exe_ext, '-i', '?DAMNVID_VIDEO_STREAM?', '-y', '-deinterlace', '-passlogfile', DV.tmp_path + 'pass']
+                cmd = [DV.bin_path + 'ffmpeg' + os_exe_ext, '-i', '?DAMNVID_VIDEO_STREAM?', '-y', '-passlogfile', DV.tmp_path + 'pass']
                 for i in DV.preferences.keys():
                     if i[0:25] == 'damnvid-profile:encoding_':
                         i = i[16:]
@@ -3817,7 +3850,7 @@ class DamnMainFrame(wx.Frame): # The main window
         return None
     def getVidName(self, uri):
         try:
-            html = urllib2.urlopen(uri[3:])
+            html = DamnURLOpen(uri[3:])
             for i in html:
                 res = REGEX_HTTP_GENERIC_TITLE_EXTRACT.search(i)
                 if res:

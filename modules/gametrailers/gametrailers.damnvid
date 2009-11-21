@@ -16,7 +16,7 @@ class DamnModule_GameTrailers(DamnVideoModule):
     def renewTicket(self):
         if self.ticket is not None:
             return
-        html=urllib2.urlopen('http://mosii.gametrailers.com/getmediainfo4.php?mid='+self.id[3:])
+        html=DamnURLOpen('http://mosii.gametrailers.com/getmediainfo4.php?mid='+self.id[3:])
         for i in html:
             res=self.regex['ticket'][0].search(i)
             if res:
@@ -25,7 +25,7 @@ class DamnModule_GameTrailers(DamnVideoModule):
                     self.renewTicket()
                 break
         html.close()
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         urls=[]
         for i in html:
             res=self.regex['ticket'][1].search(i)

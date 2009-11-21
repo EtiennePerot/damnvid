@@ -18,7 +18,7 @@ class DamnModule_Veoh(DamnVideoModule):
             self.link='http://www.veoh.com/browse/videos/watch/v'+self.valid.group(1)
     def getTitle(self):
         if self.title is None:
-            html=urllib2.urlopen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findByPermalink&permalink=v'+self.id[3:]+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
+            html=DamnURLOpen('http://www.veoh.com/rest/v2/execute.xml?method=veoh.video.findByPermalink&permalink=v'+self.id[3:]+'&apiKey=54709C40-9415-B95B-A5C3-5802A4E91AF3') # Onoes it's an API key
             for i in html:
                 res,res1,res2,res3=self.regex['title'].search(i),self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
                 if res:

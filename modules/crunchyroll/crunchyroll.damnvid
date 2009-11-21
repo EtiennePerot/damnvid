@@ -16,7 +16,7 @@ class DamnModule_Crunchyroll(DamnVideoModule):
     def renewTicket(self):
         if self.ticket is not None:
             return
-        html=urllib2.urlopen(self.link+'?h264=1')
+        html=DamnURLOpen(self.link+'?h264=1')
         for i in html:
             res=self.regex['ticket'].search(i)
             if res:

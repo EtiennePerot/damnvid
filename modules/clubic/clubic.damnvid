@@ -5,21 +5,30 @@ class DamnModule_Clubic(DamnVideoModule):
         DamnVideoModule.__init__(self,uri)
         self.name='clubic'
         self.regex={
-            'url':re.compile('^https?://(?:[-_\w]+\.)*clubic\.com/(.+)$',re.IGNORECASE),
+            'url':re.compile('^https?://(?:[-_\w]+\.)*(clubic|mobinaute|neteco)\.com/(.+)$',re.IGNORECASE),
             'title':(re.compile('<title>\s*(?:\[Vid.o\])?\s*([^<>]+?)\s*</title>',re.IGNORECASE),self.regex['title']),
-            'ticket':(re.compile('https?://(?:[-_\w]+\.)*clubic.com/v/(\w+)',re.IGNORECASE),re.compile('<location>\s*(https?://.+)\s*</location>',re.IGNORECASE))
+            'ticket':(re.compile('https?://(?:[-_\w]+\.)*(clubic|mobinaute|neteco).com/v/(\w+)',re.IGNORECASE),re.compile('https?://(?:[-_\w]+\.)*\w+/[^"\';<>#\s]+',re.IGNORECASE),re.compile('<location>\s*(https?://.+)\s*</location>',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
         self.clubic_videoids=[]
+        self.clubic_externalvideos=[]
+        self.clubic_sistersite='clubic'
+        self.clubic_uniquevideo=None
         if self.valid:
-            self.id='cl:'+self.valid.group(1)
-            self.link='http://www.clubic.com/'+self.valid.group(1)
+            self.id='cl:'+self.valid.group(1)+'@'+self.valid.group(2)
+            self.clubic_sistersite=self.valid.group(1)
+            self.link='http://www.'+self.clubic_sistersite+'.com/'+self.valid.group(2)
+            if self.valid.group(2)[:2]!='v/':
+                self.clubic_uniquevideo=False
+            else:
+                self.clubic_uniquevideo=True
+                self.clubic_id=self.valid.group(2)[2:]
+                self.title=self.getStorage()['titles'][self.clubic_sistersite+'@'+self.clubic_id]
     def getTitle(self):
         if self.title is None:
-            if self.id[3:5]=='v/':
-                self.title=self.id[self.id.find('|')+1:]
+            if self.clubic_uniquevideo:
                 return DamnVideoModule.getTitle(self)
-            http=urllib2.urlopen(self.link)
+            http=DamnURLOpen(self.link)
             html=''
             for i in http:
                 res=self.regex['title'][0].search(i)
@@ -31,38 +40,52 @@ class DamnModule_Clubic(DamnVideoModule):
                         self.title=DamnHtmlEntities(res.group(1).replace('\n','').replace('\r',''))
                 res2=self.regex['ticket'][0].search(i)
                 if res2:
-                    if res2.group(1) not in self.clubic_videoids:
-                        self.clubic_videoids.append(res2.group(1))
+                    subid=(res2.group(1),res2.group(2))
+                    if subid not in self.clubic_videoids:
+                        self.clubic_videoids.append(subid)
+                """else:
+                    res3=self.regex['ticket'][1].search(i)
+                    if res3:
+                        try:
+                            mod = DamnGetAlternateModule(res3.group(0))
+                            if mod is not None:
+                                self.clubic_externalvideos.append(mod)
+                        except:
+                            pass"""
         return DamnVideoModule.getTitle(self)
     def renewTicket(self):
         self.getTitle()
-        if self.id[3:5]!='v/':
-            return None
+        if not self.clubic_uniquevideo:
+            return
         if self.ticket is None:
-            html=urllib2.urlopen('http://www.clubic.com/api/tv/xml.php?id='+self.id[5:self.id.find('|')])
+            html=DamnURLOpen('http://www.'+self.clubic_sistersite+'.com/api/tv/xml.php?id='+self.clubic_id)
             for i in html:
-                res=self.regex['ticket'][1].search(i)
+                res=self.regex['ticket'][2].search(i)
                 if res:
                     self.newTicket(res.group(1))
     def getDownload(self):
-        if self.id[3:5]!='v/':
+        if not self.clubic_uniquevideo:
             return None
         self.renewTicket()
         return self.ticket
     def addVid(self,parent):
         self.getTitle()
-        if self.id[3:5]=='v/':
+        if self.clubic_uniquevideo:
             return DamnVideoModule.addVid(self,parent)
         counter=0
         count=u''
+        self.getStorage()['titles']={}
         for i in self.clubic_videoids:
             counter+=1
             if len(self.clubic_videoids)>1:
                 count=u' ('+DamnUnicode(counter)+u')'
             try:
-                self.__class__(DamnUnicode('http://www.clubic.com/v/'+i+'|')+DamnUnicode(self.title)+count).addVid(parent)
+                self.getStorage()['titles'][i[0]+'@'+i[1]]=DamnUnicode(self.title)+count
+                self.__class__('http://www.'+i[0]+'.com/v/'+i[1]).addVid(parent)
             except:
                 pass
+        for i in self.clubic_externalvideos:
+            i.addVid(parent)
 DamnRegisterModule({
     'name':'clubic',
     'title':'Clubic',
@@ -104,6 +127,14 @@ DamnRegisterModule({
             'kind':'dir',
             'strict':True,
             'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Clubic/'
+        },
+        'fetchexternal':{
+            'name':'Fetch videos from external sites',
+            'type':DV.preference_type_misc,
+            'kind':'bool',
+            'strict':True,
+            'align':True,
+            'default':True
         }
     },
     'preferences_order':['profile','outdir'],

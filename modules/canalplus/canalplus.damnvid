@@ -38,7 +38,7 @@ class DamnModule_CanalPlus(DamnVideoModule):
         self.gottitle=True
         if self.title is not None:
             return self.title
-        html=urllib2.urlopen(self.link)
+        html=DamnURLOpen(self.link)
         titleindex=0
         vidindex=0
         for i in html:
@@ -54,7 +54,7 @@ class DamnModule_CanalPlus(DamnVideoModule):
         return DamnVideoModule.getTitle(self)
     def canalplus_downloadVid(self,vid):
         vid=vid.split('-')
-        html=urllib2.urlopen('http://www.canalplus.fr/flash/xml/module/embed-video-player/embed-video-player.php',urllib.urlencode({
+        html=DamnURLOpen('http://www.canalplus.fr/flash/xml/module/embed-video-player/embed-video-player.php',urllib.urlencode({
             'pid':vid[0],
             'content_id':vid[1]
         }))
