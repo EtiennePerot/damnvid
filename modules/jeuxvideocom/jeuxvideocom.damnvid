@@ -1,0 +1,87 @@
+#~DamnVid-module:jeuxvideocom
+
+class DamnModule_JeuxVideoCom(DamnVideoModule):
+    def __init__(self,uri):
+        DamnVideoModule.__init__(self,uri)
+        self.name='jeuxvideocom'
+        self.regex={
+            'url':re.compile('^http://[^/]*jeuxvideo\.com/+(.+)$/?',re.IGNORECASE),
+            'title':re.compile('<h3[^<>]*>\s*([^<>]+?)\s*</h3>',re.IGNORECASE),
+            'ticket':(re.compile('file_xml\s*=\s*(?:escape\()?[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('<url[^<>]*>\s*([^<>]+?)\s*</url>',re.IGNORECASE))
+        }
+        self.valid=self.regex['url'].search(uri)
+        self.jeuxvideocom_xml=None
+        if self.valid:
+            self.id='jc:'+self.valid.group(1)
+            self.link='http://www.jeuxvideo.com/'+self.valid.group(1)
+    def getTitle(self):
+        if self.title is not None:
+            return self.title
+        html=DamnURLOpen(self.link)
+        total=''
+        for i in html:
+            total+=i
+        res1,res2=self.regex['title'].search(total),self.regex['ticket'][0].search(total)
+        if res1:
+            self.title=DamnHtmlEntities(res1.group(1))
+        if res2:
+            self.jeuxvideocom_xml=DamnHtmlEntities(res2.group(1)).replace(u'player.xml',u'%PLAYER').replace(u'player_hd.xml',u'%PLAYER')
+        return DamnVideoModule.getTitle(self)
+    def renewTicket(self):
+        if self.ticket is not None:
+            return
+        html=DamnURLPicker([self.jeuxvideocom_xml.replace('%PLAYER','player_hd.xml'),self.jeuxvideocom_xml.replace('%PLAYER','player.xml')])
+        for i in html:
+            res=self.regex['ticket'][1].search(i)
+            if res:
+                self.newTicket('http://video.jeuxvideo.com/'+DamnHtmlEntities(res.group(1)))
+DamnRegisterModule({
+    'name':'jeuxvideocom',
+    'title':'JeuxVideos.com',
+    'type':'video',
+    'version':'1.0',
+    'author':{
+        'name':'Etienne Perot',
+        'email':'admin@biringa.com',
+        'url':'http://biringa.com/'
+    },
+    'icon':{
+        'small':'jeuxvideocom.png',
+        'large':'jeuxvideocom-large.png',
+    },
+    'about':{
+        'short':'DamnVid module for JeuxVideo.com.',
+        'long':"""This is a video plugin for DamnVid that adds JeuxVideo.com video downloading capabilities.
+It automatically selects the HD version of the video if it is available.""",
+        'url':'http://code.google.com/p/damnvid/wiki/Modules'
+    },
+    'sites':[
+        {
+            'title':'JeuxVideo.com',
+            'icon':'jeuxvideocom.png',
+            'url':'http://www.jeuxvideo.com/videos-de-jeux.htm'
+        }
+    ],
+    'class':DamnModule_JeuxVideoCom,
+    'preferences':{
+        'profile':{
+            'name':'Default profile',
+            'type':DV.preference_type_profile,
+            'kind':'profile',
+            'strict':True,
+            'default':3
+        },
+        'outdir':{
+            'name':'Output directory',
+            'type':DV.preference_type_misc,
+            'kind':'dir',
+            'strict':True,
+            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/JeuxVideo/'
+        }
+    },
+    'register':{
+        'listicons':{
+            'jeuxvideocom':'jeuxvideocom.png'
+        }
+    }
+})

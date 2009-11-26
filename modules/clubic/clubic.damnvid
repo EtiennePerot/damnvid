@@ -5,9 +5,9 @@ class DamnModule_Clubic(DamnVideoModule):
         DamnVideoModule.__init__(self,uri)
         self.name='clubic'
         self.regex={
-            'url':re.compile('^https?://(?:[-_\w]+\.)*(clubic|mobinaute|neteco)\.com/(.+)$',re.IGNORECASE),
-            'title':(re.compile('<title>\s*(?:\[Vid.o\])?\s*([^<>]+?)\s*</title>',re.IGNORECASE),self.regex['title']),
-            'ticket':(re.compile('https?://(?:[-_\w]+\.)*(clubic|mobinaute|neteco).com/v/(\w+)',re.IGNORECASE),re.compile('https?://(?:[-_\w]+\.)*\w+/[^"\';<>#\s]+',re.IGNORECASE),re.compile('<location>\s*(https?://.+)\s*</location>',re.IGNORECASE))
+            'url':re.compile('^https?://(?:[-_\w]+\.)*(clubic\.com|mobinaute\.com|neteco\.com|jeuxvideo\.(?:fr|tv))/(.+)$',re.IGNORECASE),
+            'title':(re.compile('<title>\s*(?:\[?Vid(?:.|&eacute;)o\]?)?\s*([^<>]+?)\s*(?:\(?Jeuxvideo.TV\)?)?\s*</title>',re.IGNORECASE),self.regex['title']),
+            'ticket':(re.compile('https?://(?:[-_\w]+\.)*(clubic\.com|mobinaute\.com|neteco\.com|jeuxvideo\.(?:fr|tv))/v/(\w+)',re.IGNORECASE),re.compile('/api/tv/xml\.php\?id=(\w+)',re.IGNORECASE),re.compile('https?://(?:[-_\w]+\.)*\w+/[^"\';<>#\s]+',re.IGNORECASE),re.compile('<location>\s*(https?://.+)\s*</location>',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
         self.clubic_videoids=[]
@@ -17,7 +17,7 @@ class DamnModule_Clubic(DamnVideoModule):
         if self.valid:
             self.id='cl:'+self.valid.group(1)+'@'+self.valid.group(2)
             self.clubic_sistersite=self.valid.group(1)
-            self.link='http://www.'+self.clubic_sistersite+'.com/'+self.valid.group(2)
+            self.link='http://www.'+self.clubic_sistersite+'/'+self.valid.group(2)
             if self.valid.group(2)[:2]!='v/':
                 self.clubic_uniquevideo=False
             else:
@@ -38,13 +38,16 @@ class DamnModule_Clubic(DamnVideoModule):
                     res=self.regex['title'][1].search(i)
                     if res:
                         self.title=DamnHtmlEntities(res.group(1).replace('\n','').replace('\r',''))
-                res2=self.regex['ticket'][0].search(i)
+                res2,res3=self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i)
                 if res2:
                     subid=(res2.group(1),res2.group(2))
+                if res3:
+                    subid=(self.clubic_sistersite,res3.group(1))
+                if res2 or res3:
                     if subid not in self.clubic_videoids:
                         self.clubic_videoids.append(subid)
                 """else:
-                    res3=self.regex['ticket'][1].search(i)
+                    res3=self.regex['ticket'][2].search(i)
                     if res3:
                         try:
                             mod = DamnGetAlternateModule(res3.group(0))
@@ -58,9 +61,9 @@ class DamnModule_Clubic(DamnVideoModule):
         if not self.clubic_uniquevideo:
             return
         if self.ticket is None:
-            html=DamnURLOpen('http://www.'+self.clubic_sistersite+'.com/api/tv/xml.php?id='+self.clubic_id)
+            html=DamnURLOpen('http://www.'+self.clubic_sistersite+'/api/tv/xml.php?id='+self.clubic_id)
             for i in html:
-                res=self.regex['ticket'][2].search(i)
+                res=self.regex['ticket'][3].search(i)
                 if res:
                     self.newTicket(res.group(1))
     def getDownload(self):
@@ -79,10 +82,10 @@ class DamnModule_Clubic(DamnVideoModule):
             counter+=1
             if len(self.clubic_videoids)>1:
                 count=u' ('+DamnUnicode(counter)+u')'
-            try:
+            if True:
                 self.getStorage()['titles'][i[0]+'@'+i[1]]=DamnUnicode(self.title)+count
-                self.__class__('http://www.'+i[0]+'.com/v/'+i[1]).addVid(parent)
-            except:
+                self.__class__('http://www.'+i[0]+'/v/'+i[1]).addVid(parent)
+            else:
                 pass
         for i in self.clubic_externalvideos:
             i.addVid(parent)
@@ -102,7 +105,8 @@ DamnRegisterModule({
     },
     'about':{
         'short':'DamnVid module for Clubic.',
-        'long':"""This is a video plugin for DamnVid that adds Clubic video downloading capabilities.""",
+        'long':"""This is a video plugin for DamnVid that adds Clubic video downloading capabilities.
+Also works with Clubic's sister sites: Neteco, Mobinaute, JeuxVideo.fr, and JeuxVideo.TV.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
     'sites':[

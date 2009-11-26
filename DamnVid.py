@@ -21,6 +21,7 @@
 # - wx (with wx.animate and mixins)
 # - GData (YouTube API)
 # - BeautifulSoup (Malformed HTML parsing)
+# - PyWin32 (Windows API calls) (only required on Windows)
 # - Psyco (optional, speeds up execution)
 
 import wx # Oh my wx, it's wx.
@@ -95,7 +96,12 @@ DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = sys.argv[1:]
 versionfile.close()
 del versionfile
-DV.cookiejar = cookielib.CookieJar()
+class DamnCookieJar(cookielib.CookieJar):
+    def _cookie_from_cookie_tuple(self, tup, request): # Work-around for cookielib bug with non-integer cookie versions (*ahem* @ Apple)
+        name, value, standard, rest = tup
+        standard["version"]= 1
+        cookielib.CookieJar._cookie_from_cookie_tuple(self, tup, request)
+DV.cookiejar = DamnCookieJar()
 DV.urllib2_urlopener = urllib2.build_opener(urllib2.HTTPCookieProcessor(DV.cookiejar))
 DV.urllib2_urlopener.addheaders = [('User-agent', 'DamnVid/' + DV.version)]
 urllib2.install_opener(DV.urllib2_urlopener) # All urllib2.urlopen() calls will have the DamnVid user-agent
@@ -536,7 +542,7 @@ class DamnVideoModule:
                 total += i
             res = self.regex['title'].search(total)
             if res:
-                self.title = DamnUnicode(DamnHtmlEntities(res.group(1)))
+                self.title = DamnHtmlEntities(res.group(1))
         if self.title is not None:
             return DamnUnicode(self.title)
         return DV.l('Unknown title')
@@ -607,8 +613,8 @@ class DamnModuleUpdateCheck(thr.Thread):
                     if not res:
                         self.postEvent(module2, 'error')
                     else:
-                        vers = DamnUnicode(DamnHtmlEntities(res.group(1)))
-                        if DamnVersionCompare(vers,DamnUnicode(module2['version']))==2:
+                        vers = DamnHtmlEntities(res.group(1))
+                        if DamnVersionCompare(vers,DamnUnicode(module2['version']))==1:
                             url = DamnHtmlEntities(res.group(2)).strip()
                             if not REGEX_HTTP_GENERIC.match(url):
                                 self.postEvent(module2, 'error')
@@ -3200,11 +3206,11 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         failed = True
                     self.grabberrun = False
                     if self.abort or failed:
-                        self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = 'Failure.'
-                        self.update(status='Failure.')
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = DV.l('Failure.')
+                        self.update(status=DV.l('Failure.'))
                     else:
-                        self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = 'Success!'
-                        self.update(status='Success!')
+                        self.parent.meta[self.parent.videos[self.parent.converting]]['status'] = DV.l('Success!')
+                        self.update(status=DV.l('Success!'))
                         self.parent.resultlist.append((self.filename + ext, self.outdir, self.parent.meta[self.parent.videos[self.parent.converting]]['icon']))
                     self.update(go=self.abort)
                     return
@@ -3754,7 +3760,6 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addurl = None
         self.loadingvisible = 0
         self.onListSelect()
-        self.Center()
         if DV.first_run:
             dlg = wx.MessageDialog(self, DV.l('Welcome to DamnVid ') + DV.version + '!\n' + DV.l('Would you like DamnVid to check for updates every time it starts?'), DV.l('Welcome to DamnVid ') + DV.version + '!', wx.YES | wx.NO | wx.ICON_QUESTION)
             if dlg.ShowModal() == wx.ID_YES:
@@ -3974,8 +3979,7 @@ class DamnMainFrame(wx.Frame): # The main window
             if self.videos[i] not in self.thisvideo and self.meta[self.videos[i]]['status'] != DV.l('Success!'):
                 self.converting = i
                 break
-        if self.converting != -1 and not aborted:
-            # Let's go for the actual conversion...
+        if self.converting != -1 and not aborted: # Let's go for the actual conversion...
             self.meta[self.videos[self.converting]]['status'] = DV.l('In progress...')
             self.list.SetStringItem(self.converting, ID_COL_VIDSTAT, DV.l('In progress...'))
             self.thisbatch = self.thisbatch + 1

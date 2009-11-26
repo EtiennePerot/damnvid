@@ -7,7 +7,7 @@ class DamnModule_Metacafe(DamnVideoModule):
         self.regex={
             'url':re.compile('metacafe\.com/+(?:watch/)?(\d+)/?',re.IGNORECASE),
             'title':re.compile('<h1[^<>]*>\s*([^<>"]+?)\s*</h1>',re.IGNORECASE),
-            'ticket':re.compile('mediaURL=([^&<>]+)&gdaKey=([-_\w]+)',re.IGNORECASE)
+            'ticket':re.compile('mediaURL=([^&<>]+)(?:&gdaKey=([-_\w]+))?',re.IGNORECASE)
         }
         self.valid=self.regex['url'].search(uri)
         if self.valid:
@@ -24,7 +24,10 @@ class DamnModule_Metacafe(DamnVideoModule):
         if res1:
             self.title=DamnHtmlEntities(res1.group(1))
         if res2:
-            self.newTicket(urllib2.unquote(res2.group(1))+'?__gda__='+res2.group(2))
+            if res2.group(2) is not None:
+                self.newTicket(urllib2.unquote(res2.group(1))+'?__gda__='+res2.group(2))
+            else:
+                self.newTicket(urllib2.unquote(res2.group(1)))
         return DamnVideoModule.getTitle(self)
     def renewTicket(self):
         if self.ticket is not None and self.ticketdate+15>time.time():
@@ -33,12 +36,15 @@ class DamnModule_Metacafe(DamnVideoModule):
         for i in html:
             res=self.regex['ticket'].search(i)
             if res:
-                self.newTicket(urllib2.unquote(res2.group(1))+'?__gda__='+res2.group(2))
+                if res.group(2) is not None:
+                    self.newTicket(urllib2.unquote(res2.group(1))+'?__gda__='+res2.group(2))
+                else:
+                    self.newTicket(urllib2.unquote(res2.group(1)))
 DamnRegisterModule({
     'name':'metacafe',
     'title':'Metacafe',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',

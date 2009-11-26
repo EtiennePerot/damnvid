@@ -397,7 +397,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Pass ':u'Passe ',
         'Copying ':u'Copie de ',
         'Bug report submitted successfully. Thanks!':u'Rapport de bug envoyé. Merci!',
-        'Added ':u'Ajouté ',
+        'Added ':u'Ajouté: ',
         'Done.':u'Fait.',
         'Number of videos to download':u'Nombre de vidéos à télécharger',
         'Video only (no audio)':u'Vidéo seulement (pas d\'audio)',
