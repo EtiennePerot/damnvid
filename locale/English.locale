@@ -408,6 +408,9 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'No videos were processed.':u'No videos were processed.',
         'Video conversion successful.':u'Video conversion successful.',
         'Translation:': u'Translation:',
-        'Warn when removing a video from the list':u'Warn when removing a video from the list'
+        'Warn when removing a video from the list':u'Warn when removing a video from the list',
+        'Main window':u'Main window',
+        'Always centered':u'Always centered',
+        'Remember position and size':u'Remember position'
     }
 }

@@ -338,6 +338,17 @@ DV.preferences={
         'strict':False,
         'default':''
     },
+    'damnvid:windowpolicy':{
+        'name':'Main window',
+        'type':DV.preference_type_misc,
+        'kind':{
+            'center':'Always centered',
+            'remember':'Remember position and size'
+        },
+        'order':['center','remember'],
+        'strict':True,
+        'default':'center'
+    },
     'damnvid:splashscreen':{
         'name':'Show splashscreen at startup',
         'type':DV.preference_type_misc,
@@ -412,7 +423,7 @@ DV.preferences={
     }
 }
 DV.preference_order={
-    'damnvid':['checkforupdates','locale','splashscreen','warnremove','dirrecursion','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
+    'damnvid':['checkforupdates','locale','splashscreen','warnremove','dirrecursion','windowpolicy','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
     'damnvid-search':['autoconvert','default_search','history_length']
 }

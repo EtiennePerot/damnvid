@@ -25,12 +25,12 @@ class DamnModule_JeuxVideoCom(DamnVideoModule):
         if res1:
             self.title=DamnHtmlEntities(res1.group(1))
         if res2:
-            self.jeuxvideocom_xml=DamnHtmlEntities(res2.group(1)).replace(u'player.xml',u'%PLAYER').replace(u'player_hd.xml',u'%PLAYER')
+            self.jeuxvideocom_xml=DamnHtmlEntities(res2.group(1)).replace(u'player.xml',u'%PLAYER%').replace(u'player_hd.xml',u'%PLAYER%')
         return DamnVideoModule.getTitle(self)
     def renewTicket(self):
         if self.ticket is not None:
             return
-        html=DamnURLPicker([self.jeuxvideocom_xml.replace('%PLAYER','player_hd.xml'),self.jeuxvideocom_xml.replace('%PLAYER','player.xml')])
+        html=DamnURLPicker([self.jeuxvideocom_xml.replace('%PLAYER%','player_hd.xml'),self.jeuxvideocom_xml.replace('%PLAYER%','player.xml')])
         for i in html:
             res=self.regex['ticket'][1].search(i)
             if res:

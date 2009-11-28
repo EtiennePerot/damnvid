@@ -5,14 +5,16 @@ class DamnModule_GameTrailers(DamnVideoModule):
         DamnVideoModule.__init__(self,uri)
         self.name='gametrailers'
         self.regex={
-            'url':re.compile('gametrailers\.com/player/(\d+)',re.IGNORECASE),
-            'title':re.compile('class="GameTitle"[^<>]*>\s*([^<>]+?)\s*</a>',re.IGNORECASE),
-            'ticket':(re.compile('hasHD=(\d+)',re.IGNORECASE),re.compile('<a href="([^"]+gametrailers\.com/download/\d+/[^"]+)">',re.IGNORECASE))
+            'url':re.compile('gametrailers\.com/((?:player/|video/|user-?movies?/).*?)(\d+)(?:[^-\w\s]|$)',re.IGNORECASE),
+            'title':re.compile('(?:<meta[^<>]*name="title"[^<>]*content="|<div[^<>]*class="[^"]*movieTitle[^"]*"[^<>]*>\s*<a[^<>]*>\s*)\s*([^<>]+?)\s*(?:"[^<>]*>|</a>)',re.IGNORECASE),
+            'ticket':(re.compile('hasHD=(\d+)',re.IGNORECASE),re.compile('<a href="([^"]+gametrailers\.com/download/\d+/[^"]+)">',re.IGNORECASE),re.compile('<src[^<>]*>\s*([^<>]+?)\s*</src>'))
         }
         self.valid=self.regex['url'].search(uri)
         if self.valid:
-            self.id='gt:'+self.valid.group(1)
-            self.link='http://www.gametrailers.com/player/'+self.valid.group(1)+'.html?type=flv'
+            self.gametrailers_id=self.valid.group(2)
+            self.gametrailers_usermovie=self.valid.group(1).lower().find('user')!=-1
+            self.id='gt:'+self.valid.group(1)+self.valid.group(2)
+            self.link=uri
     def renewTicket(self):
         if self.ticket is not None:
             return
@@ -31,12 +33,23 @@ class DamnModule_GameTrailers(DamnVideoModule):
             res=self.regex['ticket'][1].search(i)
             if res:
                 urls.append(DamnHtmlEntities(res.group(1)))
+        if not len(urls):
+            if self.gametrailers_usermovie:
+                html=DamnURLOpen('http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mediagen&movieId='+self.gametrailers_id+'&hd=1&um=1')
+            else:
+                html=DamnURLOpen('http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mediagen&movieId='+self.gametrailers_id+'&hd=1&um=0')
+            total=''
+            for i in html:
+                total+=i
+            res=self.regex['ticket'][2].search(total)
+            if res:
+                urls.append(DamnHtmlEntities(res.group(1)))
         self.newTicket(urls)
 DamnRegisterModule({
     'name':'gametrailers',
     'title':'GameTrailers',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',

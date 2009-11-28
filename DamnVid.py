@@ -819,13 +819,16 @@ REGEX_THOUSAND_SEPARATORS = re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 # End regex constants
 # End constants
 Damnlog('End init, begin declarations.')
-def DamnURLOpen(req, throwerror=False):
-    Damnlog('DamnURLOpen called with request',req,'; Throw error?',throwerror)
+def DamnURLOpen(req, data=None, throwerror=False):
+    Damnlog('DamnURLOpen called with request',req,'; data',data,'; Throw error?',throwerror)
     if type(req) in (type(''), type(u'')):
         req = urllib2.Request(DamnUnicode(req))
         Damnlog('Request was string; request is now',req)
     try:
-        pipe = urllib2.urlopen(req)
+        if data is not None:
+            pipe = urllib2.urlopen(req, data)
+        else:
+            pipe = urllib2.urlopen(req)
         Damnlog('DamnURLOpen successful, returning stream.')
         return pipe
     except Exception, e:
@@ -3547,6 +3550,7 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
             pass
 class DamnMainFrame(wx.Frame): # The main window
     def __init__(self, parent, id, title):
+        Damnlog('DamnMainFrame GUI building starting.')
         wx.Frame.__init__(self, parent, wx.ID_ANY, title, size=(780, 580), style=wx.DEFAULT_FRAME_STYLE)
         self.CreateStatusBar()
         filemenu = wx.Menu()
@@ -3580,6 +3584,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.menubar.Append(vidmenu, DV.l('&DamnVid'))
         self.menubar.Append(halpmenu, DV.l('&Help'))
         self.SetMenuBar(self.menubar)
+        Damnlog('DamnMainFrame menu bar is up.')
         vbox = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
         #vbox.Add((0,DV.border_padding)) Actually, do NOT add a padding there, it looks better when stuck on the edge
@@ -3615,6 +3620,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.list.SetDropTarget(DamnDropHandler(self))
         self.list.Bind(wx.EVT_RIGHT_DOWN, self.list.onRightClick)
         hbox1.Add(self.list, 1, wx.EXPAND)
+        Damnlog('DamnMainFrame MainList is up.')
         vboxwrap2 = wx.BoxSizer(wx.HORIZONTAL)
         sizer2 = wx.BoxSizer(wx.VERTICAL)
         vboxwrap2.Add(sizer2)
@@ -3707,23 +3713,31 @@ class DamnMainFrame(wx.Frame): # The main window
         self.Bind(wx.EVT_SIZE, self.onResize, self)
         self.Bind(DV.evt_prog, self.onProgress)
         self.Bind(DV.evt_load, self.onLoading)
+        Damnlog('DamnMainFrame: All GUI is up.')
         self.clipboardtimer = wx.Timer(self, -1)
         self.clipboardtimer.Start(1000)
         self.Bind(wx.EVT_TIMER, self.onClipboardTimer, self.clipboardtimer)
+        Damnlog('DaminMainFrame: Clipboard timer started.')
         DV.icon = wx.Icon(DV.images_path + 'icon.ico', wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV.icon)
+        Damnlog('DamnMainFrame: init stage 1 done.')
     def init2(self):
+        Damnlog('Starting DamnMainFrame init stage 2.')
         if os.path.exists(DV.conf_file_directory + 'lastversion.damnvid'):
             lastversion = DamnOpenFile(DV.conf_file_directory + 'lastversion.damnvid', 'r')
             dvversion = lastversion.readline().strip()
             lastversion.close()
             del lastversion
+            Damnlog('Version file found; version number read:',dvversion)
         else:
             dvversion = 'old' # This is not just an arbitrary erroneous value, it's actually handy in the concatenation on the wx.FileDialog line below
+            Damnlog('No version file found.')
+        Damnlog('Read version:',dvversion,';running version:',DV.version)
         if dvversion != DV.version: # Just updated to new version, ask what to do about the preferences
             #dlg = wx.MessageDialog(self, DV.l('DamnVid was updated to ') + DV.version + '.\n' + DV.l('locale:damnvid-updated-export-prefs'), DV.l('DamnVid was successfully updated'), wx.YES | wx.NO | wx.ICON_QUESTION)
             tmpprefs = DamnVidPrefs()
             checkupdates = tmpprefs.get('CheckForUpdates')
+            Damnlog('Check for updates preference is',checkupdates)
             if False: #dlg.ShowModal() == wx.ID_YES:
                 dlg.Destroy()
                 dlg = wx.FileDialog(self, DV.l('Where do you want to export DamnVid\'s configuration?'), tmpprefs.get('lastprefdir'), 'DamnVid-' + dvversion + '-configuration.ini', DV.l('locale:browse-ini-files'), wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
@@ -3747,6 +3761,7 @@ class DamnMainFrame(wx.Frame): # The main window
             tmpprefs.set('CheckForUpdates', checkupdates)
             tmpprefs.save()
             del tmpprefs
+        Damnlog('Local version check done, initializing DamnMainFrame properties.')
         self.videos = []
         self.clippedvideos = []
         self.resultlist = []
@@ -3760,6 +3775,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.addurl = None
         self.loadingvisible = 0
         self.onListSelect()
+        Damnlog('DamnMainFrame properties OK, first run?',DV.first_run)
         if DV.first_run:
             dlg = wx.MessageDialog(self, DV.l('Welcome to DamnVid ') + DV.version + '!\n' + DV.l('Would you like DamnVid to check for updates every time it starts?'), DV.l('Welcome to DamnVid ') + DV.version + '!', wx.YES | wx.NO | wx.ICON_QUESTION)
             if dlg.ShowModal() == wx.ID_YES:
@@ -3767,8 +3783,49 @@ class DamnMainFrame(wx.Frame): # The main window
             else:
                 DV.prefs.set('CheckForUpdates', 'False')
         if DV.prefs.get('CheckForUpdates') == 'True':
+            Damnlog('DamnMainFrame checking for updates.')
             self.onCheckUpdates(None)
         self.SetStatusText(DV.l('DamnVid ready.'))
+        windowpolicy = DV.prefs.get('windowpolicy')
+        if not len(windowpolicy) or windowpolicy=='center':
+            Damnlog('Window policy is centering.')
+            self.Center()
+        elif windowpolicy=='remember':
+            Damnlog('Window policy is remember; trying to load saved window geometry.')
+            lastx = DV.prefs.gets('damnvid-mainwindow','lastx')
+            lasty = DV.prefs.gets('damnvid-mainwindow','lasty')
+            lastw = DV.prefs.gets('damnvid-mainwindow','lastw')
+            lasth = DV.prefs.gets('damnvid-mainwindow','lasth')
+            lastresw = DV.prefs.gets('damnvid-mainwindow','lastresw')
+            lastresh = DV.prefs.gets('damnvid-mainwindow','lastresh')
+            allstuff=(lastx,lasty,lastw,lasth,lastresw,lastresh)
+            Damnlog('Old window geometry information:',allstuff)
+            allstuff2=[]
+            for i in allstuff:
+                try:
+                    allstuff2.append(int(i))
+                except:
+                    allstuff2.append(-1)
+            if -1 in allstuff2:
+                Damnlog('Invalid information in old window geometry information; giving up on restoring window geometry.')
+            else:
+                try:
+                    screen = wx.Display().GetGeometry()[2:]
+                    if allstuff2[4] != screen[0] or allstuff2[5]!= screen[1]:
+                        Damnlog('Resolution information is different:',allstuff2[4:5],'vs',screen,'(current); giving up on restoring window geometry.')
+                    else:
+                        Damnlog('All window geometry tests passed, attempting to restore window geometry.')
+                        try:
+                            self.SetSizeWH(allstuff2[2],allstuff2[3])
+                            self.MoveXY(allstuff2[0],allstuff2[1])
+                            Damnlog('Window geometry restores successfully.')
+                        except:
+                            Damnlog('Window manager refused to change window geometry.')
+                except:
+                    Damnlog('Could not get screen resolution; giving up on restoring window geometry.')
+        else:
+            Damnlog('Window policy is',windowpolicy,'; doing nothing.')
+        Damnlog('DamnMainFrame: Main window all ready,')
     def onExit(self, event):
         self.Close(True)
     def onListSelect(self, event=None):
@@ -4248,6 +4305,20 @@ class DamnMainFrame(wx.Frame): # The main window
             self.shutdown()
     def shutdown(self):
         Damnlog('Main window got shutdown() call')
+        try:
+            Damnlog('Attempting to get window position/size information.')
+            position = self.GetPositionTuple()
+            size = self.GetSize()
+            screen = wx.Display().GetGeometry()[2:]
+            Damnlog('Position is',position,'; size is',size,'; resolution is',screen)
+            DV.prefs.sets('damnvid-mainwindow','lastx',position[0])
+            DV.prefs.sets('damnvid-mainwindow','lasty',position[1])
+            DV.prefs.sets('damnvid-mainwindow','lastw',size[0])
+            DV.prefs.sets('damnvid-mainwindow','lasth',size[1])
+            DV.prefs.sets('damnvid-mainwindow','lastresw',screen[0])
+            DV.prefs.sets('damnvid-mainwindow','lastresh',screen[1])
+        except:
+            Damnlog('Error while trying to grab position/size information.')
         self.isclosing = True
         self.clipboardtimer.Stop()
         self.Destroy()
@@ -4306,10 +4377,10 @@ def DamnMain():
     Damnlog('Main loop ended, saving prefs.')
     DV.prefs.save()
     Damnlog('Trying to clean temp directory.')
-    if True:
+    try:
         shutil.rmtree(DV.tmp_path)
         Damnlog('Cleaned temp directory.')
-    else:
+    except:
         Damnlog('Could not clean temp directory. Nothing fatal...')
     DV.log.close()
     if DV.dumplocalewarnings:

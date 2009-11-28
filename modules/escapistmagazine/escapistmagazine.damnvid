@@ -6,22 +6,31 @@ class DamnModule_EscapistMagazine(DamnVideoModule):
         self.name='escapistmagazine'
         self.regex={
             'url':re.compile('escapistmagazine\.com/videos.*?/(\d+)-?',re.IGNORECASE),
-            'title':re.compile('class=[\'"]?headline[\'"]?[^<>]*>\s*([^<>]+?)\s*</div>',re.IGNORECASE),
-            'ticket':re.compile('url=([^&=]+)(?:[&=]|$)?',re.IGNORECASE)
+            'title':re.compile('class=[\'"]?headline[\'"]?[^<>]*>\s*(.*?)\s*</div>',re.IGNORECASE),
+            'ticket':(re.compile('url=([^&=]+)(?:[&=]|$)?',re.IGNORECASE),re.compile('config\s*=\s*(https?://[^&\s]+?.js)',re.IGNORECASE),re.compile('\{\s*[\'"]\s*url\s*[\'"]\s*:\s*[\'"]\s*(https?://[^\'"\s]+\.m(?:p4|4v)[^\'"\s]*)\s*[\'"]',re.IGNORECASE)),
+            'sanetitle':(re.compile('<[^<>]+>',re.IGNORECASE),re.compile('\s+',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
-        self.zp=None
+        self.escapistmagazine_zp=None
+        self.escapistmagazine_jsconfig=None
         if self.valid:
             self.id='em:'+self.valid.group(1)
             self.link='http://www.escapistmagazine.com/videos/view/'+self.valid.group(1)
     def getTitle(self):
-        DamnVideoModule.getTitle(self)
-        if self.title is not None:
-            if self.title.find('Zero Punctuation')!=-1:
-                self.zp=True
+        if self.title is None:
+            html = DamnURLOpen(self.link)
+            total = ''
+            for i in html:
+                total += i
+            res1,res2 = self.regex['title'].search(total), self.regex['ticket'][1].search(total)
+            if res1:
+                self.title = DamnHtmlEntities(self.regex['sanetitle'][1].sub(' ',self.regex['sanetitle'][0].sub('',res1.group(1))))
+            if res2:
+                self.escapistmagazine_jsconfig = DamnHtmlEntities(res2.group(1))
+        self.escapistmagazine_zp=self.title.lower().find('zero punctuation')!=-1
         return DamnVideoModule.getTitle(self)
     def getIcon(self):
-        if self.zp is None:
+        if not self.escapistmagazine_zp:
             return DamnVideoModule.getIcon(self)
         return DamnGetListIcon('escapistmagazinezeropunctuation')
     def renewTicket(self):
@@ -31,15 +40,24 @@ class DamnModule_EscapistMagazine(DamnVideoModule):
             'version':'ThemisMedia1.2',
             'format':hashlib.md5('Video '+self.id[3:]+' Hash').hexdigest()
         }))
+        foundit=False
         for i in html:
-            res=self.regex['ticket'].search(i)
+            res=self.regex['ticket'][0].search(i)
             if res:
                 self.newTicket(urllib2.unquote(res.group(1)))
+                foundit=True
+        if not foundit and self.escapistmagazine_jsconfig is not None:
+            html=DamnURLOpen(self.escapistmagazine_jsconfig)
+            for i in html:
+                res=self.regex['ticket'][2].search(i)
+                if res:
+                    self.newTicket(res.group(1))
+                    break
 DamnRegisterModule({
     'name':'escapistmagazine',
     'title':'The Escapist',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Palmer',
         'email':'palmnet@gmail.com',

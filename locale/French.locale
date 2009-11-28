@@ -408,6 +408,9 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'No videos were processed.':u'Aucune vidéo n\'a été convertie.',
         'Video conversion successful.':u'Conversion terminée.',
         'Translation:': u'Traduction:',
-        'Warn when removing a video from the list':u'M\'avertir lorsque j\'enlève une vidéo'
+        'Warn when removing a video from the list':u'M\'avertir lorsque j\'enlève une vidéo',
+        'Main window':u'Fenêtre principale',
+        'Always centered':u'Toujours centrée',
+        'Remember position and size':u'Se souvenir de la position'
     }
 }
