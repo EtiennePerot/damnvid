@@ -88,7 +88,7 @@ def DamnOpenFile(f, m):
 # Begin constants
 class DamnEmpty:
     pass
-DV = DamnEmpty() # The only global variable out there. Srsly.
+DV = DamnEmpty() # The only global variable out there... not
 DV.sep = DamnUnicode(os.sep)
 DV.curdir = DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))) + DV.sep
 versionfile = DamnOpenFile(DV.curdir + 'version.damnvid', 'r')
@@ -837,6 +837,8 @@ def DamnURLOpen(req, data=None, throwerror=False):
             raise e
         Damnlog('DamnURLOpen failed on request',req,' with exception',e,'; returning None because throwerror is False.')
         return None
+def DamnRTMPDump(req):
+    pass # Todo
 def DamnURLPicker(urls, urlonly=False, resumeat=None):
     tried = []
     if resumeat == 0:

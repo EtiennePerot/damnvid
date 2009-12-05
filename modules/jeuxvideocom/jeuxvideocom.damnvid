@@ -7,7 +7,7 @@ class DamnModule_JeuxVideoCom(DamnVideoModule):
         self.regex={
             'url':re.compile('^http://[^/]*jeuxvideo\.com/+(.+)$/?',re.IGNORECASE),
             'title':re.compile('<h3[^<>]*>\s*([^<>]+?)\s*</h3>',re.IGNORECASE),
-            'ticket':(re.compile('file_xml\s*=\s*(?:escape\()?[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('<url[^<>]*>\s*([^<>]+?)\s*</url>',re.IGNORECASE))
+            'ticket':(re.compile('file_xml\s*=\s*(?:escape\()?[\'"]([^\'"]+)[\'"]',re.IGNORECASE),re.compile('<url[^<>]*>\s*([^<>]+?)\s*</url>',re.IGNORECASE),re.compile('<type_id[^<>]*>\s*([^<>]+?)\s*</type_id>',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
         self.jeuxvideocom_xml=None
@@ -31,10 +31,22 @@ class DamnModule_JeuxVideoCom(DamnVideoModule):
         if self.ticket is not None:
             return
         html=DamnURLPicker([self.jeuxvideocom_xml.replace('%PLAYER%','player_hd.xml'),self.jeuxvideocom_xml.replace('%PLAYER%','player.xml')])
+        type_id=u'2'
+        tmpurl=None
         for i in html:
-            res=self.regex['ticket'][1].search(i)
-            if res:
-                self.newTicket('http://video.jeuxvideo.com/'+DamnHtmlEntities(res.group(1)))
+            res1,res2=self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
+            if res1:
+                tmpurl=DamnHtmlEntities(res1.group(1))
+            if res2:
+                type_id=DamnHtmlEntities(res2.group(1))
+        if tmpurl is not None:
+            if type_id==u'2':
+                self.newTicket(u'http://video.jeuxvideo.com/'+tmpurl)
+            else:
+                self.newTicket(self.JeuxVideoCom_GetKeyUrl(tmpurl))
+    def JeuxVideoCom_GetKeyUrl(self, url):
+        t=str(int(time.time()))
+        return DamnUnicode('http://video.jeuxvideo.com/cgi-bin/playv.cgi?t='+t+'&k='+hashlib.md5('Va'+url+'O9'+t+'K42').hexdigest()+'&url='+url)
 DamnRegisterModule({
     'name':'jeuxvideocom',
     'title':'JeuxVideos.com',

@@ -380,7 +380,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         '(If you tried to download a video, please include its URL.)':u'(Si vous avez essayé de télécharger une vidéo, spécifiez son URL.)',
         'System information:':u'Informations sur le système:',
         'Email-address (Optional):':u'Adresse email (Optionnel):',
-        '(You will be notified at this address when there is progress about this bug.)':u'(Vous serez mis au courant à cette adresse à propos du bug.)',
+        '(You will be notified at this address when there is progress about this bug.)':u'(Vous serez tenu au courant à propos de ce bug via cette adresse.)',
         'In addition to this information, DamnVid\'s log file will also be sent.':u'Le fichier de rapport de DamnVid sera aussi envoyé.',
         'This file is located here: ':u'Ce fichier est ici: ',
         'Empty bug description field':u'Champ de description vide',

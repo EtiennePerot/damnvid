@@ -85,7 +85,7 @@ DamnRegisterModule({
             'type':DV.preference_type_profile,
             'kind':'profile',
             'strict':True,
-            'default':3
+            'default':-1
         },
         'outdir':{
             'name':'Output directory',

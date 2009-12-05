@@ -7,7 +7,7 @@ class DamnModule_TMTube(DamnVideoModule):
         self.regex={
             'url':re.compile('tm-tube\.com/video/(\d+)',re.IGNORECASE),
             'title':re.compile('<title>\s*TM-Tube - Your TrackMania Video Portal\s*-\s*([^<>]+?)\s*</title>',re.IGNORECASE),
-            'ticket':re.compile('<a[^<>]*href="(https?://.*?tm-tube.com/media[^"]+)"[^<>]*>Download',re.IGNORECASE)
+            'ticket':re.compile('<a[^<>]*href="(https?://.*?tm-tube.com/get\.php\?id=[^"]+)"[^<>]*>Download',re.IGNORECASE)
         }
         self.valid=self.regex['url'].search(uri)
         self.gamevideos_urls=[]
@@ -36,7 +36,7 @@ DamnRegisterModule({
     'name':'tmtube',
     'title':'TM-Tube',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',
@@ -65,7 +65,7 @@ DamnRegisterModule({
             'type':DV.preference_type_profile,
             'kind':'profile',
             'strict':True,
-            'default':3
+            'default':-1
         },
         'outdir':{
             'name':'Output directory',
