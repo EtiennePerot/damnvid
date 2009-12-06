@@ -3767,6 +3767,7 @@ class DamnMainFrame(wx.Frame): # The main window
             #dlg = wx.MessageDialog(self, DV.l('DamnVid was updated to ') + DV.version + '.\n' + DV.l('locale:damnvid-updated-export-prefs'), DV.l('DamnVid was successfully updated'), wx.YES | wx.NO | wx.ICON_QUESTION)
             tmpprefs = DamnVidPrefs()
             checkupdates = tmpprefs.get('CheckForUpdates')
+            locale = tmpprefs.get('locale')
             Damnlog('Check for updates preference is',checkupdates)
             if False: #dlg.ShowModal() == wx.ID_YES:
                 dlg.Destroy()
@@ -3789,6 +3790,7 @@ class DamnMainFrame(wx.Frame): # The main window
             del lastversion
             tmpprefs = DamnVidPrefs()
             tmpprefs.set('CheckForUpdates', checkupdates)
+            tmpprefs.set('locale', locale)
             tmpprefs.save()
             del tmpprefs
         Damnlog('Local version check done, initializing DamnMainFrame properties.')
