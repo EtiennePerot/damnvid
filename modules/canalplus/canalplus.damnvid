@@ -94,7 +94,7 @@ DamnRegisterModule({
     'name':'canalplus',
     'title':'Canal+',
     'type':'video',
-    'version':'1.0',
+    'version':'1.1',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',
@@ -111,13 +111,13 @@ Only the last few video(s) from a given channel are downloaded.
 You can customize the number of downloaded videos below.""",
         'url':'http://code.google.com/p/damnvid/wiki/Modules'
     },
-    'sites':[
-        {
-            'title':'Canal+',
-            'icon':'canalplus.png',
-            'url':'http://www.canalplus.fr/'
-        }
-    ],
+#    'sites':[
+#        {
+#            'title':'Canal+',
+#            'icon':'canalplus.png',
+#            'url':'http://www.canalplus.fr/'
+#        }
+#    ],
     'class':DamnModule_CanalPlus,
     'preferences':{
         'profile':{

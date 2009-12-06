@@ -791,14 +791,8 @@ for i in os.listdir(DV.locale_path):
 DamnLoadCurrentLocale()
 # Begin ID constants
 ID_MENU_EXIT = wx.ID_EXIT
-ID_MENU_ADD_FILE = 102
-ID_MENU_ADD_URL = 103
-ID_MENU_GO = 104
 ID_MENU_PREFERENCES = wx.ID_PREFERENCES
-ID_MENU_OUTDIR = 106
 ID_MENU_HALP = wx.ID_HELP
-ID_MENU_UPDATE = 108
-ID_MENU_REPORTBUG = 109
 ID_MENU_ABOUT = wx.ID_ABOUT
 ID_COL_VIDNAME = 0
 ID_COL_VIDPROFILE = 1
@@ -966,6 +960,30 @@ class DamnCurry:
         else:
             kw = kwargs or self.kwargs
         return self.func(*(self.pending + args), **kw)
+class DamnTrayIcon(wx.TaskBarIcon):
+    def __init__(self, parent):
+        wx.TaskBarIcon.__init__(self)
+        Damnlog('DamnTrayIcon initialized with parent window',parent)
+        self.parent = parent
+        self.parent.Show(False)
+        self.parent.Iconize(True) # Releases system memory
+        self.Bind(wx.EVT_TASKBAR_LEFT_DCLICK, self.raiseParent)
+        self.Bind(wx.EVT_TASKBAR_CLICK, self.raiseParent)
+        self.Bind(wx.EVT_TASKBAR_LEFT_UP, self.raiseParent)
+        self.Bind(wx.EVT_TASKBAR_RIGHT_DOWN, self.raiseParent)
+        self.SetIcon(DV.icon)
+        Damnlog('DamnTrayIcon ready.')
+        self.timer = -1
+    def raiseParent(self, event=None):
+        if time.time()-self.timer < 0.1:
+            return
+        self.timer=time.time()
+        Damnlog('DamnTrayIcon raiseParent method called.')
+        self.parent.Iconize(False)
+        self.parent.Show(True)
+        self.parent.Raise() # Bring to front
+        Damnlog('DamnTrayIcon parent shown and raised, destroying self.')
+        self.Destroy()
 class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the DamnList
     def __init__(self, parent):
         wx.Menu.__init__(self)
@@ -1745,9 +1763,13 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
             return self.profiles
         return None
     def geta(self, section, name):
-        return eval(base64.b64decode(self.gets(section, name)))
+        array = eval(base64.b64decode(self.gets(section, name)))
+        unicodearray = []
+        for i in array:
+            unicodearray.append(DamnUnicode(i))
+        return unicodearray
     def seta(self, section, name, value):
-        return self.sets(section, name, base64.b64encode(str(value)))
+        return self.sets(section, name, base64.b64encode(DamnUnicode(value)))
     def save(self):
         f = DamnOpenFile(DV.conf_file, 'w')
         self.ini.write(f)
@@ -3556,28 +3578,33 @@ class DamnMainFrame(wx.Frame): # The main window
         wx.Frame.__init__(self, parent, wx.ID_ANY, title, size=(780, 580), style=wx.DEFAULT_FRAME_STYLE)
         self.CreateStatusBar()
         filemenu = wx.Menu()
-        filemenu.Append(ID_MENU_ADD_FILE, DV.l('&Add files...'), DV.l('Adds damn videos from local files.'))
-        self.Bind(wx.EVT_MENU, self.onAddFile, id=ID_MENU_ADD_FILE)
-        filemenu.Append(ID_MENU_ADD_URL, DV.l('Add &URL...'), DV.l('Adds a damn video from a URL.'))
-        self.Bind(wx.EVT_MENU, self.onAddURL, id=ID_MENU_ADD_URL)
+        menu_addfile = wx.MenuItem(filemenu, -1, DV.l('&Add files...'), DV.l('Adds damn videos from local files.'))
+        filemenu.AppendItem(menu_addfile)
+        self.Bind(wx.EVT_MENU, self.onAddFile, menu_addfile)
+        menu_addurl = wx.MenuItem(filemenu, -1, DV.l('Add &URL...'), DV.l('Adds a damn video from a URL.'))
+        filemenu.AppendItem(menu_addurl)
+        self.Bind(wx.EVT_MENU, self.onAddURL, menu_addurl)
+        self.historymenu = wx.Menu()
+        filemenu.AppendMenu(-1, DV.l('Add from &history...'), self.historymenu, DV.l('Adds a damn video from the video history.'))
         filemenu.AppendSeparator()
         filemenu.Append(ID_MENU_EXIT, DV.l('E&xit'), DV.l('Terminates DamnVid.'))
         self.Bind(wx.EVT_MENU, self.onExit, id=ID_MENU_EXIT)
         vidmenu = wx.Menu()
-        vidmenu.Append(ID_MENU_GO, DV.l('Let\'s &go!'), DV.l('Processes all the videos in the list.'))
-        self.Bind(wx.EVT_MENU, self.onGo, id=ID_MENU_GO)
+        menu_letsgo = wx.MenuItem(vidmenu, -1, DV.l('Let\'s &go!'), DV.l('Processes all the videos in the list.'))
+        vidmenu.AppendItem(menu_letsgo)
+        self.Bind(wx.EVT_MENU, self.onGo, menu_letsgo)
         vidmenu.AppendSeparator()
         self.prefmenuitem = vidmenu.Append(ID_MENU_PREFERENCES, DV.l('Preferences'), DV.l('Opens DamnVid\'s preferences, allowing you to customize its settings.'))
         self.Bind(wx.EVT_MENU, self.onPrefs, id=ID_MENU_PREFERENCES)
-        #vidmenu.Append(ID_MENU_OUTDIR,'Output directory','Opens DamnVid\'s output directory, where all the videos are saved.')
-        #self.Bind(wx.EVT_MENU,self.onOpenOutDir,id=ID_MENU_OUTDIR)
         halpmenu = wx.Menu()
         halpmenu.Append(ID_MENU_HALP, DV.l('&Help'), DV.l('Opens DamnVid\'s help.'))
         self.Bind(wx.EVT_MENU, self.onHalp, id=ID_MENU_HALP)
-        halpmenu.Append(ID_MENU_REPORTBUG, DV.l('Report a bug'), DV.l('Submit a new bug report.'))
-        self.Bind(wx.EVT_MENU, self.onReportBug, id=ID_MENU_REPORTBUG)
-        halpmenu.Append(ID_MENU_UPDATE, DV.l('Check for updates...'), DV.l('Checks if a new version of DamnVid is available.'))
-        self.Bind(wx.EVT_MENU, self.onCheckUpdates, id=ID_MENU_UPDATE)
+        menu_reportbug = wx.MenuItem(halpmenu, -1, DV.l('Report a bug'), DV.l('Submit a new bug report.'))
+        halpmenu.AppendItem(menu_reportbug)
+        self.Bind(wx.EVT_MENU, self.onReportBug, menu_reportbug)
+        menu_checkupdates = wx.MenuItem(halpmenu, -1, DV.l('Check for updates...'), DV.l('Checks if a new version of DamnVid is available.'))
+        halpmenu.AppendItem(menu_checkupdates)
+        self.Bind(wx.EVT_MENU, self.onCheckUpdates, menu_checkupdates)
         halpmenu.AppendSeparator()
         halpmenu.Append(ID_MENU_ABOUT, DV.l('&About DamnVid ') + DV.version + '...', DV.l('Displays information about DamnVid.'))
         self.Bind(wx.EVT_MENU, self.onAboutDV, id=ID_MENU_ABOUT)
@@ -3713,6 +3740,7 @@ class DamnMainFrame(wx.Frame): # The main window
         grid.AddGrowableCol(0, 1)
         self.Bind(wx.EVT_CLOSE, self.onClose, self)
         self.Bind(wx.EVT_SIZE, self.onResize, self)
+        self.Bind(wx.EVT_ICONIZE, self.onMinimize)
         self.Bind(DV.evt_prog, self.onProgress)
         self.Bind(DV.evt_load, self.onLoading)
         Damnlog('DamnMainFrame: All GUI is up.')
@@ -3820,14 +3848,25 @@ class DamnMainFrame(wx.Frame): # The main window
                         try:
                             self.SetSizeWH(allstuff2[2],allstuff2[3])
                             self.MoveXY(allstuff2[0],allstuff2[1])
-                            Damnlog('Window geometry restores successfully.')
+                            Damnlog('Window geometry restored successfully.')
                         except:
                             Damnlog('Window manager refused to change window geometry.')
                 except:
                     Damnlog('Could not get screen resolution; giving up on restoring window geometry.')
         else:
             Damnlog('Window policy is',windowpolicy,'; doing nothing.')
+        self.buildHistoryMenu()
         Damnlog('DamnMainFrame: Main window all ready,')
+    def onMinimize(self, event):
+        Damnlog('DamnMainFrame iconize event fired. Is being minimized?', event.Iconized())
+        if not event.Iconized():
+            Damnlog('DamnMainFrame being restored, doing nothing.')
+            return
+        if DV.prefs.get('minimizetotray')=='True':
+            Damnlog('Minimize to tray preference is True, creating tray icon.')
+            self.trayicon = DamnTrayIcon(self)
+        else:
+            Damnlog('Minimize to tray preference is False, doing nothing.')
     def onExit(self, event):
         self.Close(True)
     def onListSelect(self, event=None):
@@ -4002,9 +4041,73 @@ class DamnMainFrame(wx.Frame): # The main window
                         dlg.SetIcon(DV.icon)
                         dlg.ShowModal()
                         dlg.Destroy()
+    def buildHistoryMenu(self):
+        Damnlog('Clearing video history menu.')
+        for i in self.historymenu.GetMenuItems():
+            self.historymenu.DestroyItem(i)
+        history = DV.prefs.geta('damnvid-videohistory','videos')
+        histsize = int(DV.prefs.get('videohistorysize'))
+        Damnlog('Video history is',history,'; history size is',histsize)
+        if not histsize:
+            Damnlog('Histize is zero, disabling feature.')
+            self.historymenu.Append(-1, DV.l('Feature disabled'), DV.l('This feature is disabled because you set the history size to 0.'))
+        else:
+            Damnlog('Histsize is not 0, building history menu.')
+            menuitems = []
+            for i in range(min(histsize,len(history))):
+                video = history[i].split(u'|')
+                Damnlog('Creating history menu item for video',video)
+                if len(video) != 2:
+                    Damnlog('Size of video array is not 2; aborting.')
+                    continue
+                menuitems.append(wx.MenuItem(self.historymenu, -1, DamnUnicode(video[0]), DamnUnicode(video[1])))
+                self.historymenu.Bind(wx.EVT_MENU, DamnCurry(self.onHistoryVideoMenu, video), menuitems[-1])
+                self.Bind(wx.EVT_MENU, DamnCurry(self.onHistoryVideoMenu, video), menuitems[-1])
+                self.historymenu.AppendItem(menuitems[-1])
+            if len(history):
+                self.historymenu.AppendSeparator()
+                clearhistory = wx.MenuItem(self.historymenu, -1, DV.l('(Clear history)'), DV.l('Clears the video history.'))
+                self.historymenu.AppendItem(clearhistory)
+                self.historymenu.Bind(wx.EVT_MENU, self.clearHistory, clearhistory)
+                self.Bind(wx.EVT_MENU, self.clearHistory, clearhistory)
+            else:
+                self.historymenu.Append(-1, DV.l('(Empty history)'), DV.l('The video history is empty.'))
+            Damnlog('Done building video history menu.')
+    def onHistoryVideoMenu(self, video, event=None):
+        self.addVid([video[1]], DV.prefs.get('autoconvert') == 'True')
+    def clearHistory(self, *args):
+        DV.prefs.seta('damnvid-videohistory','videos',[])
+        self.buildHistoryMenu()
     def addVid(self, uris, thengo=False):
         DamnVideoLoader(self, uris, thengo).start()
+    def addTohistory(self, title, uri):
+        uri = DamnUnicode(uri)
+        title = DamnUnicode(title)
+        Damnlog('Adding video to history:',title,'with URI',uri)
+        history = DV.prefs.geta('damnvid-videohistory','videos')
+        histsize = int(DV.prefs.get('videohistorysize'))
+        if not histsize:
+            Damnlog('Histsize is zero, not touching anything.')
+            return
+        for i in history:
+            tempvideo = i.split(u'|')
+            if len(tempvideo) != 2:
+                Damnlog('Invalid entry in history:',i)
+                continue
+            if tempvideo[1].strip().lower() == uri.strip().lower():
+                Damnlog('URI',uri,'is already in history, not adding it to history again.')
+                return
+        history.reverse()
+        while len(history) >= histsize:
+            history = history[1:]
+        history.append(u'|'.join([DamnUnicode(title),DamnUnicode(uri)]))
+        history.reverse()
+        DV.prefs.seta('damnvid-videohistory','videos',history)
+        Damnlog('Video added successfully, rebuilding history menu.')
+        self.buildHistoryMenu()
     def addValid(self, meta):
+        Damnlog('Adding video to DamnList with meta:',meta)
+        self.addTohistory(meta['name'], meta['original'])
         curvid = len(self.videos)
         self.list.InsertStringItem(curvid, meta['name'])
         self.list.SetStringItem(curvid, ID_COL_VIDPROFILE, DV.l(DV.prefs.getp(meta['profile'], 'name')))

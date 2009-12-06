@@ -7,7 +7,7 @@ class DamnModule_EscapistMagazine(DamnVideoModule):
         self.regex={
             'url':re.compile('escapistmagazine\.com/videos.*?/(\d+)-?',re.IGNORECASE),
             'title':re.compile('class=[\'"]?headline[\'"]?[^<>]*>\s*(.*?)\s*</div>',re.IGNORECASE),
-            'ticket':(re.compile('url=([^&=]+)(?:[&=]|$)?',re.IGNORECASE),re.compile('config\s*=\s*(https?://[^&\s]+?.js)',re.IGNORECASE),re.compile('\{\s*[\'"]\s*url\s*[\'"]\s*:\s*[\'"]\s*(https?://[^\'"\s]+\.m(?:p4|4v)[^\'"\s]*)\s*[\'"]',re.IGNORECASE)),
+            'ticket':(re.compile('url=([^&=]+)(?:[&=]|$)?',re.IGNORECASE),re.compile('config\s*=\s*(https?://[^&\s]+?.js)',re.IGNORECASE),re.compile('\{\s*[\'"]\s*url\s*[\'"]\s*:\s*[\'"]\s*(https?://[^\'"\s]+\.(?:mp4|m4v|flv|avi|wmv|mpe?g)[^\'"\s]*)\s*[\'"]',re.IGNORECASE)),
             'sanetitle':(re.compile('<[^<>]+>',re.IGNORECASE),re.compile('\s+',re.IGNORECASE))
         }
         self.valid=self.regex['url'].search(uri)
@@ -57,7 +57,7 @@ DamnRegisterModule({
     'name':'escapistmagazine',
     'title':'The Escapist',
     'type':'video',
-    'version':'1.1',
+    'version':'1.2',
     'author':{
         'name':'Palmer',
         'email':'palmnet@gmail.com',

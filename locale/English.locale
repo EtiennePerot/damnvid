@@ -411,6 +411,16 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Warn when removing a video from the list':u'Warn when removing a video from the list',
         'Main window':u'Main window',
         'Always centered':u'Always centered',
-        'Remember position and size':u'Remember position'
+        'Remember position and size':u'Remember position',
+        'Minimize to tray':u'Minimize to tray',
+        'Feature disabled':u'Feature disabled',
+        'This feature is disabled because you set the history size to 0.':u'This feature is disabled because you set the history size to 0.',
+        'Video history size':u'Video history size',
+        'Add from &history...':u'Add from &history...',
+        '(Clear history)':u'(Clear history)',
+        'Clears the video history.':u'Clears the video history.',
+        '(Empty history)':u'(Empty history)',
+        'The video history is empty.':u'The video history is empty.',
+        'Adds a damn video from the video history.':u'Adds a damn video from the video history.'
     }
 }

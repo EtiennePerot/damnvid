@@ -51,7 +51,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Select some videos in the list first.': u'Sélectionnez d\'abord des vidéos dans la liste.',
         'Error!': u'Erreur!',
         'Terminates DamnVid.': u'Quitte DamnVid.',
-        'Add &URL...': u'Ajouter &URL...',
+        'Add &URL...': u'Ajouter un &URL...',
         'The following sites are supported:': u'Les sites suivants sont supportés:',
         ' <': u' <',
         'Special thanks to:': u'Remerciements particuliers à:',
@@ -411,6 +411,16 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Warn when removing a video from the list':u'M\'avertir lorsque j\'enlève une vidéo',
         'Main window':u'Fenêtre principale',
         'Always centered':u'Toujours centrée',
-        'Remember position and size':u'Se souvenir de la position'
+        'Remember position and size':u'Se souvenir de la position',
+        'Minimize to tray':u'Réduire dans la barre des tâches',
+        'Feature disabled':u'Fonction désactivée',
+        'This feature is disabled because you set the history size to 0.':u'Cette fonction est désactivée car la taille de l\'historique est 0.',
+        'Video history size':u'Taille de l\'historique des vidéos',
+        '(Clear history)':u'(Effacer l\'historique)',
+        'Clears the video history.':u'Efface l\'historique des vidéos récemment ajoutées.',
+        '(Empty history)':u'(Historique vide)',
+        'The video history is empty.':u'L\'historique des vidéos est vide.',
+        'Add from &history...':u'Ajouter depuis l\'&historique...',
+        'Adds a damn video from the video history.':u'Ajoute une vidéo depuis l\'historique.'
     }
 }

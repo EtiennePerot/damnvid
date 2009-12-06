@@ -349,6 +349,14 @@ DV.preferences={
         'strict':True,
         'default':'center'
     },
+    'damnvid:minimizetotray':{
+        'name':'Minimize to tray',
+        'type':DV.preference_type_misc,
+        'kind':'bool',
+        'strict':True,
+        'align':False,
+        'default':False
+    },
     'damnvid:splashscreen':{
         'name':'Show splashscreen at startup',
         'type':DV.preference_type_misc,
@@ -388,6 +396,13 @@ DV.preferences={
         'strict':True,
         'default':'English'
     },
+    'damnvid:videohistorysize':{
+        'name':'Video history size',
+        'type':DV.preference_type_misc,
+        'kind':'int:0-50',
+        'strict':True,
+        'default':8
+    },
     #'damnvid:showdailytip':{
         #'name':'Show Daily Tip when DamnVid starts',
         #'type':DV.preference_type_misc,
@@ -423,7 +438,7 @@ DV.preferences={
     }
 }
 DV.preference_order={
-    'damnvid':['checkforupdates','locale','splashscreen','warnremove','dirrecursion','windowpolicy','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','threads'],
+    'damnvid':['checkforupdates','locale','minimizetotray','splashscreen','warnremove','dirrecursion','windowpolicy','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','videohistorysize','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
     'damnvid-search':['autoconvert','default_search','history_length']
 }
