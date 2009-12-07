@@ -411,6 +411,14 @@ DV.preferences={
         #'align':False,
         #'default':True
     #},
+    'damnvid-search:doinitialsearch':{
+        'name':'Perform search when launched',
+        'type':DV.preference_type_misc,
+        'kind':'bool',
+        'strict':True,
+        'align':False,
+        'default':True
+    },
     'damnvid-search:default_search':{
         'name':'Initial search query',
         'type':DV.preference_type_misc,
@@ -440,5 +448,5 @@ DV.preferences={
 DV.preference_order={
     'damnvid':['checkforupdates','locale','minimizetotray','splashscreen','warnremove','dirrecursion','windowpolicy','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','videohistorysize','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
-    'damnvid-search':['default_search','history_length']
+    'damnvid-search':['doinitialsearch','default_search','history_length']
 }

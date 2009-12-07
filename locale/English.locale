@@ -123,6 +123,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'This is a droptarget: You may drop video files and folders here (or in the big list as well).': u'This is a droptarget: You may drop video files and folders here (or in the big list as well).',
         'This is not a valid URL!': u'This is not a valid URL!',
         '- Tatara (Linux compatibility/packaging)': u'- Tatara (Linux compatibility/packaging)',
+        '- Benoit Philippe (Testing)':u'- Benoît Philippe (Testing)',
         'Processes all the videos in the list.': u'Processes all the videos in the list.',
         'Contributors:': u'Contributors:',
         ' was updated to version ': u' was updated to version ',
@@ -422,6 +423,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         '(Empty history)':u'(Empty history)',
         'The video history is empty.':u'The video history is empty.',
         'Adds a damn video from the video history.':u'Adds a damn video from the video history.',
-        'Show DamnVid':u'Show DamnVid'
+        'Show DamnVid':u'Show DamnVid',
+        'Perform search when launched':u'Perform search when launched'
     }
 }

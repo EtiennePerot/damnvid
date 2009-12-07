@@ -123,6 +123,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'This is a droptarget: You may drop video files and folders here (or in the big list as well).': u'Ceci est une zone de largage de fichiers: Vous pouvez lâcher des dossiers et fichiers vidéos ici (ou dans la liste).',
         'This is not a valid URL!': u'Ceci n\'est pas un URL valide!',
         '- Tatara (Linux compatibility/packaging)': u'- Tatara (Compatiblité)',
+        '- Benoit Philippe (Testing)':u'- Benoît Philippe (Tests)',
         'Processes all the videos in the list.': u'Encode toutes les vidéos de la liste.',
         'Contributors:': u'Contributeurs:',
         ' was updated to version ': u' a été mis à jour à la version ',
@@ -422,6 +423,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'The video history is empty.':u'L\'historique des vidéos est vide.',
         'Add from &history...':u'Ajouter depuis l\'&historique...',
         'Adds a damn video from the video history.':u'Ajoute une vidéo depuis l\'historique.',
-        'Show DamnVid':u'Afficher DamnVid'
+        'Show DamnVid':u'Afficher DamnVid',
+        'Perform search when launched':u'Lancer la recherche par défaut lors du démarrage'
     }
 }

@@ -239,12 +239,11 @@ def Damnlog(*args):
     return DV.log.log(' '.join(s))
 def DamnlogException(typ, value, tb):
     try:
-        Damnlog('!!',traceback.format_exception(typ, value, tb))
-        print traceback.format_exception(typ, value, tb)
+        Damnlog('!!',u'\n'.join(traceback.format_exception(typ, value, tb)))
     except:
         pass
 try:
-    sys,excepthook = DamnlogException
+    sys.excepthook = DamnlogException
 except:
     pass
 if DV.bit64:
@@ -1674,6 +1673,7 @@ class DamnAboutDamnVid(wx.Dialog):
         vbox2.Add(wx.StaticText(panel, -1, DV.l('Contributors:')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- Tatara (Linux compatibility/packaging)')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- Palmer (Graphics)')))
+        vbox2.Add(wx.StaticText(panel, -1, DV.l('- Benoit Philippe (Testing)')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('Special thanks to:')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- The FFmpeg team')))
         vbox2.Add(wx.StaticText(panel, -1, DV.l('- Every stoat on the planet')))
@@ -2041,7 +2041,7 @@ class DamnVidBrowser(wx.Dialog):
         waitingsizer2.Add(self.searchingimg)
         Damnlog('YouTube browser dialog has been built. Populating.')
         defaultsearch = DV.prefs.gets('damnvid-search', 'default_search')
-        if defaultsearch:
+        if defaultsearch and DV.prefs.gets('damnvid-search', 'doinitialsearch') == 'True':
             self.search(search=defaultsearch)
         else:
             pass
@@ -2067,7 +2067,7 @@ class DamnVidBrowser(wx.Dialog):
                 self.service = None
                 return self.getService()
         return self.service
-    def search(self, event=None, search=''):
+    def search(self, event=None, search=u''):
         Damnlog('YouTube browser is now searching for', search, 'from event', event)
         self.scrollpanel.Hide()
         self.waitingpanel.Show()
@@ -2076,12 +2076,18 @@ class DamnVidBrowser(wx.Dialog):
             search = self.searchbox.GetValue()
         if not search:
             return
+        search=DamnUnicode(search)
         self.searchbutton.LoadFile(DV.images_path + 'searching.gif')
         self.searchbutton.Play()
         Damnlog('YouTube browser interface updated and ready for search, resolving API query.')
         prefix = 'http://gdata.youtube.com/feeds/api/videos?racy=include&orderby=viewCount&vq='
+        isstandard = False
+        for i in self.standardchoices.keys():
+            if DV.l(self.standardchoices[i], warn=False) == search:
+                isstandard = True
+                search = i
         if search in self.standardchoices.keys():
-            Damnlog('Query is a standard choice')
+            Damnlog('Query is a standard choice:', search)
             prefix = 'http://gdata.youtube.com/feeds/api/standardfeeds/'
             searchlabel = self.standardchoices[search]
         else:
@@ -2096,8 +2102,7 @@ class DamnVidBrowser(wx.Dialog):
         self.searchbox.SetValue(searchlabel)
         Damnlog('Youtube browser API prefix is', prefix)
         self.buildSearchbox()
-        search = DamnUnicode(search)
-        Damnlog('YouTube browser search box populating complete, beginning actual search for', search)
+        Damnlog('YouTube browser search box populating complete, beginning actual search for', search,'at URL:',prefix + urllib2.quote(search))
         self.getService().query(('feed', prefix + urllib2.quote(search)))
         Damnlog('YouTube browser search results for', search, 'are in, destroying interface.')
         for i in self.resultctrls:
@@ -2117,6 +2122,7 @@ class DamnVidBrowser(wx.Dialog):
             panelwidth = self.scrollpanel.GetSizeTuple()[0] - tmpscrollbar.GetSizeTuple()[0]
             tmpscrollbar.Destroy()
             del tmpscrollbar
+            self.resultpanel.DestroyChildren()
             for i in range(len(results.entry)):
                 tmpvbox = wx.BoxSizer(wx.VERTICAL)
                 tmpsizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -2262,6 +2268,7 @@ class DamnVidBrowser(wx.Dialog):
     def makeDescPanel(self, desc, parent, width):
         desc = self.cleanString(desc)
         panel = wx.Panel(parent, -1)
+        panel.SetBackgroundColour(wx.WHITE)
         wrapper = wx.BoxSizer(wx.HORIZONTAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add((0, DV.control_vgap))
