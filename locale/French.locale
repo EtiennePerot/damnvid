@@ -421,6 +421,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         '(Empty history)':u'(Historique vide)',
         'The video history is empty.':u'L\'historique des vidéos est vide.',
         'Add from &history...':u'Ajouter depuis l\'&historique...',
-        'Adds a damn video from the video history.':u'Ajoute une vidéo depuis l\'historique.'
+        'Adds a damn video from the video history.':u'Ajoute une vidéo depuis l\'historique.',
+        'Show DamnVid':u'Afficher DamnVid'
     }
 }

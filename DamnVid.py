@@ -111,6 +111,7 @@ DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
 DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
 DV.gui_ok = False
 DV.icon = None # This will be defined when DamnMainFrame is initialized
+DV.icon2 = None
 DV.my_videos_path = u''
 DV.appdata_path = u''
 DV.os = DamnUnicode(os.name)
@@ -190,13 +191,16 @@ class DamnLog:
         return u''
     def log(self, message): # This function caused so much trouble, it has to die quietly if it ever has to. So yeah, overload of try/except here.
         s = u'\r\n' + self.getPrefix() + DamnUnicode(message.strip())
-        try:
-            print s,
-        except:
+        if DV.log_to_stdout:
             try:
-                print s.encode('utf8', errors='ignore'),
+                print s,
             except:
-                print 'Cannot echo log string; invalid characters and/or non-tolerant output?'
+                try:
+                    print s.encode('utf8', errors='ignore'),
+                except:
+                    print 'Cannot echo log string; invalid characters and/or non-tolerant output?'
+            if DV.log_stdout_flush:
+                sys.stdout.flush()
         if self.stream is not None:
             try:
                 return self.stream.write(s)
@@ -220,6 +224,8 @@ class DamnLog:
             self.stream.close()
         except:
             pass
+DV.log_to_stdout = '-q' not in sys.argv[1:]
+DV.log_stdout_flush = '--flush' in sys.argv[1:]
 DV.log = DamnLog()
 def Damnlog(*args):
     s = []
@@ -572,7 +578,7 @@ class DamnVideoModule:
     def addVid(self, parent):
         parent.addValid(self.getVidObject())
     def getVidObject(self):
-        obj = {'name':self.getTitle(), 'profile':self.getProfile(), 'profilemodified':False, 'fromfile':self.getTitle(), 'dirname':self.getLink(), 'uri':self.getID(), 'status':DV.l('Pending.'), 'icon':self.getIcon(), 'module':self, 'downloadgetter':self.getDownloadGetter()}
+        obj = {'name':DamnUnicode(self.getTitle()), 'profile':self.getProfile(), 'profilemodified':False, 'fromfile':DamnUnicode(self.getTitle()), 'dirname':DamnUnicode(self.getLink()), 'uri':DamnUnicode(self.getID()), 'status':DV.l('Pending.'), 'icon':self.getIcon(), 'module':self, 'downloadgetter':self.getDownloadGetter()}
         Damnlog('Module', self.name, 'returning video object:', obj)
         return obj
 class DamnModuleUpdateCheck(thr.Thread):
@@ -754,6 +760,8 @@ DV.locale_warnings = []
 DV.dumplocalewarnings = '--dump-locale-warnings' in DV.argv
 if DV.dumplocalewarnings:
     DV.argv = [x for x in DV.argv if x != '--dump-locale-warnings']
+if '-q' in DV.argv or '--flush':
+    DV.argv = [x for x in DV.argv if x != '-q' and x != '--flush']
 def DamnLocale(s, asunicode=True, warn=True):
     k = DamnUnicode(s)
     s = DamnUnicode(s)
@@ -965,25 +973,80 @@ class DamnTrayIcon(wx.TaskBarIcon):
         wx.TaskBarIcon.__init__(self)
         Damnlog('DamnTrayIcon initialized with parent window',parent)
         self.parent = parent
-        self.parent.Show(False)
         self.parent.Iconize(True) # Releases system memory
+        self.parent.Hide()
         self.Bind(wx.EVT_TASKBAR_LEFT_DCLICK, self.raiseParent)
-        self.Bind(wx.EVT_TASKBAR_CLICK, self.raiseParent)
-        self.Bind(wx.EVT_TASKBAR_LEFT_UP, self.raiseParent)
-        self.Bind(wx.EVT_TASKBAR_RIGHT_DOWN, self.raiseParent)
-        self.SetIcon(DV.icon)
+        self.Bind(wx.EVT_TASKBAR_CLICK, self.onMenu)
+        if DV.os == 'nt':
+            self.Bind(wx.EVT_TASKBAR_LEFT_UP, self.raiseParent)
         Damnlog('DamnTrayIcon ready.')
         self.timer = -1
+        self.tooltip = DV.l('DamnVid')
+        self.alternateIcons = False
+        self.isDead = False
+        self.icons = [DV.icon]#, DV.icon2]
+        self.iconindex = 0
+        self.iconTimer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.onAlternateIcon, self.iconTimer)
+        self.iconTimer.Start(500)
+        self.updateIcon()
+    def setTooltip(self, tooltip):
+        self.tooltip = DamnUnicode(tooltip)
+        self.updateIcon()
+    def onAlternateIcon(self, event=None):
+        if self.alternateIcons:
+            self.iconindex = (self.iconindex + 1) % len(self.icons)
+            self.updateIcon()
+    def startAlternate(self):
+        self.iconindex = 0
+        self.updateIcon()
+        self.alternateIcons = True
+    def stopAlternate(self):
+        self.startAlternate()
+        self.alternateIcons = False
+    def updateIcon(self):
+        self.SetIcon(self.icons[self.iconindex], self.tooltip)
     def raiseParent(self, event=None):
-        if time.time()-self.timer < 0.1:
+        if time.time() - self.timer < 0.1:
             return
         self.timer=time.time()
         Damnlog('DamnTrayIcon raiseParent method called.')
+        self.parent.trayicon = None
         self.parent.Iconize(False)
         self.parent.Show(True)
         self.parent.Raise() # Bring to front
         Damnlog('DamnTrayIcon parent shown and raised, destroying self.')
+        self.destroyTimer = wx.Timer(self)
+        self.Bind(wx.EVT_TIMER, self.selfDestruct, self.destroyTimer)
+        self.destroyTimer.Start(5)
+    def selfDestruct(self, *args):
+        Damnlog('DamnTrayIcon self-destructing.')
+        if self.isDead:
+            return
+        self.isDead = True
+        self.destroyTimer.Stop()
+        self.iconTimer.Stop()
         self.Destroy()
+    def onMenu(self, event=None):
+        menu = wx.Menu()
+        show = wx.MenuItem(menu, -1, DV.l('Show DamnVid'))
+        menu.AppendItem(show)
+        menu.Bind(wx.EVT_MENU, self.raiseParent, show)
+        if self.parent.converting == -1:
+            go = wx.MenuItem(menu, -1, DV.l('Let\'s go!'))
+            menu.AppendItem(go)
+            menu.Bind(wx.EVT_MENU, self.parent.onGo, go)
+        else:
+            stop = wx.MenuItem(menu, -1, DV.l('Stop'))
+            menu.AppendItem(stop)
+            menu.Bind(wx.EVT_MENU, self.parent.onStop, stop)
+        exit = wx.MenuItem(menu, -1, DV.l('E&xit'))
+        menu.AppendItem(exit)
+        menu.Bind(wx.EVT_MENU, self.onClose, exit)
+        self.PopupMenu(menu)
+    def onClose(self, event=None):
+        self.raiseParent()
+        self.parent.onClose(event)
 class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the DamnList
     def __init__(self, parent):
         wx.Menu.__init__(self)
@@ -1452,11 +1515,11 @@ def DamnOpenFileManager(directory, *args):
         directory = DamnUnicode(directory)
     Damnlog('Opening default file manager at directory', directory)
     if DV.os == 'nt':
-        DamnSpawner(['explorer.exe', '/e,', DamnUnicode(directory)])
+        DamnSpawner([u'explorer.exe', u'/e,', DamnUnicode(directory)])
     elif DV.os == 'mac':
-        DamnSpawner(['open', DamnUnicode(directory)])
+        DamnSpawner([u'open', DamnUnicode(directory)])
     else:
-        DamnSpawner(['xdg-open', DamnUnicode(directory)])
+        DamnSpawner([u'xdg-open', DamnUnicode(directory)])
 def DamnLaunchFile(f, *args):
     f = DamnUnicode(f)
     if DV.os == 'nt':
@@ -1636,9 +1699,70 @@ class DamnAboutDamnVid(wx.Dialog):
         dlg.Destroy()
     def onOK(self, event):
         self.Close(True)
+def DamnFadeIn(frame):
+    if not frame.CanSetTransparent() or not DV.prefs.get('splashscreen') == 'True':
+        frame.Show()
+        return
+    frame.SetTransparent(0)
+    frame.Show()
+    frame.fadeTimer = wx.Timer(frame)
+    frame.fadeCurrent = 0
+    frame.fadeDelta = 1
+    frame.fadeInterval = 4
+    frame.fadeLagTolerance = 2
+    frame.fadeObjective = 255
+    frame.fadeTime = time.time() * 1000
+    frame.fadeDestroy = False
+    frame.Bind(wx.EVT_TIMER, DamnCurry(DamnFadeCycle, frame), frame.fadeTimer)
+    frame.fadeTimer.Start(frame.fadeInterval)
+def DamnFadeOut(frame, destroy=True):
+    if not frame.CanSetTransparent() or not DV.prefs.get('splashscreen') == 'True':
+        frame.Hide()
+        if destroy:
+            frame.Destroy()
+        return
+    frame.fadeTimer = wx.Timer(frame)
+    frame.fadeCurrent = 255
+    frame.fadeDelta = -1
+    frame.fadeInterval = 4
+    frame.fadeLagTolerance = 2
+    frame.fadeObjective = 0
+    frame.fadeTime = time.time() * 1000
+    frame.fadeDestroy = destroy
+    frame.Bind(wx.EVT_TIMER, DamnCurry(DamnFadeCycle, frame), frame.fadeTimer)
+    frame.fadeTimer.Start(frame.fadeInterval)
+def DamnFadeCycle(frame, event=None):
+    try:
+        frame.SetTransparent(frame.fadeCurrent)
+    except:
+        pass
+    newTime = time.time() * 1000
+    if newTime - frame.fadeTime > frame.fadeInterval * frame.fadeLagTolerance:
+        frame.fadeDelta *= 2 # Increase fade delta to make up for machine slowness.
+        frame.fadeLagTolerance *= 2
+    frame.fadeTime = newTime
+    frame.fadeCurrent += frame.fadeDelta
+    if (frame.fadeDelta > 0 and frame.fadeCurrent >= frame.fadeObjective) or (frame.fadeDelta < 0 and frame.fadeCurrent <= frame.fadeObjective):
+        try:
+            frame.SetTransparent(frame.fadeObjective)
+        except:
+            pass
+        frame.fadeTimer.Stop()
+        if frame.fadeDestroy:
+            frame.Destroy()
+class DamnFrame(wx.Frame):
+    def fadeIn(self):
+        DamnFadeIn(self)
+    def fadeOut(self, destroy=True):
+        DamnFadeOut(self, destroy)
 class DamnSplashScreen(wx.SplashScreen):
     def __init__(self):
-        wx.SplashScreen.__init__(self, wx.Bitmap(DV.images_path + 'splashscreen.png', wx.BITMAP_TYPE_PNG), wx.SPLASH_CENTRE_ON_SCREEN, 10000, None)
+        wx.SplashScreen.__init__(self, wx.Bitmap(DV.images_path + 'splashscreen.png', wx.BITMAP_TYPE_PNG), wx.SPLASH_CENTRE_ON_SCREEN | wx.STAY_ON_TOP, 10000, None)
+        self.fadeIn()
+    def fadeIn(self):
+        DamnFadeIn(self)
+    def fadeOut(self, destroy=True):
+        DamnFadeOut(self, destroy)
 class DamnVidPrefs: # Preference manager (backend, not GUI)
     def __init__(self):
         self.conf = {}
@@ -3572,10 +3696,10 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
             copystream.close() # Might not be defined, but doesn't matter
         except:
             pass
-class DamnMainFrame(wx.Frame): # The main window
+class DamnMainFrame(DamnFrame): # The main window
     def __init__(self, parent, id, title):
         Damnlog('DamnMainFrame GUI building starting.')
-        wx.Frame.__init__(self, parent, wx.ID_ANY, title, size=(780, 580), style=wx.DEFAULT_FRAME_STYLE)
+        DamnFrame.__init__(self, parent, wx.ID_ANY, title, size=(780, 580), style=wx.DEFAULT_FRAME_STYLE)
         self.CreateStatusBar()
         filemenu = wx.Menu()
         menu_addfile = wx.MenuItem(filemenu, -1, DV.l('&Add files...'), DV.l('Adds damn videos from local files.'))
@@ -3749,6 +3873,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.Bind(wx.EVT_TIMER, self.onClipboardTimer, self.clipboardtimer)
         Damnlog('DaminMainFrame: Clipboard timer started.')
         DV.icon = wx.Icon(DV.images_path + 'icon.ico', wx.BITMAP_TYPE_ICO)
+        #DV.icon2 = wx.Icon(DV.images_path + 'icon-alt.ico', wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV.icon)
         Damnlog('DamnMainFrame: init stage 1 done.')
     def init2(self):
@@ -3766,8 +3891,11 @@ class DamnMainFrame(wx.Frame): # The main window
         if dvversion != DV.version: # Just updated to new version, ask what to do about the preferences
             #dlg = wx.MessageDialog(self, DV.l('DamnVid was updated to ') + DV.version + '.\n' + DV.l('locale:damnvid-updated-export-prefs'), DV.l('DamnVid was successfully updated'), wx.YES | wx.NO | wx.ICON_QUESTION)
             tmpprefs = DamnVidPrefs()
-            checkupdates = tmpprefs.get('CheckForUpdates')
-            locale = tmpprefs.get('locale')
+            try:
+                checkupdates = tmpprefs.get('CheckForUpdates')
+                locale = tmpprefs.get('locale')
+            except:
+                pass
             Damnlog('Check for updates preference is',checkupdates)
             if False: #dlg.ShowModal() == wx.ID_YES:
                 dlg.Destroy()
@@ -3779,7 +3907,7 @@ class DamnMainFrame(wx.Frame): # The main window
                     f.close()
                 dlg.Destroy()
             else:
-                pass#dlg.Destroy()
+                pass
             # Now, overwrite the preferences!
             del tmpprefs
             os.remove(DV.conf_file)
@@ -3789,8 +3917,11 @@ class DamnMainFrame(wx.Frame): # The main window
             lastversion.close()
             del lastversion
             tmpprefs = DamnVidPrefs()
-            tmpprefs.set('CheckForUpdates', checkupdates)
-            tmpprefs.set('locale', locale)
+            try:
+                tmpprefs.set('CheckForUpdates', checkupdates)
+                tmpprefs.set('locale', locale)
+            except:
+                pass
             tmpprefs.save()
             del tmpprefs
         Damnlog('Local version check done, initializing DamnMainFrame properties.')
@@ -3806,6 +3937,7 @@ class DamnMainFrame(wx.Frame): # The main window
         self.searchopen = False
         self.addurl = None
         self.loadingvisible = 0
+        self.trayicon = None
         self.onListSelect()
         Damnlog('DamnMainFrame properties OK, first run?',DV.first_run)
         if DV.first_run:
@@ -3861,6 +3993,9 @@ class DamnMainFrame(wx.Frame): # The main window
         Damnlog('DamnMainFrame: Main window all ready,')
     def onMinimize(self, event):
         Damnlog('DamnMainFrame iconize event fired. Is being minimized?', event.Iconized())
+        if self.isclosing:
+            Damnlog('DamnMainFrame being closed, not interfering.')
+            return
         if not event.Iconized():
             Damnlog('DamnMainFrame being restored, doing nothing.')
             return
@@ -4130,6 +4265,8 @@ class DamnMainFrame(wx.Frame): # The main window
             self.SetStatusText(info['statustext'])
         if info.has_key('status'):
             self.list.SetStringItem(self.converting, ID_COL_VIDSTAT, info['status'])
+            if self.trayicon is not None:
+                self.trayicon.setTooltip(DamnUnicode(self.meta[self.videos[self.converting]]['name'])+u': '+info['status'])
         if info.has_key('dialog'):
             dlg = wx.MessageDialog(self, info['dialog'][0], info['dialog'][1], info['dialog'][2])
             dlg.SetIcon(DV.icon)
@@ -4148,8 +4285,12 @@ class DamnMainFrame(wx.Frame): # The main window
             self.list.SetStringItem(self.converting, ID_COL_VIDSTAT, DV.l('In progress...'))
             self.thisbatch = self.thisbatch + 1
             self.thread = DamnConverter(parent=self)
+            if self.trayicon is not None:
+                self.trayicon.startAlternate()
             self.thread.start()
         else:
+            if self.trayicon is not None:
+                self.trayicon.stopAlternate()
             if not self.isclosing:
                 self.SetStatusText(DV.l('DamnVid, waiting for instructions.'))
                 dlg = DamnDoneDialog(content=self.resultlist, aborted=aborted, main=self)
@@ -4300,6 +4441,7 @@ class DamnMainFrame(wx.Frame): # The main window
             del self.reopenprefs
         except:
             pass
+        self.buildHistoryMenu() # In case history size changed
         self.onListSelect()
     def onOpenOutDir(self, event):
         if DV.os == 'nt':
@@ -4432,7 +4574,7 @@ class DamnMainFrame(wx.Frame): # The main window
 class DamnVid(wx.App):
     def OnInit(self):
         showsplash = False
-        try:
+        if True:
             DV.prefs = DamnVidPrefs()
             DV.lang = DV.prefs.get('locale')
             DamnLoadCurrentLocale()
@@ -4440,22 +4582,19 @@ class DamnVid(wx.App):
                 splash = DamnSplashScreen()
                 clock = time.time()
                 showsplash = True
-                splash.Show()
-            DV.prefs = None
-        except:
+        else:
             pass
         self.frame = DamnMainFrame(None, -1, DV.l('DamnVid'))
         if showsplash:
-            try:
+            if True:
                 while clock + .5 > time.time():
-                    time.sleep(.02) # Makes splashscreen stay at least a fifth of a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
-                splash.Hide()
-                splash.Destroy()
-                del clock, splash
-            except:
-                pass
+                    time.sleep(.02) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
+                splash.fadeOut(True)
+            else:
+                Damnlog('Error while displaying splash screen.')
         self.frame.init2()
-        self.frame.Show(True)
+        self.frame.Show()
+        self.frame.Raise()
         self.loadArgs(DV.argv)
         return True
     def loadArgs(self, args):
