@@ -424,6 +424,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'The video history is empty.':u'The video history is empty.',
         'Adds a damn video from the video history.':u'Adds a damn video from the video history.',
         'Show DamnVid':u'Show DamnVid',
-        'Perform search when launched':u'Perform search when launched'
+        'Perform search when launched':u'Perform search when launched',
+        'Reset status':u'Reset status'
     }
 }

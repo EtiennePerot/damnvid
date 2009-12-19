@@ -1077,6 +1077,14 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
             remove.Enable(self.parent.parent.converting not in self.items)
             self.Bind(wx.EVT_MENU, self.parent.parent.onDelSelection, remove)
             if self.parent.parent.converting not in self.items:
+                onepending = False
+                for i in self.items:
+                    if self.parent.parent.meta[self.parent.parent.videos[i]]['status'] == DV.l('Pending.'):
+                        onepending = True
+                if not onepending:
+                    resetstatus = wx.MenuItem(self, -1, DV.l('Reset status'))
+                    self.Bind(wx.EVT_MENU,self.parent.parent.onResetStatus, resetstatus)
+                    self.AppendItem(resetstatus)
                 profile = wx.Menu()
                 uniprofile = int(self.parent.parent.meta[self.parent.parent.videos[self.items[0]]]['profile'])
                 for i in self.items:
@@ -3576,7 +3584,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
             Damnlog('Error while trying to stop encoding process.')
 class DamnStreamCopy(thr.Thread):
     def __init__(self, s1, s2, buffer=1048576, background=True, closes1=True, closes2=True):
-        Damnlog('DamStreamCopy spawned, will rip', s1, 'to', s2, ' when started. Background?', background)
+        Damnlog('DamnStreamCopy spawned, will rip', s1, 'to', s2, ' when started. Background?', background)
         self.s1 = s1
         if type(s1) in (type(u''), type('')):
             self.s1 = DamnOpenFile(DamnUnicode(s1), 'rb')
@@ -4426,6 +4434,11 @@ class DamnMainFrame(DamnFrame): # The main window
                 self.meta[self.videos[i]]['profilemodified'] = True
                 self.list.SetStringItem(i, ID_COL_VIDPROFILE, DV.l(DV.prefs.getp(profile, 'name')))
         self.onListSelect()
+    def onResetStatus(self, event=None):
+        items = self.list.getAllSelectedItems()
+        for i in items:
+            self.meta[self.videos[i]]['status'] = DV.l('Pending.')
+            self.list.SetStringItem(i, ID_COL_VIDSTAT, DV.l('Pending.'))
     def onPrefs(self, event):
         self.reopenprefs = False
         prefs = DamnVidPrefEditor(self, -1, DV.l('DamnVid preferences'), main=self)
