@@ -112,6 +112,7 @@ DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
 DV.gui_ok = False
 DV.icon = None # This will be defined when DamnMainFrame is initialized
 DV.icon2 = None
+DV.icon16 = None
 DV.my_videos_path = u''
 DV.appdata_path = u''
 DV.os = DamnUnicode(os.name)
@@ -983,7 +984,7 @@ class DamnTrayIcon(wx.TaskBarIcon):
         self.tooltip = DV.l('DamnVid')
         self.alternateIcons = False
         self.isDead = False
-        self.icons = [DV.icon]#, DV.icon2]
+        self.icons = [DV.icon16]#, DV.icon2]
         self.iconindex = 0
         self.iconTimer = wx.Timer(self)
         self.Bind(wx.EVT_TIMER, self.onAlternateIcon, self.iconTimer)
@@ -3889,6 +3890,7 @@ class DamnMainFrame(DamnFrame): # The main window
         Damnlog('DaminMainFrame: Clipboard timer started.')
         DV.icon = wx.Icon(DV.images_path + 'icon.ico', wx.BITMAP_TYPE_ICO)
         #DV.icon2 = wx.Icon(DV.images_path + 'icon-alt.ico', wx.BITMAP_TYPE_ICO)
+        DV.icon16 = wx.Icon(DV.images_path + 'icon16.ico', wx.BITMAP_TYPE_ICO)
         self.SetIcon(DV.icon)
         Damnlog('DamnMainFrame: init stage 1 done.')
     def init2(self):
