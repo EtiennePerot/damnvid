@@ -425,6 +425,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Adds a damn video from the video history.':u'Adds a damn video from the video history.',
         'Show DamnVid':u'Show DamnVid',
         'Perform search when launched':u'Perform search when launched',
-        'Reset status':u'Reset status'
+        'Reset status':u'Reset status',
+        'QuickTime format (.mov)':u'QuickTime format (.mov)'
     }
 }

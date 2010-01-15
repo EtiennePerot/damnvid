@@ -140,6 +140,7 @@ DV.preferences={
             'mp4':'MP4 format (.mp4)',
             'mp3':'MP3 format, audio only (.mp3)',
             'wma':'WMA format, audio only (.wma)',
+            'mov':'QuickTime format (.mov)',
             'ipod':'iPod MP4 format (.mp4)',
             'psp':'PSP MP4 format (.mp4)',
             'rm':'RealMedia format (.rm)',
@@ -148,7 +149,7 @@ DV.preferences={
             '3gp':'3GPP format (.3gp)',
             '3g2':'3GPP2 format (.3g2)'
         },
-        'order':['avi','flv','mpeg1video','mpeg2video','mpegts','mp4','mp3','wma','ipod','psp','rm','matroska','ogg','vob','3gp','3g2'],
+        'order':['avi','flv','mpeg1video','mpeg2video','mpegts','mp4','mp3','mov','wma','ipod','psp','rm','matroska','ogg','vob','3gp','3g2'],
         'strict':True,
         'default':'avi'
     },

@@ -190,7 +190,7 @@ class DamnLog:
             self.time = t
             return u'[' + DamnUnicode(time.strftime('%H:%M:%S')) + u'] '
         return u''
-    def log(self, message): # This function caused so much trouble, it has to die quietly if it ever has to. So yeah, overload of try/except here.
+    def log(self, message):
         s = u'\r\n' + self.getPrefix() + DamnUnicode(message.strip())
         if DV.log_to_stdout:
             try:
@@ -340,6 +340,7 @@ DV.file_ext = {
     'mpeg2video':u'mpg',
     'mpegts':u'mpg',
     'mp4':u'mp4',
+    'mov':u'mov',
     'ipod':u'mp4',
     'psp':u'mp4',
     'rm':u'rm',
@@ -3247,8 +3248,11 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
         return [uri]
     def cmd2str(self, cmd):
         s = []
+        stream = DamnUnicode(self.stream)
+        if self.stream != '-' and DV.os == 'nt':
+            stream = DamnUnicode(win32api.GetShortPathName(self.stream))
         for i in cmd:
-            s.append(i.replace('?DAMNVID_VIDEO_STREAM?', '-').replace('?DAMNVID_VIDEO_PASS?', str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?', DV.tmp_path + self.tmpfilename))
+            s.append(i.replace('?DAMNVID_VIDEO_STREAM?', stream).replace('?DAMNVID_VIDEO_PASS?', str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?', DV.tmp_path + self.tmpfilename))
         return s
     def gettmpfilename(self, path, prefix, ext):
         prefix = DamnUnicode(DamnUnicode(prefix).encode('ascii', 'ignore'))
@@ -3299,8 +3303,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                 self.profile = int(self.parent.meta[self.parent.videos[self.parent.converting]]['profile'])
                 if os.path.exists(self.uri):
                     Damnlog('We\'re dealing with a file stream here.')
-                    self.stream = self.uri # Despite setting this, ffmpeg will still be fed the file via stdin rather than letting it read the file itself
-                    # Fixes some accents-in-pathnames problems
+                    self.stream = self.uri
                     if self.outdir is None:
                         self.outdir = DV.prefs.get('defaultoutdir')
                 else:
@@ -3477,9 +3480,6 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
                         else:
                             self.feeder = DamnDownloader(self.uris, self.process.stdin)
                         self.feeder.start()
-                    else:
-                        self.feeder = DamnStreamCopy(self.stream, self.process.stdin)
-                        self.feeder.start()
                     curline = ''
                     Damnlog('Starting ffmpeg polling.')
                     while self.process.poll() == None and not self.abort:
@@ -3620,10 +3620,10 @@ class DamnStreamCopy(thr.Thread):
                     if firstwrite:
                         Damnlog('Stream copy: first write successful, wrote ', len(i), 'bytes.')
                         firstwrite = False
-                except:
-                    Damnlog('Stream copy: failed to write', len(i), 'bytes to output stream.')
+                except Exception, e:
+                    Damnlog('Stream copy: failed to write', len(i), 'bytes to output stream:',e)
             except:
-                Damnlog('Stream copy: Filed to read from input stream.')
+                Damnlog('Stream copy: Failed to read from input stream.')
         Damnlog('Stream copying done.')
         if self.closes1:
             try:
