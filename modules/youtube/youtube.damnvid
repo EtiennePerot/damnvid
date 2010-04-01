@@ -7,8 +7,8 @@ class DamnModule_YouTube(DamnVideoModule):
         self.regex={
             'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
             'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
-            'title':(re.compile('<title>\s*YouTube\s*-\s*([^<>]+?)\s*</title>',re.IGNORECASE),self.regex['title']),
-            'ticket':re.compile('(["\']?)t\\1\\s*:\\s*([\'"])((?:(?!\\2).)+)\\2',re.IGNORECASE)
+            'title':(re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),self.regex['title']),
+            'ticket':re.compile('(?:^|&)token=([^&]+)',re.IGNORECASE)
         }
         self.hd=None
         self.playlist=False
@@ -27,28 +27,23 @@ class DamnModule_YouTube(DamnVideoModule):
             return None
         if self.title is None:
             gotticket=False
-            http=DamnURLOpen('http://www.youtube.com/watch?v='+self.id[3:])
+            http=DamnURLOpen('http://www.youtube.com/get_video_info?video_id='+self.id[3:])
             html=''
             for i in http:
                 html+=i
             res=self.regex['title'][0].search(html)
             if res:
-                self.title=DamnHtmlEntities(res.group(1).replace('\n','').replace('\r',''))
-            else:
-                res=self.regex['title'][1].search(html)
-                if res:
-                    self.title=DamnHtmlEntities(res.group(1).replace('\n','').replace('\r',''))
-            if not gotticket:
-                res2=self.regex['ticket'].search(html)
-                if res2:
-                    self.newTicket(res2.group(3))
-                    url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)],True)
-                    if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(3)+'&fmt=22':
-                        if DamnURLOpen('http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=37') is None:
-                            self.hd='720'
-                        else:
-                            self.hd='1080'
-                    gotticket=True
+                self.title=DamnUnicode(urllib2.unquote(res.group(1).replace('+','%20')).decode('utf8'))
+            res2=self.regex['ticket'].search(html)
+            if res2:
+                self.newTicket(res2.group(1)) # res2.group(1) should be urllib2.unquote()'d, but since we're going to put it back into URLs we don't need to decode it.
+                url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)],True)
+                if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22':
+                    if DamnURLOpen('http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=37') is None:
+                        self.hd='720'
+                    else:
+                        self.hd='1080'
+                gotticket=True
         return DamnVideoModule.getTitle(self)
     def getProfile(self):
         if self.playlist:
@@ -99,7 +94,7 @@ DamnRegisterModule({
     'name':'youtube',
     'title':'YouTube',
     'type':'video',
-    'version':'1.4',
+    'version':'1.5',
     'author':{
         'name':'Etienne Perot',
         'email':'admin@biringa.com',

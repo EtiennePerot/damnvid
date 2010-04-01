@@ -110,6 +110,7 @@ DV.url_halp = u'http://code.google.com/p/damnvid/wiki/Help'
 DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
 DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
 DV.gui_ok = False
+DV.streamTimeout = 30.0
 DV.icon = None # This will be defined when DamnMainFrame is initialized
 DV.icon2 = None
 DV.icon16 = None
@@ -3668,7 +3669,7 @@ class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to
             copystream = DamnOpenFile(self.copy, 'wb')
         i = 'letsgo'
         while len(i):
-            tmptimer = thr.Timer(10.0, self.timeouterror)
+            tmptimer = thr.Timer(DV.streamTimeout, self.timeouterror)
             tmptimer.start()
             try:
                 i = self.http.read(1024)
