@@ -24,6 +24,7 @@
 # - PyWin32 (Windows API calls) (only required on Windows)
 # - Psyco (optional, speeds up execution)
 
+print 'Starting up.'
 import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
@@ -35,6 +36,7 @@ import subprocess # Spawn sub-processes (ffmpeg, taskkill)
 import time # Sleepin'
 import urllib2 # Fetch data from the tubes, encode/decode URLs
 import urllib # Sadly required as well, for its urlencode function
+import socket # Used to override the default socket in case of a SOCKS proxy
 import cookielib # Cookie handling. Yum, warm, freshly-baked cookies.
 import signal # Process signals
 import webbrowser # Open a page in default browser
@@ -52,6 +54,8 @@ import unicodedata # Unicode normalization
 import hashlib # MD5 hashes
 import tarfile # Tar/gz file reading/writing (used for modules)
 import threading as thr # Threads
+import socks # SOCKS proxies
+print 'Imports done.'
 
 # Yeah, declaring this very early
 def DamnUnicode(s):
@@ -96,15 +100,7 @@ DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = sys.argv[1:]
 versionfile.close()
 del versionfile
-class DamnCookieJar(cookielib.CookieJar):
-    def _cookie_from_cookie_tuple(self, tup, request): # Work-around for cookielib bug with non-integer cookie versions (*ahem* @ Apple)
-        name, value, standard, rest = tup
-        standard["version"]= 1
-        cookielib.CookieJar._cookie_from_cookie_tuple(self, tup, request)
-DV.cookiejar = DamnCookieJar()
-DV.urllib2_urlopener = urllib2.build_opener(urllib2.HTTPCookieProcessor(DV.cookiejar))
-DV.urllib2_urlopener.addheaders = [('User-agent', 'DamnVid/' + DV.version)]
-urllib2.install_opener(DV.urllib2_urlopener) # All urllib2.urlopen() calls will have the DamnVid user-agent
+DV.blanksocket = socket.socket
 DV.url = u'http://code.google.com/p/damnvid/'
 DV.url_halp = u'http://code.google.com/p/damnvid/wiki/Help'
 DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
@@ -382,6 +378,75 @@ def DamnExecFile(f):
                 execfile(DamnUnicode(f).encode('windows-1252'))
             except:
                 pass
+class DamnCookieJar(cookielib.CookieJar):
+    def _cookie_from_cookie_tuple(self, tup, request): # Work-around for cookielib bug with non-integer cookie versions (*ahem* @ Apple)
+        name, value, standard, rest = tup
+        standard["version"]= 1
+        cookielib.CookieJar._cookie_from_cookie_tuple(self, tup, request)
+def DamnURLOpener():
+    global urllib2
+    Damnlog('Reloading proxy settings.')
+    if DV.prefs is None:
+        Damnlog('Prefs uninitialized, reloading them.')
+        DV.prefs = DamnVidPrefs()
+    Damnlog('Building damn cookie jar.')
+    DV.cookiejar = DamnCookieJar()
+    newSocket = DV.blanksocket
+    proxy = DV.prefs.gets('damnvid-proxy', 'proxy')
+    Damnlog('Proxy preference is', proxy)
+    if proxy == 'none':
+        proxyhandle = urllib2.ProxyHandler({}) # Empty dictionary = no proxy
+        Damnlog('Proxy is none, set handle to', proxyhandle)
+    elif proxy == 'http':
+        proxy = {
+            'http':DV.prefs.gets('damnvid-proxy','http_proxy'),
+            'https':DV.prefs.gets('damnvid-proxy','https_proxy')
+        }
+        Damnlog('HTTP/HTTPS proxy addresses are', proxy)
+        try:
+            proxy['http'] += ':'+int(DV.prefs.gets('damnvid-proxy','http_port'))
+            Damnlog('HTTP Proxy port is a valid integer.')
+        except:
+            Damnlog('HTTP Proxy port is not a valid integer.')
+        try:
+            proxy['https'] += ':'+int(DV.prefs.gets('damnvid-proxy','https_port'))
+            Damnlog('HTTPS Proxy port is a valid integer.')
+        except:
+            Damnlog('HTTPS Proxy port is not a valid integer.')
+        proxyhandle = urllib2.ProxyHandler(proxy)
+        Damnlog('Proxy is', proxy, '; set handle to', proxyhandle)
+    elif proxy == 'socks4' or proxy == 'socks5':
+        Damnlog('Proxy is SOCKS-type.')
+        proxyhandle = urllib2.ProxyHandler({})
+        if proxy == 'socks4':
+            Damnlog('It\'s a SOCKS4 proxy.')
+            proxytype = socks.PROXY_TYPE_SOCKS4
+        else:
+            proxytype = socks.PROXY_TYPE_SOCKS5
+            Damnlog('It\'s a SOCKS5 proxy.')
+        address = DV.prefs.gets('damnvid-proxy','socks_proxy')
+        Damnlog('SOCKS proxy address is', address)
+        try:
+            socks.setdefaultproxy(proxytype, address, int(DV.prefs.gets('damnvid-proxy','socks_port')))
+            Damnlog('SOCKS proxy port is a valid integer.')
+        except:
+            socks.setdefaultproxy(proxytype, address)
+            Damnlog('SOCKS proxy port is not a valid integer.')
+        newSocket = socks.socksocket
+    else:
+        proxyhandle = urllib2.ProxyHandler()
+        Damnlog('Using system settings, set proxy handle to', proxy)
+    Damnlog('Reloading urllib2, setting socket to', newSocket)
+    del urllib2
+    socket.socket = newSocket
+    import urllib2
+    Damnlog('Building new URL opener.')
+    DV.urllib2_urlopener = urllib2.build_opener(proxyhandle, urllib2.HTTPBasicAuthHandler(), urllib2.HTTPCookieProcessor(DV.cookiejar))
+    DV.urllib2_urlopener.addheaders = [('User-agent', 'DamnVid/' + DV.version)]
+    Damnlog('URL opener built with user-agent', 'DamnVid/' + DV.version,'; installing as default.')
+    urllib2.install_opener(DV.urllib2_urlopener)
+    Damnlog('URL opener installed, proxy settings loaded.')
+    return DV.urllib2_urlopener
 class DamnIconList(wx.ImageList): # An imagelist with dictionary-like association, not stupid IDs, and graceful failure. Can also be initialized with delay.
     def __init__(self, width=16, height=16, mask=True, initialCount=0, fail=None, initNow=False):
         self.list = {}
@@ -607,15 +672,18 @@ class DamnModuleUpdateCheck(thr.Thread):
                 self.postEvent(module, 'cannot')
             elif module['about']['url'] not in self.downloaded:
                 self.downloaded.append(module['about']['url'])
-                http = DamnURLOpen(module['about']['url'])
-                checkingfor = [module]
-                for module2 in self.modules:
-                    if module2['about'].has_key('url'):
-                        if module2['about']['url'] == module['about']['url'] and module2 not in checkingfor:
-                            checkingfor.append(module2)
-                html = ''
-                for i in http:
-                    html += i
+                try:
+                    http = DamnURLOpen(module['about']['url'])
+                    checkingfor = [module]
+                    for module2 in self.modules:
+                        if module2['about'].has_key('url'):
+                            if module2['about']['url'] == module['about']['url'] and module2 not in checkingfor:
+                                checkingfor.append(module2)
+                    html = ''
+                    for i in http:
+                        html += i
+                except:
+                    html = ''
                 for module2 in checkingfor:
                     res = re.search('<tt>' + re.escape(module2['name']) + '</tt>.*?Latest\s+version\s*:\s*<tt>([^<>]+)</tt>.*?Available\s+at\s*:\s*<a href="([^"]+)"', html, re.IGNORECASE)
                     if not res:
@@ -1909,6 +1977,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
         f = DamnOpenFile(DV.conf_file, 'w')
         self.ini.write(f)
         f.close()
+        DamnURLOpener()
 class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
     def __init__(self, parent, id, label, control, title, callback):
         self.filefield = control
@@ -2182,7 +2251,10 @@ class DamnVidBrowser(wx.Dialog):
                 infobox.Add((0, DV.control_vgap))
                 statistics2 = wx.BoxSizer(wx.HORIZONTAL)
                 infobox.Add(statistics2)
-                viewcount = wx.StaticText(tmppanel, -1, self.numFormat(results.entry[i].statistics.view_count))
+                try:
+                    viewcount = wx.StaticText(tmppanel, -1, self.numFormat(results.entry[i].statistics.view_count))
+                except:
+                    viewcount = wx.StaticText(tmppanel, -1, self.numFormat(0))
                 viewcount.SetFont(boldfont)
                 viewcount.SetForegroundColour(wx.BLACK)
                 statistics.Add(viewcount)
@@ -2436,6 +2508,8 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
         self.tree.AssignImageList(self.treeimages)
         self.treeroot = self.tree.AddRoot(DV.l('DamnVid Preferences'))
         self.tree.SetItemImage(self.treeroot, self.treeimages.Add(wx.Bitmap(DV.images_path + 'icon16.png')))
+        self.proxyprefs = self.tree.AppendItem(self.treeroot, DV.l('Proxy'))
+        self.tree.SetItemImage(self.proxyprefs, self.treeimages.Add(wx.Bitmap(DV.images_path + 'web-16.png')))
         self.searchprefs = self.tree.AppendItem(self.treeroot, DV.l('YouTube browser'))
         self.tree.SetItemImage(self.searchprefs, self.treeimages.Add(wx.Bitmap(DV.images_path + 'youtubebrowser.png')))
         self.modulelistitem = self.tree.AppendItem(self.treeroot, DV.l('Modules'))
@@ -2463,6 +2537,8 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
             self.updatePrefPane('damnvid')
         elif item == self.searchprefs:
             self.updatePrefPane('damnvid-search')
+        elif item == self.proxyprefs:
+            self.updatePrefPane('damnvid-proxy')
         elif item == self.modulelistitem:
             self.updatePrefPane('special:modules')
         elif item == self.profileroot:
@@ -4155,26 +4231,27 @@ class DamnMainFrame(DamnFrame): # The main window
             else:
                 verbose = True
             if info['updateinfo'].has_key('main'):
-                msg = None
-                if DamnVersionCompare(info['updateinfo']['main'], DV.version) == 1 and type(info['updateinfo']['main']) is type(''):
-                    dlg = wx.MessageDialog(self, DV.l('A new version (') + info['updateinfo']['main'] + DV.l(') is available! You are running DamnVid ') + DV.version + '.\n' + DV.l('Want to go to the download page and download the update?'), DV.l('Update available!'), wx.YES | wx.NO | wx.YES_DEFAULT | wx.ICON_INFORMATION)
-                    dlg.SetIcon(DV.icon)
-                    if dlg.ShowModal() == wx.ID_YES:
-                        webbrowser.open(DV.url_download, 2)
-                    dlg.Destroy()
-                elif verbose and type(info['updateinfo']['main']) is type(''):
-                    if DV.version != info['updateinfo']['main']:
-                        versionwarning = DV.l(' However, your version (') + DV.version + DV.l(') seems different than the latest version available online. Where would you get that?')
-                    else:
-                        versionwarning = ''
-                    msg = (DV.l('DamnVid is up-to-date.'), DV.l('DamnVid is up-to-date! The latest version is ') + info['updateinfo']['main'] + '.' + versionwarning, wx.ICON_INFORMATION)
-                elif verbose:
-                    msg = (DV.l('Error!'), DV.l('There was a problem while checking for updates. You are running DamnVid ') + DV.version + '.\n' + DV.l('Make sure you are connected to the Internet, and that no firewall is blocking DamnVid.'), wx.ICON_INFORMATION)
-                if msg is not None:
-                    dlg = wx.MessageDialog(self, msg[1], msg[0], msg[2])
-                    dlg.SetIcon(DV.icon)
-                    dlg.ShowModal()
-                    dlg.Destroy()
+                if info['updateinfo']['main'] is not None:
+                    msg = None
+                    if DamnVersionCompare(info['updateinfo']['main'], DV.version) == 1 and type(info['updateinfo']['main']) is type(''):
+                        dlg = wx.MessageDialog(self, DV.l('A new version (') + info['updateinfo']['main'] + DV.l(') is available! You are running DamnVid ') + DV.version + '.\n' + DV.l('Want to go to the download page and download the update?'), DV.l('Update available!'), wx.YES | wx.NO | wx.YES_DEFAULT | wx.ICON_INFORMATION)
+                        dlg.SetIcon(DV.icon)
+                        if dlg.ShowModal() == wx.ID_YES:
+                            webbrowser.open(DV.url_download, 2)
+                        dlg.Destroy()
+                    elif verbose and type(info['updateinfo']['main']) is type(''):
+                        if DV.version != info['updateinfo']['main']:
+                            versionwarning = DV.l(' However, your version (') + DV.version + DV.l(') seems different than the latest version available online. Where would you get that?')
+                        else:
+                            versionwarning = ''
+                        msg = (DV.l('DamnVid is up-to-date.'), DV.l('DamnVid is up-to-date! The latest version is ') + info['updateinfo']['main'] + '.' + versionwarning, wx.ICON_INFORMATION)
+                    elif verbose:
+                        msg = (DV.l('Error!'), DV.l('There was a problem while checking for updates. You are running DamnVid ') + DV.version + '.\n' + DV.l('Make sure you are connected to the Internet, and that no firewall is blocking DamnVid.'), wx.ICON_INFORMATION)
+                    if msg is not None:
+                        dlg = wx.MessageDialog(self, msg[1], msg[0], msg[2])
+                        dlg.SetIcon(DV.icon)
+                        dlg.ShowModal()
+                        dlg.Destroy()
             if info['updateinfo'].has_key('modules'):
                 msg = []
                 for i in info['updateinfo']['modules'].iterkeys():
@@ -4609,6 +4686,7 @@ class DamnVid(wx.App):
                 showsplash = True
         else:
             pass
+        DamnURLOpener()
         self.frame = DamnMainFrame(None, -1, DV.l('DamnVid'))
         if showsplash:
             if True:

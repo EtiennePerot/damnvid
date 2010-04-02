@@ -14,7 +14,7 @@
 @cd package
 @echo Compyling DamnVid.
 @copy /Y ..\build-exe\msvcp90.dll %python%\msvcp90.dll
-@%python%\python ..\build-exe\py2exe-win32.py py2exe
+@%python%\python -OO ..\build-exe\py2exe-win32.py py2exe
 @echo Running UPX --brute on compyled executable.
 @echo upx --brute dist\DamnVid.exe
 @echo Switching to /package/dist/ directory.

@@ -10,7 +10,7 @@
 @echo Switching to /package/ directory.
 @cd package
 @echo Compyling DamnVid.
-@C:\Python26\python ..\build-exe\py2exe-win64.py py2exe --package encodings
+@C:\Python26\python -OO ..\build-exe\py2exe-win64.py py2exe --package encodings
 @echo Running UPX --brute on compyled executable.
 @echo upx --brute dist\DamnVid.exe
 @echo Switching to /package/dist/ directory.

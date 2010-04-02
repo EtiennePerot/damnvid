@@ -2,10 +2,11 @@
 
 from distutils.core import setup
 import py2exe
-import os
+import os, sys
 import shutil
 
 path2src = '../../DamnVid/'
+sys.path.append(path2src)
 versionfile = open(path2src + 'version.damnvid', 'r')
 version = versionfile.readline().strip()
 versionfile.close()

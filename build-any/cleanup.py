@@ -24,3 +24,4 @@ def cleanDir(d, deletables):
             shazarr(d + os.sep + i)
 cleanDir('.', ['COPYING', 'DamnVid.exe.manifest', 'required-files.txt', 'damnvid.spec', 'package', 'usr', 'DamnVid.app', '*.module.damnvid', '*.so', '*.so.*', 'build.tar.gz', 'library.zip', 'py', 'NSIS-win32.nsi', 'DamnVid', '*.tmp', 'damnvid-locale-warnings.log'])
 cleanDir('./modules', ['*.module.damnvid'])
+cleanDir('./socks', ['*.pyc', '*.pyo'])

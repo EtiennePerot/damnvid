@@ -444,10 +444,67 @@ DV.preferences={
         'kind':'int:0-50',
         'strict':True,
         'default':8
+    },
+    'damnvid-proxy:proxy':{
+        'name':'Use a proxy',
+        'type':DV.preference_type_misc,
+        'kind':{
+            'none':'Direct connection',
+            'default':'Use system settings',
+            'http':'Use HTTP/HTTPS proxy',
+            'socks4':'Use SOCKS4 proxy',
+            'socks5':'Use SOCKS5 proxy'
+        },
+        'order':['none','default','http','socks4','socks5'],
+        'strict':True,
+        'default':'default'
+    },
+    'damnvid-proxy:http_proxy':{
+        'name':'HTTP proxy',
+        'type':DV.preference_type_misc,
+        'kind':'text',
+        'strict':False,
+        'default':'localhost'
+    },
+    'damnvid-proxy:https_proxy':{
+        'name':'HTTPS proxy',
+        'type':DV.preference_type_misc,
+        'kind':'text',
+        'strict':False,
+        'default':'localhost'
+    },
+    'damnvid-proxy:socks_proxy':{
+        'name':'SOCKS proxy',
+        'type':DV.preference_type_misc,
+        'kind':'text',
+        'strict':False,
+        'default':'localhost'
+    },
+    'damnvid-proxy:http_port':{
+        'name':'HTTP proxy port',
+        'type':DV.preference_type_misc,
+        'kind':'text',
+        'strict':False,
+        'default':'localhost'
+    },
+    'damnvid-proxy:https_port':{
+        'name':'HTTPS proxy port',
+        'type':DV.preference_type_misc,
+        'kind':'text',
+        'strict':False,
+        'default':'81'
+    },
+    'damnvid-proxy:socks_port':{
+        'name':'SOCKS proxy port',
+        'type':DV.preference_type_misc,
+        'kind':'text',
+        'strict':False,
+        'default':'1080'
     }
 }
 DV.preference_order={
     'damnvid':['checkforupdates','locale','minimizetotray','splashscreen','warnremove','dirrecursion','windowpolicy','defaultprofile','defaultoutdir','defaultwebprofile','defaultweboutdir','clipboard','videohistorysize','threads'],
     'damnvid-profile':['video','audio','encoding_vcodec','encoding_r','encoding_b','encoding_f','encoding_s','encoding_aspect','encoding_minrate','encoding_maxrate','encoding_qmin','encoding_qmax','encoding_bt','encoding_bufsize','encoding_pass','encoding_g','encoding_acodec','encoding_vol','encoding_ab','encoding_ar','encoding_ac','name','outdir'],
-    'damnvid-search':['doinitialsearch','default_search','history_length']
+    'damnvid-search':['doinitialsearch','default_search','history_length'],
+    'damnvid-proxy':['proxy','http_proxy','http_port','https_proxy','https_port','socks_proxy','socks_port']
 }
