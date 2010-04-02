@@ -2134,6 +2134,7 @@ class DamnVidBrowser(wx.Dialog):
             tmpscrollbar.Destroy()
             del tmpscrollbar
             self.resultpanel.DestroyChildren()
+            self.resultpanel.Layout()
             for i in range(len(results.entry)):
                 tmpvbox = wx.BoxSizer(wx.VERTICAL)
                 tmpsizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -2218,6 +2219,7 @@ class DamnVidBrowser(wx.Dialog):
             self.scrollpanel.Show()
             self.resultpanel.Fit()
             self.scrollpanel.AdjustScrollbars()
+            self.resultpanel.Layout()
             self.toppanel.Layout()
         elif info['query'][0] == 'image':
             try:
