@@ -76,7 +76,6 @@ def DamnUnicode(s):
         return unicode(s)
     except:
         return s
-
 def DamnOpenFile(f, m):
     f = DamnUnicode(f)
     try:
@@ -157,8 +156,26 @@ if DV.os == 'posix' or DV.os == 'mac':
 else:
     DV.conf_file_location = DamnUnicode(DV.conf_file_location[DV.os])
 DV.conf_file_directory = DamnUnicode(DV.conf_file_location + DV.sep)
+DV.actual_conf_file_directory = DV.conf_file_directory
+if os.path.isdir(DV.curdir + u'portableConf'):
+    DV.conf_file_directory = DV.curdir + u'portableConf' + DV.sep
+for i in DV.argv:
+    if DamnUnicode(i)[:9].lower() == u'--config=':
+        DV.conf_file_directory = DamnUnicode(i)[9:]
+        if DV.conf_file_directory[-1:] != DV.conf_file_directory:
+            DV.conf_file_directory += DV.sep
+        DV.argv = [x for x in DV.argv if DamnUnicode(x)[:9] != u'--config=']
+        break
 if not os.path.exists(DV.conf_file_directory):
-    os.makedirs(DV.conf_file_directory)
+    try:
+        os.makedirs(DV.conf_file_directory)
+    except:
+        DV.conf_file_directory = DV.actual_conf_file_directory
+        try:
+            os.makedirs(DV.conf_file_directory)
+        except:
+            print 'Cannot create configuration directory!'
+            pass
 DV.conf_file = DamnUnicode(DV.conf_file_directory + 'damnvid.ini')
 DV.log_file = DamnUnicode(DV.conf_file_directory + 'damnvid.log')
 if os.path.exists(DV.log_file):
@@ -321,7 +338,9 @@ DV.bin_path = DamnUnicode(DV.curdir + u'bin/'.replace(u'/', DV.sep))
 Damnlog('Bin path is', DV.bin_path)
 DV.locale_path = DamnUnicode(DV.curdir + u'locale/'.replace(u'/', DV.sep))
 Damnlog('Locale path is', DV.locale_path)
-DV.tmp_path = DamnUnicode(DV.conf_file_directory + u'temp/'.replace(u'/', DV.sep))
+DV.tmp_path = DamnUnicode(DV.actual_conf_file_directory + u'temp/'.replace(u'/', DV.sep))
+if not os.path.exists(DV.tmp_path):
+    os.makedirs(DV.tmp_path)
 Damnlog('Temp path is', DV.tmp_path)
 if not os.path.exists(DV.tmp_path):
     Damnlog('Temp path does not exist - attempting to create it.')
@@ -4073,6 +4092,8 @@ class DamnMainFrame(DamnFrame): # The main window
                     screen = wx.Display().GetGeometry()[2:]
                     if allstuff2[4] != screen[0] or allstuff2[5]!= screen[1]:
                         Damnlog('Resolution information is different:',allstuff2[4:5],'vs',screen,'(current); giving up on restoring window geometry.')
+                    elif allstuff[0] < 0 or allstuff[0] + allstuff[2] >= lastresw or allstuff[1] < 0 or allstuff[1] + allstuff[3] >= lasth:
+                        Damnlog('Window position is out of bounds; giving up.')
                     else:
                         Damnlog('All window geometry tests passed, attempting to restore window geometry.')
                         try:
