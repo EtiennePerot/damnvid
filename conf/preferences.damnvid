@@ -446,7 +446,7 @@ DV.preferences={
         'default':8
     },
     'damnvid-proxy:proxy':{
-        'name':'Use a proxy',
+        'name':'Proxy type',
         'type':DV.preference_type_misc,
         'kind':{
             'none':'Direct connection',

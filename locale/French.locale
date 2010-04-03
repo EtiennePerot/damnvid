@@ -426,6 +426,13 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
         'Show DamnVid':u'Afficher DamnVid',
         'Perform search when launched':u'Lancer la recherche par défaut lors du démarrage',
         'Reset status':u'Réinitialiser le statut',
-        'QuickTime format (.mov)':u'Format QuickTime (.mov)'
+        'QuickTime format (.mov)':u'Format QuickTime (.mov)',
+        'Proxy':u'Proxy',
+        'Proxy type':u'Type de proxy',
+        'Direct connection':u'Connexion directe',
+        'Use system settings':u'Utiliser les options globales',
+        'Use HTTP/HTTPS proxy':u'Utiliser un proxy HTTP/HTTPS',
+        'Use SOCKS4 proxy':u'Utiliser un proxy SOCKS4',
+        'Use SOCKS5 proxy':u'Utiliser un proxy SOCKS5'
     }
 }

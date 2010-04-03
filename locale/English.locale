@@ -426,6 +426,13 @@ Additionally, one of your encoding profiles may be set as the default one for ne
         'Show DamnVid':u'Show DamnVid',
         'Perform search when launched':u'Perform search when launched',
         'Reset status':u'Reset status',
-        'QuickTime format (.mov)':u'QuickTime format (.mov)'
+        'QuickTime format (.mov)':u'QuickTime format (.mov)',
+        'Proxy':u'Proxy',
+        'Proxy type':u'Proxy type',
+        'Direct connection':u'Direct connection',
+        'Use system settings':u'Use system settings',
+        'Use HTTP/HTTPS proxy':u'Use HTTP/HTTPS proxy',
+        'Use SOCKS4 proxy':u'Use SOCKS4 proxy',
+        'Use SOCKS5 proxy':u'Use SOCKS5 proxy'
     }
 }
