@@ -6,7 +6,7 @@ name "${APP}"
 caption "${APP} installation"
 SetCompressor lzma
 outFile "..\..\${APP}-setup.exe"
-installDir "$PROGRAMFILES\${APP}\"
+installDir "$PROGRAMFILES\${APP}"
 RequestExecutionLevel admin
 !define MUI_ICON "..\..\img\installer.noinclude.ico"
 !define MUI_UNICON "..\..\img\uninstaller.noinclude.ico"

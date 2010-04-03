@@ -36,6 +36,7 @@ import subprocess # Spawn sub-processes (ffmpeg, taskkill)
 import time # Sleepin'
 import urllib2 # Fetch data from the tubes, encode/decode URLs
 import urllib # Sadly required as well, for its urlencode function
+import socks # SOCKS proxy client
 import socket # Used to override the default socket in case of a SOCKS proxy
 import cookielib # Cookie handling. Yum, warm, freshly-baked cookies.
 import signal # Process signals
@@ -54,7 +55,6 @@ import unicodedata # Unicode normalization
 import hashlib # MD5 hashes
 import tarfile # Tar/gz file reading/writing (used for modules)
 import threading as thr # Threads
-import socks # SOCKS proxies
 print 'Imports done.'
 
 # Yeah, declaring this very early
@@ -2370,7 +2370,12 @@ class DamnVidBrowser(wx.Dialog):
             Damnlog('Query is not none, set searchbox value, starting search.')
             self.search()
     def makeDescPanel(self, desc, parent, width):
+        Damnlog('Making description panel:', desc)
+        if desc is None:
+            Damnlog('Warning: description is None!')
+            desc = u''
         desc = self.cleanString(desc)
+        Damnlog('Cleaned string:', desc)
         panel = wx.Panel(parent, -1)
         panel.SetBackgroundColour(wx.WHITE)
         wrapper = wx.BoxSizer(wx.HORIZONTAL)
@@ -4071,13 +4076,11 @@ class DamnMainFrame(DamnFrame): # The main window
             self.Center()
         elif windowpolicy=='remember':
             Damnlog('Window policy is remember; trying to load saved window geometry.')
-            lastx = DV.prefs.gets('damnvid-mainwindow','lastx')
-            lasty = DV.prefs.gets('damnvid-mainwindow','lasty')
-            lastw = DV.prefs.gets('damnvid-mainwindow','lastw')
-            lasth = DV.prefs.gets('damnvid-mainwindow','lasth')
-            lastresw = DV.prefs.gets('damnvid-mainwindow','lastresw')
-            lastresh = DV.prefs.gets('damnvid-mainwindow','lastresh')
-            allstuff=(lastx,lasty,lastw,lasth,lastresw,lastresh)
+            allstuff=(
+                DV.prefs.gets('damnvid-mainwindow','lastx'), DV.prefs.gets('damnvid-mainwindow','lasty'),
+                DV.prefs.gets('damnvid-mainwindow','lastw'), DV.prefs.gets('damnvid-mainwindow','lasth'),
+                DV.prefs.gets('damnvid-mainwindow','lastresw'), DV.prefs.gets('damnvid-mainwindow','lastresh')
+            )
             Damnlog('Old window geometry information:',allstuff)
             allstuff2=[]
             for i in allstuff:
@@ -4092,7 +4095,7 @@ class DamnMainFrame(DamnFrame): # The main window
                     screen = wx.Display().GetGeometry()[2:]
                     if allstuff2[4] != screen[0] or allstuff2[5]!= screen[1]:
                         Damnlog('Resolution information is different:',allstuff2[4:5],'vs',screen,'(current); giving up on restoring window geometry.')
-                    elif allstuff[0] < 0 or allstuff[0] + allstuff[2] >= lastresw or allstuff[1] < 0 or allstuff[1] + allstuff[3] >= lasth:
+                    elif allstuff2[0] < 0 or allstuff2[0] + allstuff2[2] >= allstuff2[4] or allstuff2[1] < 0 or allstuff2[1] + allstuff2[3] >= allstuff2[5]:
                         Damnlog('Window position is out of bounds; giving up.')
                     else:
                         Damnlog('All window geometry tests passed, attempting to restore window geometry.')
