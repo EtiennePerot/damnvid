@@ -1985,7 +1985,10 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
             return self.profiles
         return None
     def geta(self, section, name):
-        array = eval(base64.b64decode(self.gets(section, name)))
+        try:
+            array = eval(base64.b64decode(self.gets(section, name)))
+        except:
+            array = []
         unicodearray = []
         for i in array:
             unicodearray.append(DamnUnicode(i))
