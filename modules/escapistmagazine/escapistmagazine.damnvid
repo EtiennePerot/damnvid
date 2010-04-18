@@ -1,113 +1,113 @@
 #~DamnVid-module:escapistmagazine
 
 class DamnModule_EscapistMagazine(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='escapistmagazine'
-        self.regex={
-            'url':re.compile('escapistmagazine\.com/videos.*?/(\d+)-?',re.IGNORECASE),
-            'title':re.compile('class=[\'"]?headline[\'"]?[^<>]*>\s*(.*?)\s*</div>',re.IGNORECASE),
-            'ticket':(re.compile('url=([^&=]+)(?:[&=]|$)?',re.IGNORECASE),re.compile('config\s*=\s*(https?://[^&\s]+?.js)',re.IGNORECASE),re.compile('\{\s*[\'"]\s*url\s*[\'"]\s*:\s*[\'"]\s*(https?://[^\'"\s]+\.(?:mp4|m4v|flv|avi|wmv|mpe?g)[^\'"\s]*)\s*[\'"]',re.IGNORECASE)),
-            'sanetitle':(re.compile('<[^<>]+>',re.IGNORECASE),re.compile('\s+',re.IGNORECASE))
-        }
-        self.valid=self.regex['url'].search(uri)
-        self.escapistmagazine_zp=None
-        self.escapistmagazine_jsconfig=None
-        if self.valid:
-            self.id='em:'+self.valid.group(1)
-            self.link='http://www.escapistmagazine.com/videos/view/'+self.valid.group(1)
-    def getTitle(self):
-        if self.title is None:
-            html = DamnURLOpen(self.link)
-            total = ''
-            for i in html:
-                total += i
-            res1,res2 = self.regex['title'].search(total), self.regex['ticket'][1].search(total)
-            if res1:
-                self.title = DamnHtmlEntities(self.regex['sanetitle'][1].sub(' ',self.regex['sanetitle'][0].sub('',res1.group(1))))
-            if res2:
-                self.escapistmagazine_jsconfig = DamnHtmlEntities(res2.group(1))
-        self.escapistmagazine_zp=self.title.lower().find('zero punctuation')!=-1
-        return DamnVideoModule.getTitle(self)
-    def getIcon(self):
-        if not self.escapistmagazine_zp:
-            return DamnVideoModule.getIcon(self)
-        return DamnGetListIcon('escapistmagazinezeropunctuation')
-    def renewTicket(self):
-        if self.ticket is not None:
-            return
-        html=DamnURLOpen('http://www.themis-group.com/global/castfire/m4v/'+self.id[3:],urllib.urlencode({
-            'version':'ThemisMedia1.2',
-            'format':hashlib.md5('Video '+self.id[3:]+' Hash').hexdigest()
-        }))
-        foundit=False
-        for i in html:
-            res=self.regex['ticket'][0].search(i)
-            if res:
-                self.newTicket(urllib2.unquote(res.group(1)))
-                foundit=True
-        if not foundit and self.escapistmagazine_jsconfig is not None:
-            html=DamnURLOpen(self.escapistmagazine_jsconfig)
-            for i in html:
-                res=self.regex['ticket'][2].search(i)
-                if res:
-                    self.newTicket(res.group(1))
-                    break
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='escapistmagazine'
+		self.regex={
+			'url':re.compile('escapistmagazine\.com/videos.*?/(\d+)-?',re.IGNORECASE),
+			'title':re.compile('class=[\'"]?headline[\'"]?[^<>]*>\s*(.*?)\s*</div>',re.IGNORECASE),
+			'ticket':(re.compile('url=([^&=]+)(?:[&=]|$)?',re.IGNORECASE),re.compile('config\s*=\s*(https?://[^&\s]+?.js)',re.IGNORECASE),re.compile('\{\s*[\'"]\s*url\s*[\'"]\s*:\s*[\'"]\s*(https?://[^\'"\s]+\.(?:mp4|m4v|flv|avi|wmv|mpe?g)[^\'"\s]*)\s*[\'"]',re.IGNORECASE)),
+			'sanetitle':(re.compile('<[^<>]+>',re.IGNORECASE),re.compile('\s+',re.IGNORECASE))
+		}
+		self.valid=self.regex['url'].search(uri)
+		self.escapistmagazine_zp=None
+		self.escapistmagazine_jsconfig=None
+		if self.valid:
+			self.id='em:'+self.valid.group(1)
+			self.link='http://www.escapistmagazine.com/videos/view/'+self.valid.group(1)
+	def getTitle(self):
+		if self.title is None:
+			html = DamnURLOpen(self.link)
+			total = ''
+			for i in html:
+				total += i
+			res1,res2 = self.regex['title'].search(total), self.regex['ticket'][1].search(total)
+			if res1:
+				self.title = DamnHtmlEntities(self.regex['sanetitle'][1].sub(' ',self.regex['sanetitle'][0].sub('',res1.group(1))))
+			if res2:
+				self.escapistmagazine_jsconfig = DamnHtmlEntities(res2.group(1))
+		self.escapistmagazine_zp=self.title.lower().find('zero punctuation')!=-1
+		return DamnVideoModule.getTitle(self)
+	def getIcon(self):
+		if not self.escapistmagazine_zp:
+			return DamnVideoModule.getIcon(self)
+		return DamnGetListIcon('escapistmagazinezeropunctuation')
+	def renewTicket(self):
+		if self.ticket is not None:
+			return
+		html=DamnURLOpen('http://www.themis-group.com/global/castfire/m4v/'+self.id[3:],urllib.urlencode({
+			'version':'ThemisMedia1.2',
+			'format':hashlib.md5('Video '+self.id[3:]+' Hash').hexdigest()
+		}))
+		foundit=False
+		for i in html:
+			res=self.regex['ticket'][0].search(i)
+			if res:
+				self.newTicket(urllib2.unquote(res.group(1)))
+				foundit=True
+		if not foundit and self.escapistmagazine_jsconfig is not None:
+			html=DamnURLOpen(self.escapistmagazine_jsconfig)
+			for i in html:
+				res=self.regex['ticket'][2].search(i)
+				if res:
+					self.newTicket(res.group(1))
+					break
 DamnRegisterModule({
-    'name':'escapistmagazine',
-    'title':'The Escapist',
-    'type':'video',
-    'version':'1.2',
-    'author':{
-        'name':'Palmer',
-        'email':'palmnet@gmail.com',
-        'url':'http://www.palmnet.me.uk/'
-    },
-    'icon':{
-        'small':'escapistmagazine.png',
-        'large':'escapistmagazine-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for The Escapist.',
-        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities
+	'name':'escapistmagazine',
+	'title':'The Escapist',
+	'type':'video',
+	'version':'1.2',
+	'author':{
+		'name':'Palmer',
+		'email':'palmnet@gmail.com',
+		'url':'http://www.palmnet.me.uk/'
+	},
+	'icon':{
+		'small':'escapistmagazine.png',
+		'large':'escapistmagazine-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for The Escapist.',
+		'long':"""This is a video plugin for DamnVid that adds video downloading capabilities
 from The Escapist (and Zero Punctuation!).
 Some parts by Etienne Perot.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'The Escapist',
-            'icon':'escapistmagazine.png',
-            'url':'http://www.escapistmagazine.com/videos/'
-        },
-        {
-            'title':'Zero Punctuation',
-            'icon':'zeropunctuation.png',
-            'url':'http://www.escapistmagazine.com/videos/view/zero-punctuation'
-        }
-    ],
-    'class':DamnModule_EscapistMagazine,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':3
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Escapist/'
-        }
-    },
-    'preferences_order':['profile','outdir'],
-    'register':{
-        'listicons':{
-            'escapistmagazine':'escapistmagazine.png',
-            'escapistmagazinezeropunctuation':'zeropunctuation.png'
-        }
-    }
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'The Escapist',
+			'icon':'escapistmagazine.png',
+			'url':'http://www.escapistmagazine.com/videos/'
+		},
+		{
+			'title':'Zero Punctuation',
+			'icon':'zeropunctuation.png',
+			'url':'http://www.escapistmagazine.com/videos/view/zero-punctuation'
+		}
+	],
+	'class':DamnModule_EscapistMagazine,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':3
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Escapist/'
+		}
+	},
+	'preferences_order':['profile','outdir'],
+	'register':{
+		'listicons':{
+			'escapistmagazine':'escapistmagazine.png',
+			'escapistmagazinezeropunctuation':'zeropunctuation.png'
+		}
+	}
 })

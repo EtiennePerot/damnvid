@@ -1,184 +1,184 @@
 #~DamnVid-module:youtube
 
 class DamnModule_YouTube(DamnVideoModule):
-    def __init__(self,uri,parent=None):
-        DamnVideoModule.__init__(self,uri)
-        self.name='youtube'
-        self.regex={
-            'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
-            'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
-            'title':(re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),self.regex['title']),
-            'ticket':re.compile('(?:^|&)token=([^&]+)',re.IGNORECASE)
-        }
-        self.hd=None
-        self.playlist=False
-        self.valid=self.regex['url'].search(uri)
-        if self.valid:
-            self.id='yt:'+self.valid.group(1)
-            self.link='http://www.youtube.com/watch?v='+self.valid.group(1)
-        else:
-            self.valid=self.regex['playlist'].search(uri)
-            if self.valid:
-                self.id='yp:'+self.valid.group(1)
-                self.playlist=True
-                self.link='http://www.youtube.com/view_play_list?p='+self.id[3:]
-    def getTitle(self):
-        if self.playlist:
-            return None
-        if self.title is None:
-            gotticket=False
-            http=DamnURLOpen('http://www.youtube.com/get_video_info?video_id='+self.id[3:])
-            html=''
-            for i in http:
-                html+=i
-            res=self.regex['title'][0].search(html)
-            if res:
-                self.title=DamnUnicode(urllib2.unquote(res.group(1).replace('+','%20')).decode('utf8'))
-            res2=self.regex['ticket'].search(html)
-            if res2:
-                self.newTicket(res2.group(1)) # res2.group(1) should be urllib2.unquote()'d, but since we're going to put it back into URLs we don't need to decode it.
-                url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)],True)
-                if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22':
-                    if DamnURLOpen('http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=37') is None:
-                        self.hd='720'
-                    else:
-                        self.hd='1080'
-                gotticket=True
-        return DamnVideoModule.getTitle(self)
-    def getProfile(self):
-        if self.playlist:
-            return None
-        if self.hd is not None:
-            return self.pref('profilehd'+self.hd)
-        return self.pref('profile')
-    def getOutdir(self):
-        if self.playlist:
-            return None
-        if self.hd is not None:
-            return self.pref('outdirhd'+self.hd)
-        return self.pref('outdir')
-    def getIcon(self):
-        if self.playlist:
-            return None
-        if self.hd is not None:
-            return DamnGetListIcon('youtubehd')
-        return DamnGetListIcon('youtube')
-    def renewTicket(self):
-        if self.playlist:
-            return None
-        if self.ticket is None or self.ticketdate+15<time.time():
-            html=DamnURLOpen('http://www.youtube.com/watch?v='+self.id[3:])
-            for i in html:
-                res=self.regex['ticket'].search(i)
-                if res:
-                    self.newTicket(res.group(3))
-    def getDownload(self):
-        if self.playlist:
-            return None
-        self.renewTicket()
-        if self.hd == '720':
-            return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=22'
-        elif self.hd == '1080':
-            return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=37'
-        return DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket],True)
-    def addVid(self,parent):
-        if not self.playlist:
-            return DamnVideoModule.addVid(self,parent)
-        playlist=DV.youtube_service.GetYouTubeVideoFeed('http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
-        for i in playlist.entry:
-            try:
-                DamnModule_YouTube(i.media.player.url).addVid(parent)
-            except:
-                pass # Might fail for a number of reasons (private video, video is down, etc)
+	def __init__(self,uri,parent=None):
+		DamnVideoModule.__init__(self,uri)
+		self.name='youtube'
+		self.regex={
+			'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
+			'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
+			'title':(re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),self.regex['title']),
+			'ticket':re.compile('(?:^|&)token=([^&]+)',re.IGNORECASE)
+		}
+		self.hd=None
+		self.playlist=False
+		self.valid=self.regex['url'].search(uri)
+		if self.valid:
+			self.id='yt:'+self.valid.group(1)
+			self.link='http://www.youtube.com/watch?v='+self.valid.group(1)
+		else:
+			self.valid=self.regex['playlist'].search(uri)
+			if self.valid:
+				self.id='yp:'+self.valid.group(1)
+				self.playlist=True
+				self.link='http://www.youtube.com/view_play_list?p='+self.id[3:]
+	def getTitle(self):
+		if self.playlist:
+			return None
+		if self.title is None:
+			gotticket=False
+			http=DamnURLOpen('http://www.youtube.com/get_video_info?video_id='+self.id[3:])
+			html=''
+			for i in http:
+				html+=i
+			res=self.regex['title'][0].search(html)
+			if res:
+				self.title=DamnUnicode(urllib2.unquote(res.group(1).replace('+','%20')).decode('utf8'))
+			res2=self.regex['ticket'].search(html)
+			if res2:
+				self.newTicket(res2.group(1)) # res2.group(1) should be urllib2.unquote()'d, but since we're going to put it back into URLs we don't need to decode it.
+				url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)],True)
+				if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22':
+					if DamnURLOpen('http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=37') is None:
+						self.hd='720'
+					else:
+						self.hd='1080'
+				gotticket=True
+		return DamnVideoModule.getTitle(self)
+	def getProfile(self):
+		if self.playlist:
+			return None
+		if self.hd is not None:
+			return self.pref('profilehd'+self.hd)
+		return self.pref('profile')
+	def getOutdir(self):
+		if self.playlist:
+			return None
+		if self.hd is not None:
+			return self.pref('outdirhd'+self.hd)
+		return self.pref('outdir')
+	def getIcon(self):
+		if self.playlist:
+			return None
+		if self.hd is not None:
+			return DamnGetListIcon('youtubehd')
+		return DamnGetListIcon('youtube')
+	def renewTicket(self):
+		if self.playlist:
+			return None
+		if self.ticket is None or self.ticketdate+15<time.time():
+			html=DamnURLOpen('http://www.youtube.com/watch?v='+self.id[3:])
+			for i in html:
+				res=self.regex['ticket'].search(i)
+				if res:
+					self.newTicket(res.group(3))
+	def getDownload(self):
+		if self.playlist:
+			return None
+		self.renewTicket()
+		if self.hd == '720':
+			return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=22'
+		elif self.hd == '1080':
+			return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=37'
+		return DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket],True)
+	def addVid(self,parent):
+		if not self.playlist:
+			return DamnVideoModule.addVid(self,parent)
+		playlist=DV.youtube_service.GetYouTubeVideoFeed('http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
+		for i in playlist.entry:
+			try:
+				DamnModule_YouTube(i.media.player.url).addVid(parent)
+			except:
+				pass # Might fail for a number of reasons (private video, video is down, etc)
 DamnRegisterModule({
-    'name':'youtube',
-    'title':'YouTube',
-    'type':'video',
-    'version':'1.5',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'youtube.png',
-        'large':'youtube-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for YouTube, YouTube HD, and YouTube playlists.',
-        'long':"""This is a video plugin for DamnVid that adds YouTube video downloading capabilities.
+	'name':'youtube',
+	'title':'YouTube',
+	'type':'video',
+	'version':'1.5',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'youtube.png',
+		'large':'youtube-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for YouTube, YouTube HD, and YouTube playlists.',
+		'long':"""This is a video plugin for DamnVid that adds YouTube video downloading capabilities.
 YouTube HD (720p/1080p) is also supported, as well as playlist batch downloading.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'YouTube',
-            'icon':'youtube.png',
-            'url':'http://www.youtube.com/browse'
-        },
-        {
-            'title':'YouTube HD',
-            'icon':'youtubehd.png',
-            'url':'http://www.youtube.com/browse?s=mphd'
-        }
-    ],
-    'class':DamnModule_YouTube,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':3
-        },
-        'profilehd720':{
-            'name':'Default profile for 720p videos',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':-1
-        },
-        'profilehd1080':{
-            'name':'Default profile for 1080p videos',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':-1
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/YouTube/'
-        },
-        'outdirhd720':{
-            'name':'Output directory for 720p videos',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
-        },
-        'outdirhd1080':{
-            'name':'Output directory for 1080p videos',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
-        },
-        'maxplaylist':{
-            'name':'Maximum videos from playlists',
-            'type':DV.preference_type_misc,
-            'kind':'int:1-50',
-            'strict':True,
-            'default':'50'
-        }
-    },
-    'preferences_order':['profile','outdir','profilehd720','outdirhd720','profilehd1080','outdirhd1080','maxplaylist'],
-    'register':{
-        'listicons':{
-            'youtube':'youtube.png',
-            'youtubehd':'youtubehd.png'
-        }
-    }
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'YouTube',
+			'icon':'youtube.png',
+			'url':'http://www.youtube.com/browse'
+		},
+		{
+			'title':'YouTube HD',
+			'icon':'youtubehd.png',
+			'url':'http://www.youtube.com/browse?s=mphd'
+		}
+	],
+	'class':DamnModule_YouTube,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':3
+		},
+		'profilehd720':{
+			'name':'Default profile for 720p videos',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':-1
+		},
+		'profilehd1080':{
+			'name':'Default profile for 1080p videos',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':-1
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/YouTube/'
+		},
+		'outdirhd720':{
+			'name':'Output directory for 720p videos',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+		},
+		'outdirhd1080':{
+			'name':'Output directory for 1080p videos',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+		},
+		'maxplaylist':{
+			'name':'Maximum videos from playlists',
+			'type':DV.preference_type_misc,
+			'kind':'int:1-50',
+			'strict':True,
+			'default':'50'
+		}
+	},
+	'preferences_order':['profile','outdir','profilehd720','outdirhd720','profilehd1080','outdirhd1080','maxplaylist'],
+	'register':{
+		'listicons':{
+			'youtube':'youtube.png',
+			'youtubehd':'youtubehd.png'
+		}
+	}
 })

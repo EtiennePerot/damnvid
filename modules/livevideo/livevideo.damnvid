@@ -1,100 +1,100 @@
 #~DamnVid-module:livevideo
 
 class DamnModule_LiveVideo(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='livevideo'
-        self.regex={
-            'url':re.compile('livevideo\.com/video/(\w+)/?',re.IGNORECASE),
-            'title':re.compile('class="videotitle">\s*([^<>]+)?\s*',re.IGNORECASE),
-            'ticket':(re.compile('swf[?&]+video=([^\'"]+)',re.IGNORECASE),re.compile('(?:^|[?&])+video_id=([^?&]+)(?:$|[?&])+',re.IGNORECASE))
-        }
-        self.valid=self.regex['url'].search(uri)
-        self.secret=None
-        self.secretdate=None
-        if self.valid:
-            self.id='lv:'+self.valid.group(1)
-            self.link='http://www.livevideo.com/video/'+self.valid.group(1)+'/.aspx'
-    def livevideo_newSecret(self,secret):
-        self.secret=secret
-        self.secretdate=time.time()
-    def livevideo_renewSecret(self):
-        if self.secretdate is None:
-            self.secretdate=0
-        if self.secret is not None and self.secretdate+15>time.time():
-            return
-        html=DamnURLOpen(self.link)
-        for i in html:
-            res=self.regex['ticket'][0].search(i)
-            if res:
-                self.livevideo_newSecret(urllib2.unquote(res.group(1)))
-    def getTitle(self):
-        if self.title is not None:
-            return self.title
-        html=DamnURLOpen(self.link)
-        for i in html:
-            res1,res2=self.regex['title'].search(i),self.regex['ticket'][0].search(i)
-            if res1:
-                self.title=DamnHtmlEntities(res1.group(1))
-            if res2:
-                self.livevideo_newSecret(urllib2.unquote(res2.group(1)))
-        return DamnVideoModule.getTitle(self)
-    def renewTicket(self):
-        if self.ticket is not None and self.ticketdate+15>time.time():
-            return
-        self.livevideo_renewSecret()
-        html=DamnURLOpen(self.secret+'&flash=flashundefined&h='+hashlib.md5(self.secret+'&flash=flashundefinedLVX*7x8yzwe').hexdigest())
-        for i in html:
-            res=self.regex['ticket'][1].search(i)
-            if res:
-                print urllib2.unquote(res.group(1))
-                self.newTicket(urllib2.unquote(res.group(1)))
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='livevideo'
+		self.regex={
+			'url':re.compile('livevideo\.com/video/(\w+)/?',re.IGNORECASE),
+			'title':re.compile('class="videotitle">\s*([^<>]+)?\s*',re.IGNORECASE),
+			'ticket':(re.compile('swf[?&]+video=([^\'"]+)',re.IGNORECASE),re.compile('(?:^|[?&])+video_id=([^?&]+)(?:$|[?&])+',re.IGNORECASE))
+		}
+		self.valid=self.regex['url'].search(uri)
+		self.secret=None
+		self.secretdate=None
+		if self.valid:
+			self.id='lv:'+self.valid.group(1)
+			self.link='http://www.livevideo.com/video/'+self.valid.group(1)+'/.aspx'
+	def livevideo_newSecret(self,secret):
+		self.secret=secret
+		self.secretdate=time.time()
+	def livevideo_renewSecret(self):
+		if self.secretdate is None:
+			self.secretdate=0
+		if self.secret is not None and self.secretdate+15>time.time():
+			return
+		html=DamnURLOpen(self.link)
+		for i in html:
+			res=self.regex['ticket'][0].search(i)
+			if res:
+				self.livevideo_newSecret(urllib2.unquote(res.group(1)))
+	def getTitle(self):
+		if self.title is not None:
+			return self.title
+		html=DamnURLOpen(self.link)
+		for i in html:
+			res1,res2=self.regex['title'].search(i),self.regex['ticket'][0].search(i)
+			if res1:
+				self.title=DamnHtmlEntities(res1.group(1))
+			if res2:
+				self.livevideo_newSecret(urllib2.unquote(res2.group(1)))
+		return DamnVideoModule.getTitle(self)
+	def renewTicket(self):
+		if self.ticket is not None and self.ticketdate+15>time.time():
+			return
+		self.livevideo_renewSecret()
+		html=DamnURLOpen(self.secret+'&flash=flashundefined&h='+hashlib.md5(self.secret+'&flash=flashundefinedLVX*7x8yzwe').hexdigest())
+		for i in html:
+			res=self.regex['ticket'][1].search(i)
+			if res:
+				print urllib2.unquote(res.group(1))
+				self.newTicket(urllib2.unquote(res.group(1)))
 DamnRegisterModule({
-    'name':'livevideo',
-    'title':'LiveVideo',
-    'type':'video',
-    'version':'1.0',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'livevideo.png',
-        'large':'livevideo-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for LiveVideo.',
-        'long':"""This is a video plugin for DamnVid that adds LiveVideo video downloading capabilities.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'LiveVideo',
-            'icon':'livevideo.png',
-            'url':'http://www.livevideo.com/media/'
-        }
-    ],
-    'class':DamnModule_LiveVideo,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':3
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/LiveVideo/'
-        }
-    },
-    'register':{
-        'listicons':{
-            'livevideo':'livevideo.png'
-        }
-    }
+	'name':'livevideo',
+	'title':'LiveVideo',
+	'type':'video',
+	'version':'1.0',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'livevideo.png',
+		'large':'livevideo-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for LiveVideo.',
+		'long':"""This is a video plugin for DamnVid that adds LiveVideo video downloading capabilities.""",
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'LiveVideo',
+			'icon':'livevideo.png',
+			'url':'http://www.livevideo.com/media/'
+		}
+	],
+	'class':DamnModule_LiveVideo,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':3
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/LiveVideo/'
+		}
+	},
+	'register':{
+		'listicons':{
+			'livevideo':'livevideo.png'
+		}
+	}
 })

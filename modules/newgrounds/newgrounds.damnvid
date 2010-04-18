@@ -1,79 +1,79 @@
 #~DamnVid-module:newgrounds
 
 class DamnModule_Newgrounds(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='newgrounds'
-        self.regex={
-            'url':re.compile('newgrounds\.com/audio/listen/(\d+)',re.IGNORECASE),
-            'title':self.regex['title'],
-            'ticket':re.compile('fw\s*.\s*SetParams\s*\(\s*[\'"][^"\']*filename=([^&"\']+)',re.IGNORECASE)
-        }
-        self.valid=self.regex['url'].search(uri)
-        if self.valid:
-            self.id='ng:'+self.valid.group(1)
-            self.link='http://www.newgrounds.com/audio/listen/'+self.valid.group(1)
-    def getTitle(self):
-        if self.title is None:
-            html=DamnURLOpen(self.link)
-            for i in html:
-                res,res1=self.regex['title'].search(i),self.regex['ticket'].search(i)
-                if res:
-                    self.title=DamnHtmlEntities(res.group(1))
-                if res1:
-                    self.newTicket(urllib2.unquote(res1.group(1)))
-        return DamnVideoModule.getTitle(self)
-    def renewTicket(self):
-        if self.ticket is not None:
-            return
-        self.title=None
-        self.getTitle()
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='newgrounds'
+		self.regex={
+			'url':re.compile('newgrounds\.com/audio/listen/(\d+)',re.IGNORECASE),
+			'title':self.regex['title'],
+			'ticket':re.compile('fw\s*.\s*SetParams\s*\(\s*[\'"][^"\']*filename=([^&"\']+)',re.IGNORECASE)
+		}
+		self.valid=self.regex['url'].search(uri)
+		if self.valid:
+			self.id='ng:'+self.valid.group(1)
+			self.link='http://www.newgrounds.com/audio/listen/'+self.valid.group(1)
+	def getTitle(self):
+		if self.title is None:
+			html=DamnURLOpen(self.link)
+			for i in html:
+				res,res1=self.regex['title'].search(i),self.regex['ticket'].search(i)
+				if res:
+					self.title=DamnHtmlEntities(res.group(1))
+				if res1:
+					self.newTicket(urllib2.unquote(res1.group(1)))
+		return DamnVideoModule.getTitle(self)
+	def renewTicket(self):
+		if self.ticket is not None:
+			return
+		self.title=None
+		self.getTitle()
 DamnRegisterModule({
-    'name':'newgrounds',
-    'title':'Newgrounds Audio',
-    'type':'video',
-    'version':'1.0',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'newgrounds.png',
-        'large':'newgrounds-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for Newgrounds Audio.',
-        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Newgrounds Audio. (Audio only!)""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'Newgrounds Audio',
-            'icon':'newgrounds.png',
-            'url':'http://www.newgrounds.com/audio/'
-        }
-    ],
-    'class':DamnModule_Newgrounds,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':-1
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Newgrounds/'
-        }
-    },
-    'register':{
-        'listicons':{
-            'newgrounds':'newgrounds.png'
-        }
-    }
+	'name':'newgrounds',
+	'title':'Newgrounds Audio',
+	'type':'video',
+	'version':'1.0',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'newgrounds.png',
+		'large':'newgrounds-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for Newgrounds Audio.',
+		'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Newgrounds Audio. (Audio only!)""",
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'Newgrounds Audio',
+			'icon':'newgrounds.png',
+			'url':'http://www.newgrounds.com/audio/'
+		}
+	],
+	'class':DamnModule_Newgrounds,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':-1
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Newgrounds/'
+		}
+	},
+	'register':{
+		'listicons':{
+			'newgrounds':'newgrounds.png'
+		}
+	}
 })

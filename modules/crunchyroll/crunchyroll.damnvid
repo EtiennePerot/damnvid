@@ -1,73 +1,73 @@
 #~DamnVid-module:crunchyroll
 
 class DamnModule_Crunchyroll(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='crunchyroll'
-        self.regex={
-            'url':re.compile('crunchyroll\.com/media-(\d+)/?',re.IGNORECASE),
-            'title':re.compile('<title>[^-<>"]*-\s*([^"<>]+)</title>',re.IGNORECASE),
-            'ticket':re.compile('crunchyroll.com%2Fgetitem%3Fvideoid%3D(\w+)%26amp%3Bmediaid%3D(\w+)%3C%2Ffile%3E',re.IGNORECASE)
-        }
-        self.valid=self.regex['url'].search(uri)
-        if self.valid:
-            self.id='cr:'+self.valid.group(1)
-            self.link='http://www.crunchyroll.com/media-'+self.valid.group(1)+'/'
-    def renewTicket(self):
-        if self.ticket is not None:
-            return
-        html=DamnURLOpen(self.link+'?h264=1')
-        for i in html:
-            res=self.regex['ticket'].search(i)
-            if res:
-                self.newTicket('http://www.crunchyroll.com/getitem?videoid='+res.group(1)+'&mediaid='+res.group(2))
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='crunchyroll'
+		self.regex={
+			'url':re.compile('crunchyroll\.com/media-(\d+)/?',re.IGNORECASE),
+			'title':re.compile('<title>[^-<>"]*-\s*([^"<>]+)</title>',re.IGNORECASE),
+			'ticket':re.compile('crunchyroll.com%2Fgetitem%3Fvideoid%3D(\w+)%26amp%3Bmediaid%3D(\w+)%3C%2Ffile%3E',re.IGNORECASE)
+		}
+		self.valid=self.regex['url'].search(uri)
+		if self.valid:
+			self.id='cr:'+self.valid.group(1)
+			self.link='http://www.crunchyroll.com/media-'+self.valid.group(1)+'/'
+	def renewTicket(self):
+		if self.ticket is not None:
+			return
+		html=DamnURLOpen(self.link+'?h264=1')
+		for i in html:
+			res=self.regex['ticket'].search(i)
+			if res:
+				self.newTicket('http://www.crunchyroll.com/getitem?videoid='+res.group(1)+'&mediaid='+res.group(2))
 DamnRegisterModule({
-    'name':'crunchyroll',
-    'title':'Crunchyroll',
-    'type':'video',
-    'version':'1.0',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'crunchyroll.png',
-        'large':'crunchyroll-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for Crunchyroll.',
-        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Crunchyroll.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'Crunchyroll',
-            'icon':'crunchyroll.png',
-            'url':'http://www.crunchyroll.com/anime'
-        }
-    ],
-    'class':DamnModule_Crunchyroll,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':3
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Crunchyroll/'
-        }
-    },
-    'preferences_order':['profile','outdir'],
-    'register':{
-        'listicons':{
-            'crunchyroll':'crunchyroll.png'
-        }
-    }
+	'name':'crunchyroll',
+	'title':'Crunchyroll',
+	'type':'video',
+	'version':'1.0',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'crunchyroll.png',
+		'large':'crunchyroll-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for Crunchyroll.',
+		'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Crunchyroll.""",
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'Crunchyroll',
+			'icon':'crunchyroll.png',
+			'url':'http://www.crunchyroll.com/anime'
+		}
+	],
+	'class':DamnModule_Crunchyroll,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':3
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Crunchyroll/'
+		}
+	},
+	'preferences_order':['profile','outdir'],
+	'register':{
+		'listicons':{
+			'crunchyroll':'crunchyroll.png'
+		}
+	}
 })

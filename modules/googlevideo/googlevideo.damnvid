@@ -1,77 +1,77 @@
 #~DamnVid-module:googlevideo
 
 class DamnModule_GoogleVideo(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='googlevideo'
-        self.regex={
-            'url':re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE),
-            'title':self.regex['title'],
-            'ticket':re.compile('If the download does not start automatically, right-click <a href="?([^"<>]+)"?>',re.IGNORECASE)
-        }
-        self.valid=self.regex['url'].search(uri)
-        if self.valid:
-            self.id='gv:'+self.valid.group(1)
-            self.link='http://video.google.com/videoplay?docid='+self.valid.group(1)
-    def getTitle(self):
-        if self.title is None:
-            html=DamnURLOpen(self.link)
-            for i in html:
-                res,res2=self.regex['title'].search(i),self.regex['ticket'].search(i)
-                if res:
-                    self.title=DamnHtmlEntities(res.group(1))
-                if res2:
-                    self.newTicket(res2.group(1))
-                    if self.ticket.find('&amp;')!=-1: # For now, Google Video has non-compliant video URLs, but just in case this changes:
-                        self.newTicket(DamnHtmlEntities(self.ticket))
-        return DamnVideoModule.getTitle(self)
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='googlevideo'
+		self.regex={
+			'url':re.compile('^https?://(?:[-_\w]+\.)*video\.google\.com.*(?:v|id)[/=]([-_\w]{10,})',re.IGNORECASE),
+			'title':self.regex['title'],
+			'ticket':re.compile('If the download does not start automatically, right-click <a href="?([^"<>]+)"?>',re.IGNORECASE)
+		}
+		self.valid=self.regex['url'].search(uri)
+		if self.valid:
+			self.id='gv:'+self.valid.group(1)
+			self.link='http://video.google.com/videoplay?docid='+self.valid.group(1)
+	def getTitle(self):
+		if self.title is None:
+			html=DamnURLOpen(self.link)
+			for i in html:
+				res,res2=self.regex['title'].search(i),self.regex['ticket'].search(i)
+				if res:
+					self.title=DamnHtmlEntities(res.group(1))
+				if res2:
+					self.newTicket(res2.group(1))
+					if self.ticket.find('&amp;')!=-1: # For now, Google Video has non-compliant video URLs, but just in case this changes:
+						self.newTicket(DamnHtmlEntities(self.ticket))
+		return DamnVideoModule.getTitle(self)
 DamnRegisterModule({
-    'name':'googlevideo',
-    'title':'Google Video',
-    'type':'video',
-    'version':'1.0',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'googlevideo.png',
-        'large':'googlevideo-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for Google Video.',
-        'long':"""This is a video plugin for DamnVid that adds Google video downloading capabilities.
+	'name':'googlevideo',
+	'title':'Google Video',
+	'type':'video',
+	'version':'1.0',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'googlevideo.png',
+		'large':'googlevideo-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for Google Video.',
+		'long':"""This is a video plugin for DamnVid that adds Google video downloading capabilities.
 Not all videos can be downloaded (only those with a Download button).""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'Google Video',
-            'icon':'googlevideo.png',
-            'url':'http://video.google.com/'
-        }
-    ],
-    'class':DamnModule_GoogleVideo,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':-1
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Google Video/'
-        }
-    },
-    'register':{
-        'listicons':{
-            'googlevideo':'googlevideo.png'
-        }
-    }
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'Google Video',
+			'icon':'googlevideo.png',
+			'url':'http://video.google.com/'
+		}
+	],
+	'class':DamnModule_GoogleVideo,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':-1
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Google Video/'
+		}
+	},
+	'register':{
+		'listicons':{
+			'googlevideo':'googlevideo.png'
+		}
+	}
 })

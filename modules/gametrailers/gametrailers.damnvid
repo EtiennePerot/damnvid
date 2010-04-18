@@ -1,97 +1,97 @@
 #~DamnVid-module:gametrailers
 
 class DamnModule_GameTrailers(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='gametrailers'
-        self.regex={
-            'url':re.compile('gametrailers\.com/((?:player/|video/|user-?movies?/).*?)(\d+)(?:[^-\w\s]|$)',re.IGNORECASE),
-            'title':re.compile('(?:<meta[^<>]*name="title"[^<>]*content="|<div[^<>]*class="[^"]*movieTitle[^"]*"[^<>]*>\s*<a[^<>]*>\s*)\s*([^<>]+?)\s*(?:"[^<>]*>|</a>)',re.IGNORECASE),
-            'ticket':(re.compile('hasHD=(\d+)',re.IGNORECASE),re.compile('<a href="([^"]+gametrailers\.com/download/\d+/[^"]+)">',re.IGNORECASE),re.compile('<src[^<>]*>\s*([^<>]+?)\s*</src>'))
-        }
-        self.valid=self.regex['url'].search(uri)
-        if self.valid:
-            self.gametrailers_id=self.valid.group(2)
-            self.gametrailers_usermovie=self.valid.group(1).lower().find('user')!=-1
-            self.id='gt:'+self.valid.group(1)+self.valid.group(2)
-            self.link=uri
-    def renewTicket(self):
-        if self.ticket is not None:
-            return
-        html=DamnURLOpen('http://mosii.gametrailers.com/getmediainfo4.php?mid='+self.id[3:])
-        for i in html:
-            res=self.regex['ticket'][0].search(i)
-            if res:
-                if res.group(1)!=self.id[3:]:
-                    self.__init__('http://www.gametrailers.com/player/'+res.group(1)+'.html?type=flv')
-                    self.renewTicket()
-                break
-        html.close()
-        html=DamnURLOpen(self.link)
-        urls=[]
-        for i in html:
-            res=self.regex['ticket'][1].search(i)
-            if res:
-                urls.append(DamnHtmlEntities(res.group(1)))
-        if not len(urls):
-            if self.gametrailers_usermovie:
-                html=DamnURLOpen('http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mediagen&movieId='+self.gametrailers_id+'&hd=1&um=1')
-            else:
-                html=DamnURLOpen('http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mediagen&movieId='+self.gametrailers_id+'&hd=1&um=0')
-            total=''
-            for i in html:
-                total+=i
-            res=self.regex['ticket'][2].search(total)
-            if res:
-                urls.append(DamnHtmlEntities(res.group(1)))
-        self.newTicket(urls)
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='gametrailers'
+		self.regex={
+			'url':re.compile('gametrailers\.com/((?:player/|video/|user-?movies?/).*?)(\d+)(?:[^-\w\s]|$)',re.IGNORECASE),
+			'title':re.compile('(?:<meta[^<>]*name="title"[^<>]*content="|<div[^<>]*class="[^"]*movieTitle[^"]*"[^<>]*>\s*<a[^<>]*>\s*)\s*([^<>]+?)\s*(?:"[^<>]*>|</a>)',re.IGNORECASE),
+			'ticket':(re.compile('hasHD=(\d+)',re.IGNORECASE),re.compile('<a href="([^"]+gametrailers\.com/download/\d+/[^"]+)">',re.IGNORECASE),re.compile('<src[^<>]*>\s*([^<>]+?)\s*</src>'))
+		}
+		self.valid=self.regex['url'].search(uri)
+		if self.valid:
+			self.gametrailers_id=self.valid.group(2)
+			self.gametrailers_usermovie=self.valid.group(1).lower().find('user')!=-1
+			self.id='gt:'+self.valid.group(1)+self.valid.group(2)
+			self.link=uri
+	def renewTicket(self):
+		if self.ticket is not None:
+			return
+		html=DamnURLOpen('http://mosii.gametrailers.com/getmediainfo4.php?mid='+self.id[3:])
+		for i in html:
+			res=self.regex['ticket'][0].search(i)
+			if res:
+				if res.group(1)!=self.id[3:]:
+					self.__init__('http://www.gametrailers.com/player/'+res.group(1)+'.html?type=flv')
+					self.renewTicket()
+				break
+		html.close()
+		html=DamnURLOpen(self.link)
+		urls=[]
+		for i in html:
+			res=self.regex['ticket'][1].search(i)
+			if res:
+				urls.append(DamnHtmlEntities(res.group(1)))
+		if not len(urls):
+			if self.gametrailers_usermovie:
+				html=DamnURLOpen('http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mediagen&movieId='+self.gametrailers_id+'&hd=1&um=1')
+			else:
+				html=DamnURLOpen('http://www.gametrailers.com/neo/?page=xml.mediaplayer.Mediagen&movieId='+self.gametrailers_id+'&hd=1&um=0')
+			total=''
+			for i in html:
+				total+=i
+			res=self.regex['ticket'][2].search(total)
+			if res:
+				urls.append(DamnHtmlEntities(res.group(1)))
+		self.newTicket(urls)
 DamnRegisterModule({
-    'name':'gametrailers',
-    'title':'GameTrailers',
-    'type':'video',
-    'version':'1.1',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'gametrailers.png',
-        'large':'gametrailers-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for GameTrailers.',
-        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from GameTrailers.
+	'name':'gametrailers',
+	'title':'GameTrailers',
+	'type':'video',
+	'version':'1.1',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'gametrailers.png',
+		'large':'gametrailers-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for GameTrailers.',
+		'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from GameTrailers.
 HD is supported. If you provide a SD URL, the module will attempt to find the HD equivalent.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'GameTrailers',
-            'icon':'gametrailers.png',
-            'url':'http://www.gametrailers.com/'
-        }
-    ],
-    'class':DamnModule_GameTrailers,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':3
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/GameTrailers/'
-        }
-    },
-    'register':{
-        'listicons':{
-            'gametrailers':'gametrailers.png'
-        }
-    }
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'GameTrailers',
+			'icon':'gametrailers.png',
+			'url':'http://www.gametrailers.com/'
+		}
+	],
+	'class':DamnModule_GameTrailers,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':3
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/GameTrailers/'
+		}
+	},
+	'register':{
+		'listicons':{
+			'gametrailers':'gametrailers.png'
+		}
+	}
 })

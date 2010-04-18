@@ -1,91 +1,91 @@
 #~DamnVid-module:bliptv
 
 class DamnModule_bliptv(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='bliptv'
-        self.regex={
-            'url':re.compile('blip\.tv/(?:file/|.*#)(\d+)',re.IGNORECASE),
-            'title':re.compile('<title>([^<>]+)</title>',re.IGNORECASE),
-            'ticket':re.compile('<link type="video[^"]*" href="([^"]+)"',re.IGNORECASE)
-        }
-        self.valid=self.regex['url'].search(uri)
-        if self.valid:
-            self.id='bl:'+self.valid.group(1)
-            self.link='http://www.blip.tv/file/'+self.valid.group(1)
-    def getTitle(self):
-        if self.title is not None:
-            return self.title
-        urls=[]
-        html=DamnURLOpen(self.link+'?skin=api')
-        for i in html:
-            res1,res2=self.regex['title'].search(i),self.regex['ticket'].search(i)
-            if res1:
-                self.title=DamnHtmlEntities(res1.group(1))
-            if res2:
-                urls.append(urllib2.unquote(res2.group(1)))
-        if len(urls):
-            self.newTicket(urls)
-        return DamnVideoModule.getTitle(self)
-    def renewTicket(self):
-        if self.ticket is not None:
-            return
-        html=DamnURLOpen(self.link+'?skin=api')
-        urls=[]
-        for i in html:
-            res=self.regex['ticket'].search(i)
-            if res:
-                urls.append(urllib2.unquote(res.group(1)))
-        if len(urls):
-            self.newTicket(urls)
-        else:
-            self.newTicket(self.link) # Desperate measures? Won't work anyway, but need to provide a semi-decent ticket, neh?
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='bliptv'
+		self.regex={
+			'url':re.compile('blip\.tv/(?:file/|.*#)(\d+)',re.IGNORECASE),
+			'title':re.compile('<title>([^<>]+)</title>',re.IGNORECASE),
+			'ticket':re.compile('<link type="video[^"]*" href="([^"]+)"',re.IGNORECASE)
+		}
+		self.valid=self.regex['url'].search(uri)
+		if self.valid:
+			self.id='bl:'+self.valid.group(1)
+			self.link='http://www.blip.tv/file/'+self.valid.group(1)
+	def getTitle(self):
+		if self.title is not None:
+			return self.title
+		urls=[]
+		html=DamnURLOpen(self.link+'?skin=api')
+		for i in html:
+			res1,res2=self.regex['title'].search(i),self.regex['ticket'].search(i)
+			if res1:
+				self.title=DamnHtmlEntities(res1.group(1))
+			if res2:
+				urls.append(urllib2.unquote(res2.group(1)))
+		if len(urls):
+			self.newTicket(urls)
+		return DamnVideoModule.getTitle(self)
+	def renewTicket(self):
+		if self.ticket is not None:
+			return
+		html=DamnURLOpen(self.link+'?skin=api')
+		urls=[]
+		for i in html:
+			res=self.regex['ticket'].search(i)
+			if res:
+				urls.append(urllib2.unquote(res.group(1)))
+		if len(urls):
+			self.newTicket(urls)
+		else:
+			self.newTicket(self.link) # Desperate measures? Won't work anyway, but need to provide a semi-decent ticket, neh?
 DamnRegisterModule({
-    'name':'bliptv',
-    'title':'blip.tv',
-    'type':'video',
-    'version':'1.0',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'bliptv.png',
-        'large':'bliptv-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for blip.tv.',
-        'long':"""This is a video plugin for DamnVid that adds blip.tv video downloading capabilities.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'blip.tv',
-            'icon':'bliptv.png',
-            'url':'http://blip.tv/popular/'
-        }
-    ],
-    'class':DamnModule_bliptv,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':-1
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/blip.tv/'
-        }
-    },
-    'register':{
-        'listicons':{
-            'bliptv':'bliptv.png'
-        }
-    }
+	'name':'bliptv',
+	'title':'blip.tv',
+	'type':'video',
+	'version':'1.0',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'bliptv.png',
+		'large':'bliptv-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for blip.tv.',
+		'long':"""This is a video plugin for DamnVid that adds blip.tv video downloading capabilities.""",
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'blip.tv',
+			'icon':'bliptv.png',
+			'url':'http://blip.tv/popular/'
+		}
+	],
+	'class':DamnModule_bliptv,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':-1
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/blip.tv/'
+		}
+	},
+	'register':{
+		'listicons':{
+			'bliptv':'bliptv.png'
+		}
+	}
 })

@@ -1,129 +1,129 @@
 #~DamnVid-module:vimeo
 
 class DamnModule_Vimeo(DamnVideoModule):
-    def __init__(self,uri):
-        DamnVideoModule.__init__(self,uri)
-        self.name='vimeo'
-        self.regex={
-            'url':re.compile('vimeo\.com/+(?:.*#)?(\d+)',re.IGNORECASE),
-            'title':re.compile('class="title">\s*([^<>]+?)\s*</\w+>',re.IGNORECASE),
-            'ticket':(re.compile('<request_signature>\s*([^<>]+?)\s*</request_signature>',re.IGNORECASE),re.compile('<request_signature_expires>\s*(\d+)\s*</request_signature_expires>',re.IGNORECASE),re.compile('value="1"[^<>]*id="is_hd"|id="is_hd"[^<>]*value="1"|<isHD>1</isHD>',re.IGNORECASE))
-        }
-        self.valid=self.regex['url'].search(uri)
-        self.vimeo_hd=None
-        self.vimeo_ticket=None
-        self.vimeo_expires=None
-        if self.valid:
-            self.id='vm:'+self.valid.group(1)
-            self.link='http://vimeo.com/'+self.valid.group(1)
-    def getTitle(self):
-        if self.title is not None:
-            return self.title
-        html=DamnURLOpen(self.link) # Sadly, can't use the open API, cause we need to determine HD-ness as well in a minimal number of requests, and the API doesn't give that info, while the video webpage does.
-        for i in html:
-            res1,res2=self.regex['title'].search(i),self.regex['ticket'][2].search(i)
-            if res1:
-                self.title=DamnHtmlEntities(res1.group(1))
-            if res2:
-                self.vimeo_hd=True
-        return DamnVideoModule.getTitle(self)
-    def getIcon(self):
-        if self.vimeo_hd is not None:
-            return DamnGetListIcon(self.name+'hd')
-        return DamnVideoModule.getIcon(self)
-    def getProfile(self):
-        if self.vimeo_hd is not None:
-            return self.pref('profilehd')
-        return DamnVideoModule.getProfile(self)
-    def renewTicket(self):
-        if self.ticket is not None:
-            if self.ticketdate+15>time.time():
-                return
-            if self.vimeo_expires is not None:
-                if int(self.vimeo_expires)>time.time():
-                    return
-        html=DamnURLOpen('http://vimeo.com/moogaloop/load/clip:'+self.id[3:]+'/local')
-        for i in html:
-            res1,res2,res3=self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
-            if res1:
-                self.vimeo_ticket=DamnHtmlEntities(res1.group(1))
-            if res2:
-                self.vimeo_expires=DamnHtmlEntities(res2.group(1))
-            if res3:
-                self.vimeo_hd=True
-        if self.vimeo_ticket is not None and self.vimeo_expires is not None:
-            if self.vimeo_hd:
-                self.newTicket(['http://vimeo.com/moogaloop/play/clip:'+self.id[3:]+'/'+self.vimeo_ticket+'/'+str(self.vimeo_expires)+'/?q=hd&type=local','http://vimeo.com/moogaloop/play/clip:'+self.id[3:]+'/'+self.vimeo_ticket+'/'+str(self.vimeo_expires)+'/?type=local'])
-            else:
-                self.newTicket('http://vimeo.com/moogaloop/play/clip:'+self.id[3:]+'/'+self.vimeo_ticket+'/'+str(self.vimeo_expires)+'/?type=local')
+	def __init__(self,uri):
+		DamnVideoModule.__init__(self,uri)
+		self.name='vimeo'
+		self.regex={
+			'url':re.compile('vimeo\.com/+(?:.*#)?(\d+)',re.IGNORECASE),
+			'title':re.compile('class="title">\s*([^<>]+?)\s*</\w+>',re.IGNORECASE),
+			'ticket':(re.compile('<request_signature>\s*([^<>]+?)\s*</request_signature>',re.IGNORECASE),re.compile('<request_signature_expires>\s*(\d+)\s*</request_signature_expires>',re.IGNORECASE),re.compile('value="1"[^<>]*id="is_hd"|id="is_hd"[^<>]*value="1"|<isHD>1</isHD>',re.IGNORECASE))
+		}
+		self.valid=self.regex['url'].search(uri)
+		self.vimeo_hd=None
+		self.vimeo_ticket=None
+		self.vimeo_expires=None
+		if self.valid:
+			self.id='vm:'+self.valid.group(1)
+			self.link='http://vimeo.com/'+self.valid.group(1)
+	def getTitle(self):
+		if self.title is not None:
+			return self.title
+		html=DamnURLOpen(self.link) # Sadly, can't use the open API, cause we need to determine HD-ness as well in a minimal number of requests, and the API doesn't give that info, while the video webpage does.
+		for i in html:
+			res1,res2=self.regex['title'].search(i),self.regex['ticket'][2].search(i)
+			if res1:
+				self.title=DamnHtmlEntities(res1.group(1))
+			if res2:
+				self.vimeo_hd=True
+		return DamnVideoModule.getTitle(self)
+	def getIcon(self):
+		if self.vimeo_hd is not None:
+			return DamnGetListIcon(self.name+'hd')
+		return DamnVideoModule.getIcon(self)
+	def getProfile(self):
+		if self.vimeo_hd is not None:
+			return self.pref('profilehd')
+		return DamnVideoModule.getProfile(self)
+	def renewTicket(self):
+		if self.ticket is not None:
+			if self.ticketdate+15>time.time():
+				return
+			if self.vimeo_expires is not None:
+				if int(self.vimeo_expires)>time.time():
+					return
+		html=DamnURLOpen('http://vimeo.com/moogaloop/load/clip:'+self.id[3:]+'/local')
+		for i in html:
+			res1,res2,res3=self.regex['ticket'][0].search(i),self.regex['ticket'][1].search(i),self.regex['ticket'][2].search(i)
+			if res1:
+				self.vimeo_ticket=DamnHtmlEntities(res1.group(1))
+			if res2:
+				self.vimeo_expires=DamnHtmlEntities(res2.group(1))
+			if res3:
+				self.vimeo_hd=True
+		if self.vimeo_ticket is not None and self.vimeo_expires is not None:
+			if self.vimeo_hd:
+				self.newTicket(['http://vimeo.com/moogaloop/play/clip:'+self.id[3:]+'/'+self.vimeo_ticket+'/'+str(self.vimeo_expires)+'/?q=hd&type=local','http://vimeo.com/moogaloop/play/clip:'+self.id[3:]+'/'+self.vimeo_ticket+'/'+str(self.vimeo_expires)+'/?type=local'])
+			else:
+				self.newTicket('http://vimeo.com/moogaloop/play/clip:'+self.id[3:]+'/'+self.vimeo_ticket+'/'+str(self.vimeo_expires)+'/?type=local')
 DamnRegisterModule({
-    'name':'vimeo',
-    'title':'Vimeo',
-    'type':'video',
-    'version':'1.0',
-    'author':{
-        'name':'Etienne Perot',
-        'email':'admin@biringa.com',
-        'url':'http://biringa.com/'
-    },
-    'icon':{
-        'small':'vimeo.png',
-        'large':'vimeo-large.png',
-    },
-    'about':{
-        'short':'DamnVid module for Vimeo.',
-        'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Vimeo.
+	'name':'vimeo',
+	'title':'Vimeo',
+	'type':'video',
+	'version':'1.0',
+	'author':{
+		'name':'Etienne Perot',
+		'email':'admin@biringa.com',
+		'url':'http://biringa.com/'
+	},
+	'icon':{
+		'small':'vimeo.png',
+		'large':'vimeo-large.png',
+	},
+	'about':{
+		'short':'DamnVid module for Vimeo.',
+		'long':"""This is a video plugin for DamnVid that adds video downloading capabilities from Vimeo.
 HD is supported, as well as videos marked as "undownloadable" on the site.""",
-        'url':'http://code.google.com/p/damnvid/wiki/Modules'
-    },
-    'sites':[
-        {
-            'title':'Vimeo',
-            'icon':'vimeo.png',
-            'url':'http://vimeo.com/'
-        },
-        {
-            'title':'Vimeo HD',
-            'icon':'vimeohd.png',
-            'url':'http://vimeo.com/hd'
-        }
-    ],
-    'class':DamnModule_Vimeo,
-    'preferences':{
-        'profile':{
-            'name':'Default profile',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':3
-        },
-        'outdir':{
-            'name':'Output directory',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Vimeo/'
-        },
-        'profilehd':{
-            'name':'Default profile for HD videos',
-            'type':DV.preference_type_profile,
-            'kind':'profile',
-            'strict':True,
-            'default':-1
-        },
-        'outdirhd':{
-            'name':'Output directory for HD videos',
-            'type':DV.preference_type_misc,
-            'kind':'dir',
-            'strict':True,
-            'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
-        }
-    },
-    'preferences_order':['profile','outdir'],
-    'register':{
-        'listicons':{
-            'vimeo':'vimeo.png',
-            'vimeohd':'vimeohd.png'
-        }
-    }
+		'url':'http://code.google.com/p/damnvid/wiki/Modules'
+	},
+	'sites':[
+		{
+			'title':'Vimeo',
+			'icon':'vimeo.png',
+			'url':'http://vimeo.com/'
+		},
+		{
+			'title':'Vimeo HD',
+			'icon':'vimeohd.png',
+			'url':'http://vimeo.com/hd'
+		}
+	],
+	'class':DamnModule_Vimeo,
+	'preferences':{
+		'profile':{
+			'name':'Default profile',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':3
+		},
+		'outdir':{
+			'name':'Output directory',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Vimeo/'
+		},
+		'profilehd':{
+			'name':'Default profile for HD videos',
+			'type':DV.preference_type_profile,
+			'kind':'profile',
+			'strict':True,
+			'default':-1
+		},
+		'outdirhd':{
+			'name':'Output directory for HD videos',
+			'type':DV.preference_type_misc,
+			'kind':'dir',
+			'strict':True,
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+		}
+	},
+	'preferences_order':['profile','outdir'],
+	'register':{
+		'listicons':{
+			'vimeo':'vimeo.png',
+			'vimeohd':'vimeohd.png'
+		}
+	}
 })
