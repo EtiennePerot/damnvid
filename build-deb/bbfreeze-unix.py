@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from bbfreeze import Freezer
 
 bbFreeze_Class=Freezer('package')
