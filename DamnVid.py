@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2008 Etienne Perot
 
@@ -19,7 +20,7 @@
 
 # External Python modules required:
 # - wx (with wx.animate and mixins)
-# - GData (YouTube API)
+# - GData (YouTube API, Google Code API)
 # - BeautifulSoup (Malformed HTML parsing)
 # - PyWin32 (Windows API calls) (only required on Windows)
 # - Psyco (optional, speeds up execution)
@@ -917,9 +918,10 @@ REGEX_THOUSAND_SEPARATORS = re.compile('(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))')
 Damnlog('End init, begin declarations.')
 def DamnURLOpen(req, data=None, throwerror=False):
 	Damnlog('DamnURLOpen called with request',req,'; data',data,'; Throw error?',throwerror)
+	url = req
 	if type(req) in (type(''), type(u'')):
 		req = urllib2.Request(DamnUnicode(req))
-		Damnlog('Request was string; request is now',req)
+		Damnlog('Request was', url, '; request is now',req)
 	try:
 		if data is not None:
 			pipe = urllib2.urlopen(req, data)
@@ -927,6 +929,14 @@ def DamnURLOpen(req, data=None, throwerror=False):
 			pipe = urllib2.urlopen(req)
 		Damnlog('DamnURLOpen successful, returning stream.')
 		return pipe
+	except IOError, err:
+		if not hasattr(err, 'reason') and not hasattr(err, 'code'):
+			Damnlog('DamnURLOpen on', url, 'failed with IOError but without reason or code.')
+		else:
+			Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and reason', err.reason)
+		if throwerror:
+			raise err
+		return None
 	except Exception, e:
 		if throwerror:
 			Damnlog('DamnURLOpen failed on request',req,' with exception',e,'; throwing error because throwerror is True.')
@@ -941,6 +951,7 @@ def DamnURLPicker(urls, urlonly=False, resumeat=None):
 		resumeat = None
 	Damnlog('DamnURLPicker summoned. URLs:', urls, 'Resume at:', resumeat)
 	for i in urls:
+		i = DamnUnicode(i)
 		if i not in tried:
 			tried.append(i)
 			if resumeat is None:
