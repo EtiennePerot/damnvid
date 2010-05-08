@@ -1,0 +1,9 @@
+DamnVid.py /usr/share/damnvid/
+damnvid /usr/bin/
+version.damnvid /usr/share/damnvid/
+conf/* /usr/share/damnvid/conf/
+img/* /usr/share/damnvid/img/
+img/os/* /usr/share/damnvid/os/
+locale/* /usr/share/damnvid/locale/
+modules/* /usr/share/damnvid/modules/
+socks/* /usr/share/damnvid/socks/
