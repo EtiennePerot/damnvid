@@ -106,7 +106,7 @@ class DamnModule_YouTube(DamnVideoModule):
 			return None
 		if self.ticket is None or self.ticketdate+15<time.time():
 			self.YouTube_GetTicket(DamnURLOpen('http://www.youtube.com/get_video_info?video_id='+self.id[3:]).read(-1))
-			if not gotticket:
+			if self.ticket is None or self.ticketdate+15<time.time():
 				self.YouTube_GetTicket(DamnURLOpen(self.link).read(-1))
 	def getDownload(self):
 		if self.playlist:
@@ -132,7 +132,7 @@ DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
 	'type':'video',
-	'version':'1.6',
+	'version':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',

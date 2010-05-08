@@ -932,6 +932,8 @@ def DamnURLOpen(req, data=None, throwerror=False):
 	except IOError, err:
 		if not hasattr(err, 'reason') and not hasattr(err, 'code'):
 			Damnlog('DamnURLOpen on', url, 'failed with IOError but without reason or code.')
+		elif not hasattr(err, 'reason'):
+			Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and no reason.')
 		else:
 			Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and reason', err.reason)
 		if throwerror:
@@ -4152,6 +4154,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.profiledropdown.Enable(gotstuff)
 		if gotstuff:
 			self.deletebutton.SetLabel(DV.l('Remove'))
+			self.deletebutton.Enable(self.converting not in sel)
 			self.btnMoveUp.Enable(sel[0])
 			self.btnMoveDown.Enable(sel[-1] != self.list.GetItemCount() - 1)
 			choices = []
@@ -4170,6 +4173,7 @@ class DamnMainFrame(DamnFrame): # The main window
 				self.profiledropdown.SetSelection(uniprofile + 1)
 		else:
 			self.deletebutton.SetLabel(DV.l('Remove all'))
+			self.deletebutton.Enable(self.converting == -1)
 			self.btnMoveUp.Disable()
 			self.btnMoveDown.Disable()
 			self.profiledropdown.SetItems([DV.l('(None)')])
@@ -4277,11 +4281,12 @@ class DamnMainFrame(DamnFrame): # The main window
 				if info['updateinfo']['main'] is not None:
 					msg = None
 					if DamnVersionCompare(info['updateinfo']['main'], DV.version) == 1 and type(info['updateinfo']['main']) is type(''):
-						dlg = wx.MessageDialog(self, DV.l('A new version (') + info['updateinfo']['main'] + DV.l(') is available! You are running DamnVid ') + DV.version + '.\n' + DV.l('Want to go to the download page and download the update?'), DV.l('Update available!'), wx.YES | wx.NO | wx.YES_DEFAULT | wx.ICON_INFORMATION)
-						dlg.SetIcon(DV.icon)
-						if dlg.ShowModal() == wx.ID_YES:
-							webbrowser.open(DV.url_download, 2)
-						dlg.Destroy()
+						if DV.os != 'posix':
+							dlg = wx.MessageDialog(self, DV.l('A new version (') + info['updateinfo']['main'] + DV.l(') is available! You are running DamnVid ') + DV.version + '.\n' + DV.l('Want to go to the download page and download the update?'), DV.l('Update available!'), wx.YES | wx.NO | wx.YES_DEFAULT | wx.ICON_INFORMATION)
+							dlg.SetIcon(DV.icon)
+							if dlg.ShowModal() == wx.ID_YES:
+								webbrowser.open(DV.url_download, 2)
+							dlg.Destroy()
 					elif verbose and type(info['updateinfo']['main']) is type(''):
 						if DV.version != info['updateinfo']['main']:
 							versionwarning = DV.l(' However, your version (') + DV.version + DV.l(') seems different than the latest version available online. Where would you get that?')
@@ -4441,6 +4446,7 @@ class DamnMainFrame(DamnFrame): # The main window
 				self.stopbutton.Disable()
 				self.gobutton1.Enable()
 				self.gauge1.SetValue(0.0)
+		self.onListSelect()
 	def onGo(self, event=None):
 		if not len(self.videos):
 			dlg = wx.MessageDialog(None, DV.l('Put some videos in the list first!'), DV.l('No videos!'), wx.ICON_EXCLAMATION | wx.OK)
@@ -4469,6 +4475,7 @@ class DamnMainFrame(DamnFrame): # The main window
 				self.stopbutton.Enable()
 				self.gobutton1.Disable()
 				self.go()
+		self.onListSelect()
 	def onStop(self, event):
 		self.thread.abortProcess()
 	def onRename(self, event):
