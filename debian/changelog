@@ -1,0 +1,43 @@
+damnvid (1.5.1.svn20100507-0ubuntu6) lucid; urgency=low
+
+  * Add python-wxgtk2.8 (>= 2.8.10) as a dependency.
+
+ -- Andreas Noteng <andreas@noteng.no>  Sat, 08 May 2010 07:41:06 +0200
+
+damnvid (1.5.1.svn20100507-0ubuntu5) lucid; urgency=low
+
+  * Update description.
+
+ -- Andreas Noteng <andreas@noteng.no>  Fri, 07 May 2010 22:25:34 +0200
+
+damnvid (1.5.1.svn20100507-0ubuntu4) lucid; urgency=low
+
+  * Add libavcodec-extra-52 as a dependency
+
+ -- Andreas Noteng <andreas@noteng.no>  Fri, 07 May 2010 21:13:19 +0200
+
+damnvid (1.5.1.svn20100507-0ubuntu3) lucid; urgency=low
+
+  * Add a desktop file
+
+ -- Andreas Noteng <andreas@noteng.no>  Fri, 07 May 2010 20:51:11 +0200
+
+damnvid (1.5.1.svn20100507-0ubuntu2) lucid; urgency=low
+
+  * fix typo in debian/control
+
+ -- Andreas Noteng <andreas@noteng.no>  Fri, 07 May 2010 17:29:55 +0200
+
+damnvid (1.5.1.svn20100507-0ubuntu1) lucid; urgency=low
+
+  * Fix missing build dependencies
+
+ -- Andreas Noteng <andreas@noteng.no>  Fri, 07 May 2010 17:17:00 +0200
+
+damnvid (1.5.1.svn20100507-0ubuntu0) lucid; urgency=low
+
+  * Use system ffmpeg, since using a precompiled binary violates the gpl
+  * Disable update checker by default
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Andreas Noteng <andreas@noteng.no>  Fri, 07 May 2010 06:56:25 +0200
