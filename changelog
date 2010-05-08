@@ -1,3 +1,10 @@
+damnvid (1.5.1.svn20100508-0ubuntu0) lucid; urgency=low
+
+  * Update to newer code
+  * remove the disable_update patch
+
+ -- Andreas <andreas@noteng.no>  Sat, 08 May 2010 21:58:08 +0200
+
 damnvid (1.5.1.svn20100507-0ubuntu6) lucid; urgency=low
 
   * Add python-wxgtk2.8 (>= 2.8.10) as a dependency.
