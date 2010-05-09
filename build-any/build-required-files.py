@@ -61,10 +61,11 @@ if OSNAME=='nt':
 elif OSNAME=='mac':
 	required_files.append('bin'+os.sep+'ffmpegosx')
 else:
-	if platform.architecture()[0]=='64bit':
-		required_files.append('bin'+os.sep+'ffmpeg64')
-	else:
-		required_files.append('bin'+os.sep+'ffmpeg')
+	print 'ffmpeg binary ommitted on Linux'
+	#if platform.architecture()[0]=='64bit':
+		#required_files.append('bin'+os.sep+'ffmpeg64')
+	#else:
+		#required_files.append('bin'+os.sep+'ffmpeg')
 required_file=open('required-files.txt','w')
 for f in required_files:
 	required_file.write(f+'\n')
