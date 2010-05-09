@@ -11,11 +11,16 @@ if OSNAME=='posix' and sys.platform=='darwin':
 	OSNAME='mac'
 required_files=[]
 os.chdir(os.path.dirname(sys.argv[0]) + os.sep + '..')
-opts, args = getopt.getopt(sys.argv[1:], 'o:')
+opts, args = getopt.getopt(sys.argv[1:], 'o:d:')
 outputFile = 'required-files.txt'
+destFolder = None
 for option, argument in opts:
 	if option == '-o':
 		outputFile = argument
+	elif option == '-d':
+		destFolder = argument
+		if destFolder[-1] != os.sep:
+			destFolder += os.sep
 if os.path.exists(outputFile):
 	os.remove(outputFile)
 if os.path.exists('COPYING'):
@@ -73,5 +78,8 @@ else:
 		#required_files.append('bin'+os.sep+'ffmpeg')
 required_file=open(outputFile,'w')
 for f in required_files:
-	required_file.write(f+'\n')
+	required_file.write(f)
+	if destFolder is not None:
+		required_file.write(' ' + destFolder + os.path.dirname(f))
+	required_file.write('\n')
 required_file.close()
