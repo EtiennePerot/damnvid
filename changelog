@@ -1,3 +1,9 @@
+damnvid (1.5.1.svn20100509-0ubuntu1) lucid; urgency=low
+
+  * Change to dynamic creation of debian/install
+
+ -- Andreas Noteng <andreas@noteng.no>  Sun, 09 May 2010 23:15:15 +0200
+
 damnvid (1.5.1.svn20100509-0ubuntu0) lucid; urgency=low
 
   * Removed some unnecessary files

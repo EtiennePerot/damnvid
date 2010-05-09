@@ -11,6 +11,7 @@
 export DEB_BUILD_OPTION="nostrip"
 
 build:
-	python DamnVid.py --rebuild-modules
+	build-any/build-required-files.py -o debian/install -d /usr/share/damnvid
+
 %:
 	dh --with quilt  $@
