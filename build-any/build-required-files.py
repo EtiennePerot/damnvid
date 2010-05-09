@@ -4,25 +4,30 @@ import os
 import sys
 import platform
 import shutil
+import getopt
 
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
 	OSNAME='mac'
 required_files=[]
-while not os.path.lexists('./DamnVid.py'):
-	os.chdir('./..')
-if os.path.lexists('./required-files.txt'):
-	os.remove('./required-files.txt')
-if os.path.lexists('./COPYING'):
-	os.remove('./COPYING')
-shutil.copyfile('./build-any/COPYING','./COPYING')
+os.chdir(os.path.dirname(sys.argv[0]) + os.sep + '..')
+opts, args = getopt.getopt(sys.argv[1:], 'o:')
+outputFile = 'required-files.txt'
+for option, argument in opts:
+	if option == '-o':
+		outputFile = argument
+if os.path.exists(outputFile):
+	os.remove(outputFile)
+if os.path.exists('COPYING'):
+	os.remove('COPYING')
+shutil.copyfile('build-any/COPYING','./COPYING')
 ext='py'
 if OSNAME=='nt':
 	ext='exe'
 required_files.extend(['DamnVid.'+ext,'version.damnvid','COPYING'])
 del ext
 if OSNAME=='nt':
-	shutil.copyfile('./build-exe/DamnVid.exe.manifest','./DamnVid.exe.manifest')
+	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')
 	required_files.append('DamnVid.exe.manifest')
 required_dirs=['img','conf','locale']
 def addDir(d):
@@ -50,7 +55,7 @@ for f in os.listdir('./modules/'):
 			p.close()
 		except:
 			pass
-for f in os.listdir('./'):
+for f in os.listdir('.'):
 	if f[-15:]=='.module.damnvid':
 		if os.path.lexists('modules/'+f):
 			os.remove('modules/'+f)
@@ -66,7 +71,7 @@ else:
 		#required_files.append('bin'+os.sep+'ffmpeg64')
 	#else:
 		#required_files.append('bin'+os.sep+'ffmpeg')
-required_file=open('required-files.txt','w')
+required_file=open(outputFile,'w')
 for f in required_files:
 	required_file.write(f+'\n')
 required_file.close()
