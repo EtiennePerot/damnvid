@@ -629,10 +629,7 @@ class DamnVideoModule:
 		return DV.modulesstorage[self.name]
 	def getTitle(self):
 		if self.title is None:
-			html = DamnURLOpen(self.link)
-			total = ''
-			for i in html:
-				total += i
+			total = DamnURLGetAll(self.link, onerror='')
 			search = self.regex['title']
 			if type(self.regex['title']) not in (type(()),type([])):
 				search = (self.regex['title'],)
@@ -945,6 +942,15 @@ def DamnURLOpen(req, data=None, throwerror=False):
 			raise e
 		Damnlog('DamnURLOpen failed on request',req,' with exception',e,'; returning None because throwerror is False.')
 		return None
+def DamnURLGetAll(req, data=None, onerror=None):
+	Damnlog('DamnURLGetAll called with request', req,'and data', data,'; on error =', onerror)
+	url = DamnURLOpen(req, data=data, throwerror=False)
+	if url is None:
+		Damnlog('DamnURLGetAll got None; returning onerror =', onerror)
+		return DamnUnicode(onerror)
+	content = DamnUnicode(url.read(-1))
+	Damnlog('DamnURLGetAll successful; returning', len(content),'bytes of content.')
+	return content
 def DamnRTMPDump(req):
 	pass # Todo
 def DamnURLPicker(urls, urlonly=False, resumeat=None):

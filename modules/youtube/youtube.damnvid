@@ -26,7 +26,7 @@ class DamnModule_YouTube(DamnVideoModule):
 		if self.playlist:
 			return None
 		if self.title is None:
-			html=DamnURLOpen('http://www.youtube.com/get_video_info?video_id='+self.id[3:]).read(-1)
+			html=DamnURLGetAll('http://www.youtube.com/get_video_info?video_id='+self.id[3:], onerror='')
 			gottitle = False
 			res=self.regex['title'][0].search(html)
 			if res:
@@ -34,7 +34,7 @@ class DamnModule_YouTube(DamnVideoModule):
 				gottitle = True
 			self.YouTube_GetTicket(html)
 			if not gottitle:
-				html=DamnURLOpen(self.link).read(-1)
+				html=DamnURLGetAll(self.link, onerror='')
 				res=self.regex['title'][1].search(html)
 				if res:
 					self.title=DamnUnicode(DamnHtmlEntities(res.group(1)))
@@ -105,9 +105,9 @@ class DamnModule_YouTube(DamnVideoModule):
 		if self.playlist:
 			return None
 		if self.ticket is None or self.ticketdate+15<time.time():
-			self.YouTube_GetTicket(DamnURLOpen('http://www.youtube.com/get_video_info?video_id='+self.id[3:]).read(-1))
+			self.YouTube_GetTicket(DamnURLGetAll('http://www.youtube.com/get_video_info?video_id='+self.id[3:], onerror=''))
 			if self.ticket is None or self.ticketdate+15<time.time():
-				self.YouTube_GetTicket(DamnURLOpen(self.link).read(-1))
+				self.YouTube_GetTicket(DamnURLGetAll(self.link, onerror=''))
 	def getDownload(self):
 		if self.playlist:
 			return None

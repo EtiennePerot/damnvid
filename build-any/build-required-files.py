@@ -6,11 +6,21 @@ import platform
 import shutil
 import getopt
 
+def procs(command):
+	p=os.popen('cd "' + os.getcwd() + '";' + command)
+	for l in p.readlines():
+		print l.strip()
+	try:
+		p.close()
+	except:
+		pass
+
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
 	OSNAME='mac'
 required_files=[]
 os.chdir(os.path.dirname(sys.argv[0]) + os.sep + '..')
+procs('python build-any' + os.sep + 'cleanup.py')
 opts, args = getopt.getopt(sys.argv[1:], 'o:d:')
 outputFile = 'required-files.txt'
 destFolder = None
@@ -34,7 +44,7 @@ del ext
 if OSNAME=='nt':
 	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')
 	required_files.append('DamnVid.exe.manifest')
-required_dirs=['img','conf','locale']
+required_dirs=['img','conf','locale','socks']
 def addDir(d):
 	global required_files
 	for f in os.listdir(d):
@@ -53,33 +63,45 @@ for f in os.listdir('./modules/'):
 		os.remove('./modules/'+f)
 for f in os.listdir('./modules/'):
 	if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
-		p=os.popen('python build-any/module-package.py modules/'+f)
-		for l in p.readlines():
-			print l.strip()
-		try:
-			p.close()
-		except:
-			pass
+		procs('python build-any' + os.sep + 'module-package.py modules' + os.sep + f)
 for f in os.listdir('.'):
 	if f[-15:]=='.module.damnvid':
 		if os.path.lexists('modules/'+f):
 			os.remove('modules/'+f)
 		os.rename(f,'modules/'+f)
 		required_files.append('modules'+os.sep+f)
+specialfiles = {}
 if OSNAME=='nt':
 	required_files.extend(['bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll'])
+	specialfiles = {}
 elif OSNAME=='mac':
 	required_files.append('bin'+os.sep+'ffmpegosx')
+	specialfiles = {}
 else:
-	print 'ffmpeg binary ommitted on Linux'
-	#if platform.architecture()[0]=='64bit':
-		#required_files.append('bin'+os.sep+'ffmpeg64')
-	#else:
-		#required_files.append('bin'+os.sep+'ffmpeg')
+	specialfiles = {
+		'debian/damnvid.desktop': '/usr/share/applications/',
+		'build-deb/damnvid': '/usr/bin/'
+	}
+	# The following is temporary until ffmpeg is built correctly by Launchpad:
+	if platform.architecture()[0]=='64bit':
+		required_files.append('bin'+os.sep+'ffmpeg64')
+	else:
+		required_files.append('bin'+os.sep+'ffmpeg')
 required_file=open(outputFile,'w')
 for f in required_files:
 	required_file.write(f)
 	if destFolder is not None:
-		required_file.write(' ' + destFolder + os.path.dirname(f))
+		p = destFolder + os.path.dirname(f)
+		if p[-1] != os.sep:
+			p += os.sep
+		required_file.write(' ' + p)
+	required_file.write('\n')
+for f in specialfiles.keys():
+	required_file.write(f)
+	if specialfiles[f] is not None:
+		p = specialfiles[f]
+		if p[-1] != os.sep:
+			p += os.sep
+		required_file.write(' ' + p)
 	required_file.write('\n')
 required_file.close()
