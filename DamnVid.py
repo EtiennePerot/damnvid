@@ -731,6 +731,12 @@ class DamnVideoModule:
 		obj = {'name':DamnUnicode(self.getTitle()), 'profile':self.getProfile(), 'profilemodified':False, 'fromfile':DamnUnicode(self.getTitle()), 'dirname':DamnUnicode(self.getLink()), 'uri':DamnUnicode(self.getID()), 'status':DV.l('Pending.'), 'icon':self.getIcon(), 'module':self, 'downloadgetter':self.getDownloadGetter()}
 		Damnlog('Module', self.name, 'returning video object:', obj)
 		return obj
+def DamnPostEvent(target, event):
+	Damnlog('Trying to send event', event, 'to target', target)
+	try:
+		wx.PostEvent(target, event)
+	except:
+		Damnlog('!! Failed delivering event', event, 'to target', target)
 class DamnModuleUpdateCheck(thr.Thread):
 	def __init__(self, parent, modules, byevent=True):
 		Damnlog('Spawned module update checker for modules', modules, 'by event:', byevent)
@@ -746,7 +752,7 @@ class DamnModuleUpdateCheck(thr.Thread):
 		info = {'module':module, 'result':result}
 		Damnlog('Update checker sending event:', info, 'by event:', self.byevent)
 		if self.byevent:
-			wx.PostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
+			DamnPostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
 		else:
 			self.parent.onLoad(info)
 	def run(self):
@@ -855,7 +861,7 @@ class DamnVidUpdater(thr.Thread):
 		thr.Thread.__init__(self)
 	def postEvent(self):
 		Damnlog('Main updated thread sending event', self.info)
-		wx.PostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, {'updateinfo':self.info}))
+		DamnPostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, {'updateinfo':self.info}))
 	def onLoad(self, info):
 		if not info.has_key('module'):
 			return
@@ -1131,6 +1137,10 @@ class DamnProgressEvent(wx.PyCommandEvent):
 		self.info = eventinfo
 	def GetInfo(self):
 		return self.info
+	def __repr__(self):
+		return self.__str__()
+	def __str__(self):
+		return '<DamnProgressEvent holding: ' + DamnUnicode(self.info) + '>'
 DV.evt_loading = wx.NewEventType()
 DV.evt_load = wx.PyEventBinder(DV.evt_loading, 1)
 class DamnLoadingEvent(wx.PyCommandEvent):
@@ -1139,6 +1149,10 @@ class DamnLoadingEvent(wx.PyCommandEvent):
 		self.info = eventinfo
 	def GetInfo(self):
 		return self.info
+	def __repr__(self):
+		return self.__str__()
+	def __str__(self):
+		return '<DamnLoadingEvent holding: ' + DamnUnicode(self.info) + '>'
 DV.evt_bugreporting = wx.NewEventType()
 DV.evt_bugreport = wx.PyEventBinder(DV.evt_bugreporting, 1)
 class DamnBugReportEvent(wx.PyCommandEvent):
@@ -1147,6 +1161,10 @@ class DamnBugReportEvent(wx.PyCommandEvent):
 		self.info = eventinfo
 	def GetInfo(self):
 		return self.info
+	def __repr__(self):
+		return self.__str__()
+	def __str__(self):
+		return '<DamnBugReportEvent holding: ' + DamnUnicode(self.info) + '>'
 class DamnDropHandler(wx.FileDropTarget): # Handles files dropped on the ListCtrl
 	def __init__(self, parent):
 		wx.FileDropTarget.__init__(self)
@@ -1319,6 +1337,41 @@ class DamnHyperlink(wx.HyperlinkCtrl):
 			wx.HyperlinkCtrl.__init__(self, parent, id, label, url, style = style)
 		if background is not None:
 			self.SetBackgroundColour(background)
+def DamnOmniElement(window, element, target, underline=False):
+	Damnlog('Making DamnOmniElement with element', element, 'and target', target)
+	bind = False
+	if REGEX_HTTP_GENERIC.match(target):
+		Damnlog('Target', target, 'is a URL.')
+		bind = True
+		element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnOpenWebbrowser, target))
+	else:
+		Damnlog('Target', target, 'is a file.')
+		if os.path.exists(target):
+			bind = True
+			if os.path.isdir(target):
+				element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnOpenFileManager, target))
+			elif os.path.isfile(target):
+				element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnLaunchFile, target))
+	if bind:
+		def handCursor(event=None):
+			window.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+			element.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
+		def normalCursor(event=None):
+			window.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
+			element.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
+		element.Bind(wx.EVT_ENTER_WINDOW, handCursor)
+		element.Bind(wx.EVT_LEAVE_WINDOW, normalCursor)
+		if underline:
+			underlined = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
+			underlined.SetUnderlined(True)
+			element.SetFont(underlined)
+	return element
+def DamnOmniLink(window, panel, text, target=None, underline=True):
+	text = DamnUnicode(text)
+	Damnlog('Making DamnOmniLink with text', text, 'with target', target)
+	if target is None:
+		target = text
+	return DamnOmniElement(window, wx.lib.stattext.GenStaticText(panel, -1, text), target, underline=underline)
 class DamnList(wx.ListCtrl, ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
 	def __init__(self, parent, window):
 		wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT)
@@ -1567,7 +1620,7 @@ class DamnBugReporter(thr.Thread):
 			Damnlog('Not posting anything, parent is none.')
 			return
 		try:
-			wx.PostEvent(self.parent, DamnBugReportEvent(DV.evt_bugreporting, -1, info))
+			DamnPostEvent(self.parent, DamnBugReportEvent(DV.evt_bugreporting, -1, info))
 		except:
 			Damnlog('Posting event failed - Window was closed?')
 	def run(self):
@@ -1719,6 +1772,10 @@ class DamnReportBug(wx.Dialog):
 		Damnlog('Spawning DamnBugReporter with information: \n\tDescription: ' + desc + u'\n\tSystem info: ' + sysinfo + '\n\tSteps:\n' + steps + u'\n\tEmail: ', email)
 		DamnBugReporter(desc, steps, sysinfo, email, parent=self).start()
 		Damnlog('DamnBugReporter spawned and launched.')
+def DamnOpenWebbrowser(url, *args):
+	url = DamnUnicode(url)
+	Damnlog('Opening URL in web browser:', url)
+	webbrowser.open(url, 2)
 def DamnOpenFileManager(directory, *args):
 	if directory is not None:
 		directory = DamnUnicode(directory)
@@ -1770,8 +1827,6 @@ class DamnDoneDialog(wx.Dialog):
 		topvbox.Add(panel, 1, wx.EXPAND)
 		mainvbox = wx.BoxSizer(wx.VERTICAL)
 		panel.SetSizer(mainvbox)
-		self.underlined = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
-		self.underlined.SetUnderlined(True)
 		# Build UI
 		Damnlog('Building center UI of done dialog.')
 		if aborted:
@@ -1792,9 +1847,9 @@ class DamnDoneDialog(wx.Dialog):
 				mainvbox.Add(tmpvbox)
 				tmphbox = wx.BoxSizer(wx.HORIZONTAL)
 				tmpvbox.Add(tmphbox)
-				tmphbox.Add(self.bindAndCursor(wx.StaticBitmap(panel, -1, foldericon), launchdir=d), 0, wx.ALIGN_CENTER_VERTICAL)
+				tmphbox.Add(DamnOmniElement(self, wx.StaticBitmap(panel, -1, foldericon), d), 0, wx.ALIGN_CENTER_VERTICAL)
 				tmphbox.Add((DV.border_padding / 2, 0))
-				tmphbox.Add(self.makeLabel(panel, d, launchdir=d))
+				tmphbox.Add(DamnOmniLink(self, panel, d))
 				tmpinnerhbox = wx.BoxSizer(wx.HORIZONTAL)
 				tmpvbox.Add(tmpinnerhbox)
 				tmpinnerhbox.Add((foldericon.GetWidth() + DV.border_padding, 0))
@@ -1803,9 +1858,9 @@ class DamnDoneDialog(wx.Dialog):
 				for f in files[d]:
 					tmphbox2 = wx.BoxSizer(wx.HORIZONTAL)
 					tmpinnervbox.Add(tmphbox2)
-					tmphbox2.Add(self.bindAndCursor(wx.StaticBitmap(panel, -1, DV.listicons.getRawBitmap(icons[d + f])), launchfile=d + f), 0, wx.ALIGN_CENTER_VERTICAL)
+					tmphbox2.Add(DamnOmniElement(self, wx.StaticBitmap(panel, -1, DV.listicons.getRawBitmap(icons[d + f])), target=d+f), 0, wx.ALIGN_CENTER_VERTICAL)
 					tmphbox2.Add((DV.border_padding / 2, 0))
-					tmphbox2.Add(self.makeLabel(panel, f, launchfile=d + f))
+					tmphbox2.Add(DamnOmniLink(self, panel, f, target=d+f))
 				mainvbox.Add((0, DV.border_padding))
 		else:
 			Damnlog('There\'s no content, so we\'re not gonna build much.')
@@ -1822,28 +1877,6 @@ class DamnDoneDialog(wx.Dialog):
 		self.SetClientSize(self.GetBestSize())
 		self.Center()
 		Damnlog('Done dialog displayed and centered.')
-	def makeLabel(self, panel, text, launchdir=None, launchfile=None):
-		Damnlog('Making label with text', text, 'launchdir =', launchdir, '; launchfile =', launchfile)
-		label = wx.lib.stattext.GenStaticText(panel, -1, DamnUnicode(text))
-		label.SetFont(self.underlined)
-		return self.bindAndCursor(label, launchdir=launchdir, launchfile=launchfile)
-	def bindAndCursor(self, element, launchdir=None, launchfile=None):
-		Damnlog('Binding', element, 'to display hand cursor, and launchdir =', launchdir, '; launchfile =', launchfile)
-		element.Bind(wx.EVT_ENTER_WINDOW, DamnCurry(self.handCursor, element))
-		element.Bind(wx.EVT_LEAVE_WINDOW, DamnCurry(self.normalCursor, element))
-		if launchfile is not None:
-			element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnLaunchFile, launchfile))
-		elif launchdir is not None:
-			element.Bind(wx.EVT_LEFT_UP, DamnCurry(DamnOpenFileManager, launchdir))
-		return element
-	def handCursor(self, element, event):
-		Damnlog('Displaying hand cursor due to event', event, 'over element', element)
-		self.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-		element.SetCursor(wx.StockCursor(wx.CURSOR_HAND))
-	def normalCursor(self, element, event):
-		Damnlog('Displaying normal cursor due to event', event, 'over element', element)
-		self.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
-		element.SetCursor(wx.StockCursor(wx.CURSOR_ARROW))
 	def onOK(self, event):
 		self.Close(True)
 class DamnAboutDamnVid(wx.Dialog):
@@ -2146,7 +2179,7 @@ class DamnYouTubeService(thr.Thread):
 	def postEvent(self, info):
 		info['self'] = self
 		try:
-			wx.PostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
+			DamnPostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
 		except:
 			pass # Window might have been closed
 	def returnResult(self, result, index=0):
@@ -2619,11 +2652,13 @@ class DamnHistoryViewer(wx.Dialog):
 			icon = DV.listicons.getRawBitmap(icon)
 		else:
 			icon = DV.listicons.getRawBitmap('fail')
-		tmpSizer.Add(wx.StaticBitmap(self.historyPanel, -1, icon), 0)
+		tmpSizer.Add(DamnOmniElement(self, wx.StaticBitmap(self.historyPanel, -1, icon), uri), 0)
 		tmpSizer.Add((DV.border_padding / 2,0))
 		if len(title) > 50:
 			title = title[:50] + u'...'
-		tmpSizer.Add(DamnHyperlink(self.historyPanel, -1, title, uri, style=wx.ALIGN_LEFT), 1, wx.ALIGN_LEFT)
+		# Todo: Make local files open locally if they exist
+		tmpSizer.Add(DamnOmniLink(self, self.historyPanel, title, uri), 0, wx.ALIGN_LEFT)
+		tmpSizer.Add(wx.StaticText(self.historyPanel, -1, ''), 1)
 		addButton = wx.Button(self.historyPanel, -1, '+', size = (24,24))
 		self.Bind(wx.EVT_BUTTON, DamnCurry(self.onAdd, uri), addButton)
 		tmpSizer.Add(addButton, 0)
@@ -2683,9 +2718,12 @@ class DamnHistoryViewer(wx.Dialog):
 					history = history[:i] + history[i+1:]
 				DV.prefs.seta('damnvid-videohistory','videos',history)
 			Damnlog('Done building video history dialog.')
-		self.historyPanel.AdjustScrollbars()
+		# These silly recomputations are required for it to display (mostly) correctly (in Windows only, works fine elsewhere)
+		self.historyPanel.Layout()
 		self.toppanel.Layout()
 		self.SetClientSize(self.toppanel.GetBestSize())
+		self.historyPanel.AdjustScrollbars()
+		self.historyPanel.Refresh()
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 	def __init__(self, parent, id, title, main):
 		# Dialog init
@@ -3513,7 +3551,7 @@ class DamnVideoLoader(thr.Thread):
 				time.sleep(.1)
 	def postEvent(self, info):
 		if self.feedback:
-			wx.PostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
+			DamnPostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
 	def getVidName(self, uri):
 		return self.parent.getVidName(uri)
 	def addValid(self, meta):
@@ -3637,7 +3675,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 			info['dialog'] = dialog
 		if go is not None:
 			info['go'] = go
-		wx.PostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, info))
+		DamnPostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, info))
 	def run(self):
 		self.uris = self.getURI(self.sourceuri)
 		self.abort = False
@@ -3904,7 +3942,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 		else:
 			res = REGEX_FFMPEG_TIME_EXTRACT.search(line)
 			if res:
-				wx.PostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, {
+				DamnPostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, {
 					'progress':min(100.0, float(float(res.group(1)) / self.duration / float(self.totalpasses) + float(float(self.passes - 1) / float(self.totalpasses))) * 100.0),
 					'status':self.parent.meta[self.parent.videos[self.parent.converting]]['status'] + ' [' + str(int(100.0 * float(res.group(1)) / self.duration)) + '%]'
 				}))
@@ -4492,7 +4530,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		isvisible = self.loadingvisible > 0
 		self.loadingvisible = max((0, self.loadingvisible + int(show) * 2 - 1))
 		if (isvisible and not self.loadingvisible) or (not isvisible and self.loadingvisible):
-			wx.PostEvent(self, DamnLoadingEvent(DV.evt_loading, -1, {'show':bool(self.loadingvisible)}))
+			DamnPostEvent(self, DamnLoadingEvent(DV.evt_loading, -1, {'show':bool(self.loadingvisible)}))
 	def onLoading(self, event):
 		info = event.GetInfo()
 		if info.has_key('show'):
