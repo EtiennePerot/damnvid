@@ -136,6 +136,7 @@ DV.streamTimeout = 30.0
 DV.icon = None # This will be defined when DamnMainFrame is initialized
 DV.icon2 = None
 DV.icon16 = None
+DV.history_split = u'}/|\\{'
 DV.my_videos_path = u''
 DV.appdata_path = u''
 DV.os = DamnUnicode(os.name)
@@ -1311,8 +1312,11 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
 			self.AppendItem(addurl)
 			self.Bind(wx.EVT_MENU, self.parent.parent.onAddURL, addurl)
 class DamnHyperlink(wx.HyperlinkCtrl):
-	def __init__(self, parent, id, label, url, background=None):
-		wx.HyperlinkCtrl.__init__(self, parent, id, label, url, style = wx.ALIGN_LEFT)
+	def __init__(self, parent, id, label, url, background=None, style=None):
+		if style is None:
+			wx.HyperlinkCtrl.__init__(self, parent, id, label, url)
+		else:
+			wx.HyperlinkCtrl.__init__(self, parent, id, label, url, style = style)
 		if background is not None:
 			self.SetBackgroundColour(background)
 class DamnList(wx.ListCtrl, ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
@@ -2619,7 +2623,7 @@ class DamnHistoryViewer(wx.Dialog):
 		tmpSizer.Add((DV.border_padding / 2,0))
 		if len(title) > 50:
 			title = title[:50] + u'...'
-		tmpSizer.Add(DamnHyperlink(self.historyPanel, -1, title, uri), 1, wx.ALIGN_LEFT)
+		tmpSizer.Add(DamnHyperlink(self.historyPanel, -1, title, uri, style=wx.ALIGN_LEFT), 1, wx.ALIGN_LEFT)
 		addButton = wx.Button(self.historyPanel, -1, '+', size = (24,24))
 		self.Bind(wx.EVT_BUTTON, DamnCurry(self.onAdd, uri), addButton)
 		tmpSizer.Add(addButton, 0)
@@ -2635,7 +2639,7 @@ class DamnHistoryViewer(wx.Dialog):
 		history = DV.prefs.geta('damnvid-videohistory','videos')
 		todrop = []
 		for i in range(len(history)):
-			video = history[i].split(u'\\')
+			video = history[i].split(DV.history_split)
 			if len(video) != 3:
 				todrop.append(i)
 			elif video[0] == uri:
@@ -2666,7 +2670,7 @@ class DamnHistoryViewer(wx.Dialog):
 			Damnlog('Histsize is not 0, building history.')
 			todrop = []
 			for i in range(min(histsize,len(history))):
-				video = history[i].split(u'\\')
+				video = history[i].split(DV.history_split)
 				if len(video) != 3:
 					Damnlog('Invalid length', len(video),'for history item', video,'; dropping', i)
 					todrop.append(i)
@@ -4580,7 +4584,7 @@ class DamnMainFrame(DamnFrame): # The main window
 			Damnlog('Histsize is zero, not touching anything.')
 			return
 		for i in history:
-			tempvideo = i.split(u'\\')
+			tempvideo = i.split(DV.history_split)
 			if len(tempvideo) != 3:
 				Damnlog('Invalid entry in history:', i)
 				continue
@@ -4590,7 +4594,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		history.reverse()
 		while len(history) >= histsize:
 			history = history[1:]
-		history.append(u'\\'.join([uri,title,icon]))
+		history.append(DV.history_split.join([uri,title,icon]))
 		history.reverse()
 		DV.prefs.seta('damnvid-videohistory','videos',history)
 		Damnlog('Video added successfully, rebuilding history menu.')
@@ -4709,12 +4713,12 @@ class DamnMainFrame(DamnFrame): # The main window
 			dlg.Destroy()
 			history = DV.prefs.geta('damnvid-videohistory','videos')
 			for i in range(len(history)):
-				video = history[i].split(u'\\')
+				video = history[i].split(DV.history_split)
 				if len(video) != 3:
 					continue
 				if video[0] == self.meta[self.videos[item]]['original']:
 					video[1] = newname
-					history[i] = u'\\'.join(video)
+					history[i] = DV.history_split.join(video)
 			DV.prefs.seta('damnvid-videohistory','videos',history)
 			DV.prefs.save()
 			self.updateHistory()
