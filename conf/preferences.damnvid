@@ -400,9 +400,9 @@ DV.preferences={
 	'damnvid:videohistorysize':{
 		'name':'Video history size',
 		'type':DV.preference_type_misc,
-		'kind':'int:0-50',
+		'kind':'int:0-128',
 		'strict':True,
-		'default':8
+		'default':42
 	},
 	#'damnvid:showdailytip':{
 		#'name':'Show Daily Tip when DamnVid starts',

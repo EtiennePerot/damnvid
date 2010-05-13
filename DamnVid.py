@@ -26,35 +26,61 @@
 # - Psyco (optional, speeds up execution)
 
 print 'Starting up.'
+print 'Importing wxPython.'
 import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import wx.lib.stattext # Static texts that respond to mouse events
+print 'Importing os.'
 import os # Filesystem functions.
+print 'Importing traceback.'
 import traceback # Traces, yay.
+print 'Importing regexes.'
 import re # Regular expressions \o/
+print 'Importing subprocess.'
 import subprocess # Spawn sub-processes (ffmpeg, taskkill)
+print 'Importing time.'
 import time # Sleepin'
+print 'Importing urllib.'
 import urllib2 # Fetch data from the tubes, encode/decode URLs
 import urllib # Sadly required as well, for its urlencode function
+print 'Importing socks.'
 import socks # SOCKS proxy client
+print 'Importing socket.'
 import socket # Used to override the default socket in case of a SOCKS proxy
+print 'Importing cookielib.'
 import cookielib # Cookie handling. Yum, warm, freshly-baked cookies.
+print 'Importing signal.'
 import signal # Process signals
+print 'Importing webbrowser.'
 import webbrowser # Open a page in default browser
+print 'Importing random.'
 import random # Generate temporary files
+print 'Importing shutil.'
 import shutil # Shell utilities (copyfile)
+print 'Importing sys.'
 import sys # System stuff
+print 'Importing platform.'
 import platform # Platform information
+print 'Importing ConfigParser.'
 import ConfigParser # INI file parsing and writing
+print 'Importing base64.'
 import base64 # Base64 encoding/decoding
+print 'Importing gdata -> YouTube.'
 import gdata.youtube.service # YouTube service
+print 'Importing gdata -> Google Code.'
 import gdata.projecthosting.client # Google Code service
+print 'Importing xmlrpclib.'
 import xmlrpclib # XML RPC server communication, used in modules
+print 'Importing BeautifulSoup.'
 import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
+print 'Importing unicodedata.'
 import unicodedata # Unicode normalization
+print 'Importing hashlib.'
 import hashlib # MD5 hashes
+print 'Importing tarfile.'
 import tarfile # Tar/gz file reading/writing (used for modules)
+print 'Importing threading.'
 import threading as thr # Threads
 print 'Imports done.'
 
@@ -335,8 +361,15 @@ else:
 	del lastversion
 DV.images_path = DamnUnicode(DV.curdir + u'img/'.replace(u'/', DV.sep))
 Damnlog('Image path is', DV.images_path)
-DV.bin_path = DamnUnicode(DV.curdir + u'bin/'.replace(u'/', DV.sep))
-Damnlog('Bin path is', DV.bin_path)
+DV.bin_paths = [DamnUnicode(DV.curdir + u'bin/'.replace(u'/', DV.sep))]
+try:
+	DV.bin_paths.extend(DamnUnicode(os.environ['PATH']).split(DamnUnicode(os.pathsep)))
+except:
+	pass
+for i in range(len(DV.bin_paths)):
+	if DV.bin_paths[i][-1] != DV.sep:
+		DV.bin_paths[i] += DV.sep
+Damnlog('Bin paths are', DV.bin_paths)
 DV.locale_path = DamnUnicode(DV.curdir + u'locale/'.replace(u'/', DV.sep))
 Damnlog('Locale path is', DV.locale_path)
 DV.tmp_path = DamnUnicode(DV.actual_conf_file_directory + u'temp/'.replace(u'/', DV.sep))
@@ -476,6 +509,8 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
 		self.width = width
 		self.height = height
 		self.rawbitmaps = {}
+		self.blankid = None
+		self.blankbitmap = None
 		if initNow:
 			self.initWX()
 	def initWX(self):
@@ -488,6 +523,7 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
 			Damnlog('!Icon conflict found with handle', handle)
 			handle = hashlib.md5(str(random.random()) + str(random.random())).hexdigest()
 		if self.init:
+			handle = DamnUnicode(handle)
 			if type(bitmap) in (type(''), type(u'')):
 				bitmap = wx.Bitmap(bitmap)
 			self.list[handle] = self.Add(bitmap)
@@ -496,21 +532,44 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
 			self.list[handle] = bitmap
 		return handle
 	def getRawBitmap(self, handle):
+		Damnlog('Getting raw bitmap for handle', handle)
 		if type(handle) not in (type(''), type(u'')):
-			for k in self.list.iterkeys():
+			for k in self.list.keys():
 				if self.list[k] == handle:
 					handle = k
+		handle = DamnUnicode(handle)
+		if handle not in self.list.keys() or handle == u'fail':
+			Damnlog('Handle', handle, 'is invalid; returning default bitmap.')
+			return self.blankbitmap
 		return self.rawbitmaps[handle]
 	def get(self, handle):
+		Damnlog('Getting icon for handle', handle)
 		if not self.init:
 			return
 		if type(handle) in (type(''), type(u'')):
-			if handle in self.list.keys():
+			handle = DamnUnicode(handle)
+			if handle == u'fail':
+				Damnlog('Handle', handle, 'is fail; returning default bitmap.')
+				handle = self.blankid
+			elif handle in self.list.keys():
 				handle = self.list[handle]
 			else:
+				Damnlog('Handle', handle, 'is invalid; returning default bitmap.')
 				handle = self.blankid
 		return handle
+	def getHandle(self, img):
+		Damnlog('Getting handle for image ID', img)
+		if not self.init:
+			return
+		img = int(img)
+		for i in self.list.keys():
+			if self.list[i] == img:
+				Damnlog('Found handle', i,'for ID', img)
+				return DamnUnicode(i)
+		Damnlog('Couldn\'t find handle for ID', img,'; returning fail.')
+		return u'fail'
 	def getBitmap(self, handle):
+		Damnlog('Getting bitmap for handle', handle)
 		return self.GetBitmap(self.get(handle))
 	def resetList(self, items={}):
 		self.list = {}
@@ -521,6 +580,7 @@ class DamnIconList(wx.ImageList): # An imagelist with dictionary-like associatio
 			else:
 				blank = wx.Bitmap(self.fail)
 			self.blankid = self.Add(blank)
+			self.blankbitmap = blank
 		for i in items.keys():
 			self.add(items[i], i)
 DV.listicons = DamnIconList(16, 16, fail=DV.images_path + 'video.png')
@@ -694,9 +754,9 @@ class DamnModuleUpdateCheck(thr.Thread):
 				self.postEvent(module, 'cannot')
 			elif module['about']['url'] not in self.downloaded:
 				self.downloaded.append(module['about']['url'])
+				checkingfor = [module]
 				try:
 					http = DamnURLOpen(module['about']['url'])
-					checkingfor = [module]
 					for module2 in self.modules:
 						if module2['about'].has_key('url'):
 							if module2['about']['url'] == module['about']['url'] and module2 not in checkingfor:
@@ -731,25 +791,49 @@ class DamnModuleUpdateCheck(thr.Thread):
 									self.postEvent(module2, 'error')
 						else:
 							self.postEvent(module2, 'uptodate')
-def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None):
+def DamnFindBinary(binary):
+	if type(binary) in (type(()), type([])):
+		Damnlog('DamnFindBinary summoned for binaries', binary)
+		if not len(binary):
+			Damnlog('Binaries list is empty:', binary, '; returning empty string.')
+			return ''
+		for b in binary:
+			searched = DamnFindBinary(b)
+			if searched != b:
+				return searched
+		Damnlog('!! Found no suitable binary out of the list', binary, '; returning first element:', binary[0])
+		return binary[0]
+	Damnlog('DamnFindBinary summoned for binary', binary)
+	for p in DV.bin_paths:
+		if os.path.isdir(p):
+			if os.path.isfile(p + binary):
+				Damnlog('DamnFindBinary found suitable binary:', p + binary)
+				return p + binary
+		else:
+			Damnlog('Warning: Binary path', p,'is not a directory.')
+	Damnlog('!! Binary', binary, 'not found, returning simply', binary)
+def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None, bufsize=128):
 	if cwd is None:
 		cwd = DV.curdir
 	cwd = DamnUnicode(cwd)
 	if type(cmd) in (type(''), type(u'')):
 		cmd = DamnUnicode(cmd)
+	else:
+		for i in range(len(cmd)):
+			cmd[i] = DamnUnicode(cmd[i])
 	if DV.os == 'nt':
 		if type(cmd) in (type([]), type(())):
 			tempcmd = []
 			for i in cmd:
 				tempcmd.append(DamnUnicode(i).encode('windows-1252'))
 			Damnlog('Spawning subprocess on NT:', tempcmd)
-			return subprocess.Popen(tempcmd, shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
+			return subprocess.Popen(tempcmd, shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=bufsize) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
 		else:
 			Damnlog('Spawning subprocess on NT:', cmd)
-			return subprocess.Popen(cmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=128)
+			return subprocess.Popen(cmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=bufsize)
 	else:
 		Damnlog('Spawning subprocess on UNIX:', cmd)
-		return subprocess.Popen(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=128) # Must specify bufsize, or it might be too big to actually get any data (happened to me on Ubuntu)
+		return subprocess.Popen(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=bufsize)
 def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 if equal, -1 if v2 is newer.
 	v1 = v1.split('.')
 	v2 = v2.split('.')
@@ -1228,7 +1312,7 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
 			self.Bind(wx.EVT_MENU, self.parent.parent.onAddURL, addurl)
 class DamnHyperlink(wx.HyperlinkCtrl):
 	def __init__(self, parent, id, label, url, background=None):
-		wx.HyperlinkCtrl.__init__(self, parent, id, label, url)
+		wx.HyperlinkCtrl.__init__(self, parent, id, label, url, style = wx.ALIGN_LEFT)
 		if background is not None:
 			self.SetBackgroundColour(background)
 class DamnList(wx.ListCtrl, ListCtrlAutoWidthMixin): # The ListCtrl, which inherits from the Mixin
@@ -2472,6 +2556,132 @@ class DamnVidBrowser(wx.Dialog):
 		self.parent.searchopen = False
 		DV.prefs.save() # Saves search history
 		self.Destroy()
+class DamnHistoryViewer(wx.Dialog):
+	def __init__(self, main):
+		wx.Dialog.__init__(self, main, -1, DV.l('History'))
+		self.main = main
+		topsizer = wx.BoxSizer(wx.VERTICAL)
+		self.SetSizer(topsizer)
+		self.toppanel = wx.Panel(self, -1)
+		topsizer.Add(self.toppanel, 1, wx.EXPAND)
+		topvbox = wx.BoxSizer(wx.VERTICAL)
+		tophbox = wx.BoxSizer(wx.HORIZONTAL)
+		self.toppanel.SetSizer(tophbox)
+		tophbox.Add((DV.border_padding, 0))
+		tophbox.Add(topvbox, 1, wx.EXPAND)
+		tophbox.Add((DV.border_padding, 0))
+		topvbox.Add((0, DV.border_padding))
+		topvbox.Add(wx.StaticText(self.toppanel, -1, DV.l('History:')), 0)
+		topvbox.Add((0, DV.border_padding * 2))
+		self.historyPanel = wx.ScrolledWindow(self.toppanel, -1, size = (400, 400), style=wx.SB_VERTICAL)
+		self.historyPanel.SetMinSize((400, 400))
+		tmpscroll = wx.ScrollBar(self.toppanel, -1, style=wx.SB_VERTICAL)
+		self.scrollbarOffset = tmpscroll.GetSizeTuple()[0]
+		tmpscroll.Destroy()
+		del tmpscroll
+		self.historyPanel.SetScrollbars(0, DV.control_vgap * DV.scroll_factor, 0, 0)
+		topvbox.Add(self.historyPanel, 1, wx.EXPAND)
+		self.historySizer = wx.BoxSizer(wx.VERTICAL)
+		self.historyPanel.SetSizer(self.historySizer)
+		bottomSizer = wx.BoxSizer(wx.HORIZONTAL)
+		topvbox.Add(bottomSizer, 0, wx.EXPAND)
+		self.deleteButton = wx.Button(self.toppanel, wx.ID_DELETE, DV.l('Clear history'))
+		bottomSizer.Add(self.deleteButton, 0, wx.ALIGN_LEFT)
+		self.Bind(wx.EVT_BUTTON, self.onClearHistory, self.deleteButton)
+		bottomSizer.Add(wx.StaticText(self.toppanel, -1, ''), 1, wx.EXPAND)
+		self.closeButton = wx.Button(self.toppanel, wx.ID_CLOSE, DV.l('Close'))
+		bottomSizer.Add(self.closeButton, 0, wx.ALIGN_RIGHT)
+		self.Bind(wx.EVT_BUTTON, self.onClose, self.closeButton)
+		topvbox.Add((0, DV.border_padding))
+		self.Bind(wx.EVT_CLOSE, self.onClose)
+		self.update()
+	def onClearHistory(self, event=None):
+		Damnlog('onClearHistory event fired:', event)
+		DV.prefs.seta('damnvid-videohistory','videos',[])
+		DV.prefs.save()
+		self.update()
+	def onClose(self, event=None):
+		Damnlog('History window close event:', event)
+		try:
+			self.main.onCloseHistory(event)
+		except:
+			Damnlog('History window could not notify parent that it has been closed.')
+		self.Destroy()
+	def addHistoryItem(self, uri, title, icon=None):
+		Damnlog('Creating history item for URI', uri, 'with title', title, 'and icon', icon)
+		tmpSizer = wx.BoxSizer(wx.HORIZONTAL)
+		self.historySizer.Add(tmpSizer, 0, wx.EXPAND)
+		if icon is not None:
+			icon = DV.listicons.getRawBitmap(icon)
+		else:
+			icon = DV.listicons.getRawBitmap('fail')
+		tmpSizer.Add(wx.StaticBitmap(self.historyPanel, -1, icon), 0)
+		tmpSizer.Add((DV.border_padding / 2,0))
+		if len(title) > 50:
+			title = title[:50] + u'...'
+		tmpSizer.Add(DamnHyperlink(self.historyPanel, -1, title, uri), 1, wx.ALIGN_LEFT)
+		addButton = wx.Button(self.historyPanel, -1, '+', size = (24,24))
+		self.Bind(wx.EVT_BUTTON, DamnCurry(self.onAdd, uri), addButton)
+		tmpSizer.Add(addButton, 0)
+		delButton = wx.Button(self.historyPanel, -1, '-', size = (24,24))
+		self.Bind(wx.EVT_BUTTON, DamnCurry(self.onDel, uri), delButton)
+		tmpSizer.Add(delButton, 0)
+		#tmpSizer.Add((self.scrollbarOffset, 0))
+	def onAdd(self, uri, event=None):
+		self.main.onAddHistoryVideo(uri, event)
+	def onDel(self, uri, event=None):
+		uri = DamnUnicode(uri)
+		Damnlog('Removing URI', uri,'from history.')
+		history = DV.prefs.geta('damnvid-videohistory','videos')
+		todrop = []
+		for i in range(len(history)):
+			video = history[i].split(u'\\')
+			if len(video) != 3:
+				todrop.append(i)
+			elif video[0] == uri:
+				Damnlog('Found URI', uri,'at index', i, 'in history.')
+				todrop.append(i)
+		if len(todrop):
+			Damnlog('Dropping history entries:', todrop)
+			todrop.reverse()
+			for i in todrop:
+				history = history[:i] + history[i+1:]
+			DV.prefs.seta('damnvid-videohistory','videos',history)
+			DV.prefs.save()
+			self.update()
+	def update(self):
+		Damnlog('Clearing video history panel.')
+		self.historySizer.DeleteWindows()
+		self.historyPanel.DestroyChildren()
+		history = DV.prefs.geta('damnvid-videohistory','videos')
+		histsize = int(DV.prefs.get('videohistorysize'))
+		Damnlog('Video history is',history,'; history size is',histsize)
+		if not histsize:
+			Damnlog('Histsize is zero.')
+			self.historySizer.Add(wx.StaticText(self.historyPanel, -1, DV.l('The history feature has been disabled in the preferences.')))
+		elif not len(history):
+			Damnlog('History is empty.')
+			self.historySizer.Add(wx.StaticText(self.historyPanel, -1, DV.l('The history is empty.')))
+		else:
+			Damnlog('Histsize is not 0, building history.')
+			todrop = []
+			for i in range(min(histsize,len(history))):
+				video = history[i].split(u'\\')
+				if len(video) != 3:
+					Damnlog('Invalid length', len(video),'for history item', video,'; dropping', i)
+					todrop.append(i)
+				else:
+					self.addHistoryItem(video[0], video[1], video[2])
+			if len(todrop):
+				Damnlog('Dropping history entries:', todrop)
+				todrop.reverse()
+				for i in todrop:
+					history = history[:i] + history[i+1:]
+				DV.prefs.seta('damnvid-videohistory','videos',history)
+			Damnlog('Done building video history dialog.')
+		self.historyPanel.AdjustScrollbars()
+		self.toppanel.Layout()
+		self.SetClientSize(self.toppanel.GetBestSize())
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 	def __init__(self, parent, id, title, main):
 		# Dialog init
@@ -3275,7 +3485,11 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 class DamnVideoLoader(thr.Thread):
 	def __init__(self, parent, uris, thengo=False, feedback=True, allownonmodules=True):
 		thr.Thread.__init__(self)
-		self.uris = uris
+		self.uris = []
+		if type(uris) not in (type(()), type([])):
+			uris = [uris]
+		for i in uris:
+			self.uris.append(DamnUnicode(i))
 		self.parent = parent
 		self.thengo = thengo
 		self.feedback = feedback
@@ -3523,7 +3737,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 				if DV.bit64:
 					os_exe_ext = '64' + os_exe_ext
 				self.passes = 1
-				cmd = [DV.bin_path + 'ffmpeg' + os_exe_ext, '-i', '?DAMNVID_VIDEO_STREAM?', '-y', '-passlogfile', DV.tmp_path + 'pass']
+				cmd = [DamnFindBinary(('ffmpeg' + os_exe_ext, 'ffmpeg')), '-i', '?DAMNVID_VIDEO_STREAM?', '-y', '-passlogfile', DV.tmp_path + 'pass']
 				for i in DV.preferences.keys():
 					if i[0:25] == 'damnvid-profile:encoding_':
 						i = i[16:]
@@ -3701,7 +3915,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 			Damnlog('Killing process?', killit)
 			if killit:
 				if DV.os == 'nt':
-					DamnSpawner('"' + DV.bin_path + 'taskkill.exe" /PID ' + str(self.process.pid) + ' /F').wait()
+					DamnSpawner('"' + DamnFindBinary('taskkill.exe') + '" /PID ' + str(self.process.pid) + ' /F').wait()
 				elif DV.os == 'mac':
 					DamnSpawner('kill -SIGTERM ' + str(self.process.pid)).wait() # From http://www.cs.cmu.edu/~benhdj/Mac/unix.html but with SIGTERM instead of SIGSTOP
 				else:
@@ -3854,8 +4068,9 @@ class DamnMainFrame(DamnFrame): # The main window
 		menu_addurl = wx.MenuItem(filemenu, -1, DV.l('Add &URL...'), DV.l('Adds a damn video from a URL.'))
 		filemenu.AppendItem(menu_addurl)
 		self.Bind(wx.EVT_MENU, self.onAddURL, menu_addurl)
-		self.historymenu = wx.Menu()
-		filemenu.AppendMenu(-1, DV.l('Add from &history...'), self.historymenu, DV.l('Adds a damn video from the video history.'))
+		menu_history = wx.MenuItem(filemenu, -1, DV.l('Video &history...'), DV.l('Opens DamnVid\'s video history.'))
+		filemenu.AppendItem(menu_history)
+		self.Bind(wx.EVT_MENU, self.onOpenHistory, menu_history)
 		filemenu.AppendSeparator()
 		filemenu.Append(ID_MENU_EXIT, DV.l('E&xit'), DV.l('Terminates DamnVid.'))
 		self.Bind(wx.EVT_MENU, self.onExit, id=ID_MENU_EXIT)
@@ -4085,6 +4300,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.addurl = None
 		self.loadingvisible = 0
 		self.trayicon = None
+		self.historyDialog = None
 		self.onListSelect()
 		Damnlog('DamnMainFrame properties OK, first run?',DV.first_run)
 		if DV.first_run:
@@ -4136,7 +4352,7 @@ class DamnMainFrame(DamnFrame): # The main window
 					Damnlog('Could not get screen resolution; giving up on restoring window geometry.')
 		else:
 			Damnlog('Window policy is',windowpolicy,'; doing nothing.')
-		self.buildHistoryMenu()
+		self.updateHistory()
 		Damnlog('DamnMainFrame: Main window all ready,')
 	def onMinimize(self, event):
 		Damnlog('DamnMainFrame iconize event fired. Is being minimized?', event.Iconized())
@@ -4156,16 +4372,27 @@ class DamnMainFrame(DamnFrame): # The main window
 	def onListSelect(self, event=None):
 		sel = self.list.getAllSelectedItems()
 		gotstuff = bool(len(sel))
+		count = self.list.GetItemCount()
 		self.btnRename.Enable(len(sel) == 1)
-		self.profiledropdown.Enable(gotstuff)
+		self.profiledropdown.Enable(bool(count))
+		if not count:
+			self.profiledropdown.SetItems([DV.l('(None)')])
+		videosAffected = range(count)
 		if gotstuff:
+			videosAffected = sel
 			self.deletebutton.SetLabel(DV.l('Remove'))
 			self.deletebutton.Enable(self.converting not in sel)
 			self.btnMoveUp.Enable(sel[0])
 			self.btnMoveDown.Enable(sel[-1] != self.list.GetItemCount() - 1)
+		else:
+			self.deletebutton.SetLabel(DV.l('Remove all'))
+			self.deletebutton.Enable(self.converting == -1)
+			self.btnMoveUp.Disable()
+			self.btnMoveDown.Disable()
+		if len(videosAffected):
 			choices = []
-			uniprofile = int(self.meta[self.videos[sel[0]]]['profile'])
-			for i in sel:
+			uniprofile = int(self.meta[self.videos[videosAffected[0]]]['profile'])
+			for i in videosAffected:
 				if int(self.meta[self.videos[i]]['profile']) != uniprofile:
 					uniprofile = -2
 			for p in range(-1, DV.prefs.profiles):
@@ -4177,15 +4404,12 @@ class DamnMainFrame(DamnFrame): # The main window
 				self.profiledropdown.SetSelection(0)
 			else:
 				self.profiledropdown.SetSelection(uniprofile + 1)
-		else:
-			self.deletebutton.SetLabel(DV.l('Remove all'))
-			self.deletebutton.Enable(self.converting == -1)
-			self.btnMoveUp.Disable()
-			self.btnMoveDown.Disable()
-			self.profiledropdown.SetItems([DV.l('(None)')])
 	def onListKeyDown(self, event):
-		if (event.GetKeyCode() == 8 or event.GetKeyCode() == 127) and self.list.GetSelectedItemCount(): # Backspace or delete, but only when there's at least one selected video
-			self.onDelSelection(None)
+		keycode = event.GetKeyCode()
+		if (keycode == wx.WXK_BACK or keycode == wx.WXK_DELETE) and self.list.GetSelectedItemCount():
+			self.onDelSelection(event)
+		elif (keycode == wx.WXK_F2 or keycode == wx.WXK_NUMPAD_F2) and self.list.GetSelectedItemCount() == 1:
+			self.onRename(event)
 	def onAddFile(self, event):
 		d = os.getcwd()
 		if os.path.exists(DV.prefs.get('LastFileDir')):
@@ -4202,7 +4426,15 @@ class DamnMainFrame(DamnFrame): # The main window
 			DV.prefs.save()
 			self.addVid(vids)
 		dlg.Destroy()
-	def onAddURL(self, event):
+	def onOpenHistory(self, event=None):
+		Damnlog('onOpenHistory event fired:', event)
+		if self.historyDialog is None:
+			self.historyDialog = DamnHistoryViewer(self)
+		self.historyDialog.Show()
+	def onCloseHistory(self, event=None):
+		Damnlog('onCloseHistory event fired:', event)
+		self.historyDialog = None
+	def onAddURL(self, event=None):
 		Damnlog('onAddURL event fired:',event)
 		default = ''
 		try:
@@ -4329,73 +4561,43 @@ class DamnMainFrame(DamnFrame): # The main window
 						dlg.SetIcon(DV.icon)
 						dlg.ShowModal()
 						dlg.Destroy()
-	def buildHistoryMenu(self):
-		Damnlog('Clearing video history menu.')
-		for i in self.historymenu.GetMenuItems():
-			self.historymenu.DestroyItem(i)
-		history = DV.prefs.geta('damnvid-videohistory','videos')
-		histsize = int(DV.prefs.get('videohistorysize'))
-		Damnlog('Video history is',history,'; history size is',histsize)
-		if not histsize:
-			Damnlog('Histize is zero, disabling feature.')
-			self.historymenu.Append(-1, DV.l('Feature disabled'), DV.l('This feature is disabled because you set the history size to 0.'))
-		else:
-			Damnlog('Histsize is not 0, building history menu.')
-			menuitems = []
-			for i in range(min(histsize,len(history))):
-				video = history[i].split(u'|')
-				Damnlog('Creating history menu item for video',video)
-				if len(video) != 2:
-					Damnlog('Size of video array is not 2; aborting.')
-					continue
-				menuitems.append(wx.MenuItem(self.historymenu, -1, DamnUnicode(video[0]), DamnUnicode(video[1])))
-				self.historymenu.Bind(wx.EVT_MENU, DamnCurry(self.onHistoryVideoMenu, video), menuitems[-1])
-				self.Bind(wx.EVT_MENU, DamnCurry(self.onHistoryVideoMenu, video), menuitems[-1])
-				self.historymenu.AppendItem(menuitems[-1])
-			if len(history):
-				self.historymenu.AppendSeparator()
-				clearhistory = wx.MenuItem(self.historymenu, -1, DV.l('(Clear history)'), DV.l('Clears the video history.'))
-				self.historymenu.AppendItem(clearhistory)
-				self.historymenu.Bind(wx.EVT_MENU, self.clearHistory, clearhistory)
-				self.Bind(wx.EVT_MENU, self.clearHistory, clearhistory)
-			else:
-				self.historymenu.Append(-1, DV.l('(Empty history)'), DV.l('The video history is empty.'))
-			Damnlog('Done building video history menu.')
-	def onHistoryVideoMenu(self, video, event=None):
-		self.addVid([video[1]], DV.prefs.get('autoconvert') == 'True')
-	def clearHistory(self, *args):
-		DV.prefs.seta('damnvid-videohistory','videos',[])
-		self.buildHistoryMenu()
+	def updateHistory(self):
+		if self.historyDialog is not None:
+			self.historyDialog.update()
+	def onAddHistoryVideo(self, uri, event=None):
+		Damnlog('History video add event fired:', event,'with URI', uri)
+		self.addVid([uri], DV.prefs.get('autoconvert') == 'True')
 	def addVid(self, uris, thengo=False):
 		DamnVideoLoader(self, uris, thengo).start()
-	def addTohistory(self, title, uri):
+	def addTohistory(self, uri, title, icon=None):
 		uri = DamnUnicode(uri)
 		title = DamnUnicode(title)
-		Damnlog('Adding video to history:',title,'with URI',uri)
-		history = DV.prefs.geta('damnvid-videohistory','videos')
+		icon = DamnUnicode(icon)
+		Damnlog('Adding video to history:', uri, 'with title', title, 'and icon', icon)
+		history = DV.prefs.geta('damnvid-videohistory', 'videos')
 		histsize = int(DV.prefs.get('videohistorysize'))
 		if not histsize:
 			Damnlog('Histsize is zero, not touching anything.')
 			return
 		for i in history:
-			tempvideo = i.split(u'|')
-			if len(tempvideo) != 2:
-				Damnlog('Invalid entry in history:',i)
+			tempvideo = i.split(u'\\')
+			if len(tempvideo) != 3:
+				Damnlog('Invalid entry in history:', i)
 				continue
-			if tempvideo[1].strip().lower() == uri.strip().lower():
+			if tempvideo[0].strip().lower() == uri.strip().lower():
 				Damnlog('URI',uri,'is already in history, not adding it to history again.')
 				return
 		history.reverse()
 		while len(history) >= histsize:
 			history = history[1:]
-		history.append(u'|'.join([DamnUnicode(title),DamnUnicode(uri)]))
+		history.append(u'\\'.join([uri,title,icon]))
 		history.reverse()
 		DV.prefs.seta('damnvid-videohistory','videos',history)
 		Damnlog('Video added successfully, rebuilding history menu.')
-		self.buildHistoryMenu()
+		self.updateHistory()
 	def addValid(self, meta):
 		Damnlog('Adding video to DamnList with meta:',meta)
-		self.addTohistory(meta['name'], meta['original'])
+		self.addTohistory(meta['original'], meta['name'], DV.listicons.getHandle(meta['icon']))
 		curvid = len(self.videos)
 		self.list.InsertStringItem(curvid, meta['name'])
 		self.list.SetStringItem(curvid, ID_COL_VIDPROFILE, DV.l(DV.prefs.getp(meta['profile'], 'name')))
@@ -4501,9 +4703,21 @@ class DamnMainFrame(DamnFrame): # The main window
 			dlg = wx.TextEntryDialog(None, DV.l('Enter the new name for "') + self.meta[self.videos[item]]['name'] + '".', DV.l('Rename'), self.meta[self.videos[item]]['name'])
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
-			self.meta[self.videos[item]]['name'] = dlg.GetValue()
-			self.list.SetStringItem(item, ID_COL_VIDNAME, dlg.GetValue())
+			newname = dlg.GetValue()
+			self.meta[self.videos[item]]['name'] = newname
+			self.list.SetStringItem(item, ID_COL_VIDNAME, newname)
 			dlg.Destroy()
+			history = DV.prefs.geta('damnvid-videohistory','videos')
+			for i in range(len(history)):
+				video = history[i].split(u'\\')
+				if len(video) != 3:
+					continue
+				if video[0] == self.meta[self.videos[item]]['original']:
+					video[1] = newname
+					history[i] = u'\\'.join(video)
+			DV.prefs.seta('damnvid-videohistory','videos',history)
+			DV.prefs.save()
+			self.updateHistory()
 	def onSearch(self, event):
 		if not self.searchopen:
 			self.searchopen = True
@@ -4561,11 +4775,13 @@ class DamnMainFrame(DamnFrame): # The main window
 	def onChangeProfileDropdown(self, event):
 		sel = self.profiledropdown.GetCurrentSelection()
 		if self.profiledropdown.GetItems()[0] == '(Multiple)':
-			sel = sel - 1
+			sel -= 1
 		if sel != -1:
 			self.onChangeProfile(sel - 1, event)
 	def onChangeProfile(self, profile, event):
 		items = self.list.getAllSelectedItems()
+		if not len(items):
+			items = range(self.list.GetItemCount())
 		for i in items:
 			if self.meta[self.videos[i]]['profile'] != profile:
 				self.meta[self.videos[i]]['profile'] = profile
@@ -4599,7 +4815,7 @@ class DamnMainFrame(DamnFrame): # The main window
 			del self.reopenprefs
 		except:
 			pass
-		self.buildHistoryMenu() # In case history size changed
+		self.updateHistory() # In case history size changed
 		self.onListSelect()
 	def onOpenOutDir(self, event):
 		if DV.os == 'nt':
@@ -4712,6 +4928,8 @@ class DamnMainFrame(DamnFrame): # The main window
 			self.shutdown()
 	def shutdown(self):
 		Damnlog('Main window got shutdown() call')
+		if self.historyDialog is not None:
+			self.historyDialog.onClose()
 		try:
 			Damnlog('Attempting to get window position/size information.')
 			position = self.GetPositionTuple()
