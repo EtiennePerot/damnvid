@@ -5,15 +5,13 @@ import sys
 import platform
 import shutil
 import getopt
+import subprocess
 
 def procs(command):
-	p=os.popen('cd "' + os.getcwd() + '";' + command)
-	for l in p.readlines():
-		print l.strip()
-	try:
-		p.close()
-	except:
-		pass
+	p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
+	for l in p.stdout:
+                print '>', l.strip()
+        p.communicate()
 
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
@@ -89,6 +87,7 @@ else:
 		required_files.append('bin'+os.sep+'ffmpeg')
 required_file=open(outputFile,'w')
 for f in required_files:
+        print 'Required:', f
 	required_file.write(f)
 	if destFolder is not None:
 		p = destFolder + os.path.dirname(f)
