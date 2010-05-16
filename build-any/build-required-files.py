@@ -8,17 +8,17 @@ import getopt
 import subprocess
 
 def procs(command):
-	p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=os.getcwd())
+	p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	for l in p.stdout:
-                print '>', l.strip()
-        p.communicate()
+		print '>', l.strip()
+	p.communicate()
 
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
 	OSNAME='mac'
 required_files=[]
-os.chdir(os.path.dirname(sys.argv[0]) + os.sep + '..')
-procs('python build-any' + os.sep + 'cleanup.py')
+os.chdir(os.path.abspath(os.path.dirname(sys.argv[0]) + os.sep + '..'))
+procs(['python', 'build-any' + os.sep + 'cleanup.py'])
 opts, args = getopt.getopt(sys.argv[1:], 'o:d:')
 outputFile = 'required-files.txt'
 destFolder = None
@@ -61,7 +61,7 @@ for f in os.listdir('./modules/'):
 		os.remove('./modules/'+f)
 for f in os.listdir('./modules/'):
 	if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
-		procs('python build-any' + os.sep + 'module-package.py modules' + os.sep + f)
+		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
 for f in os.listdir('.'):
 	if f[-15:]=='.module.damnvid':
 		if os.path.lexists('modules/'+f):

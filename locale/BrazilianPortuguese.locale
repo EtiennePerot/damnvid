@@ -418,7 +418,7 @@ Além disso, um dos seus perfis de codificação pode ser definido como padrão 
         'This feature is disabled because you set the history size to 0.':u'Este recurso está desabilitado porque você definiu o tamanho do histórico para 0.',
         'Video history size':u'Tamanho do histórico de vídeos',
         'Add from &history...':u'Adicionar do &histórico...',
-        '(Clear history)':u'(Limpar o histórico)',
+        'Clear history':u'Limpar o histórico',
         'Clears the video history.':u'Limpa o histórico de vídeos.',
         '(Empty history)':u'(Histórico vazio)',
         'The video history is empty.':u'O histórico de vídeos está vazio.',

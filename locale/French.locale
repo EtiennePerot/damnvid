@@ -417,11 +417,11 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'Feature disabled':u'Fonction désactivée',
 		'This feature is disabled because you set the history size to 0.':u'Cette fonction est désactivée car la taille de l\'historique est 0.',
 		'Video history size':u'Taille de l\'historique des vidéos',
-		'(Clear history)':u'(Effacer l\'historique)',
+		'Clear history':u'Effacer l\'historique',
 		'Clears the video history.':u'Efface l\'historique des vidéos récemment ajoutées.',
 		'(Empty history)':u'(Historique vide)',
 		'The video history is empty.':u'L\'historique des vidéos est vide.',
-		'Add from &history...':u'Ajouter depuis l\'&historique...',
+		'Video &history...':u'&Historique des vidéos...',
 		'Adds a damn video from the video history.':u'Ajoute une vidéo depuis l\'historique.',
 		'Show DamnVid':u'Afficher DamnVid',
 		'Perform search when launched':u'Lancer la recherche par défaut lors du démarrage',
@@ -433,6 +433,10 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'Use system settings':u'Utiliser les options globales',
 		'Use HTTP/HTTPS proxy':u'Utiliser un proxy HTTP/HTTPS',
 		'Use SOCKS4 proxy':u'Utiliser un proxy SOCKS4',
-		'Use SOCKS5 proxy':u'Utiliser un proxy SOCKS5'
+		'Use SOCKS5 proxy':u'Utiliser un proxy SOCKS5',
+		'History': u'Historique',
+		'Close': u'Fermer',
+		'The history feature has been disabled in the preferences.':u'L\'historique est désactivé dans les préférences.',
+		'The history is empty.':u'L\'historique est vide.'
 	}
 }

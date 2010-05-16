@@ -418,7 +418,7 @@ Al ser capaz de crear múltiples instancias de estos perfiles te permiten conver
 		'This feature is disabled because you set the history size to 0.':u'Esta funcionalidad está deshabilitada porque se ha puesto el tamaño del historial a 0.',
 		'Video history size':u'Tamaño del historial de vídeo',
 		'Add from &history...':u'Añadir desde el &historial...',
-		'(Clear history)':u'(Limpiar historial)',
+		'Clear history':u'Limpiar historial',
 		'Clears the video history.':u'Limpia el historial de vídeo.',
 		'(Empty history)':u'(Historial vacío)',
 		'The video history is empty.':u'El historial de vídeo está vacío.',

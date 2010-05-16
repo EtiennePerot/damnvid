@@ -2608,7 +2608,7 @@ class DamnHistoryViewer(wx.Dialog):
 		tophbox.Add(topvbox, 1, wx.EXPAND)
 		tophbox.Add((DV.border_padding, 0))
 		topvbox.Add((0, DV.border_padding))
-		topvbox.Add(wx.StaticText(self.toppanel, -1, DV.l('History:')), 0)
+		topvbox.Add(wx.StaticText(self.toppanel, -1, DV.l('History') + u':'), 0)
 		topvbox.Add((0, DV.border_padding * 2))
 		self.historyPanel = wx.ScrolledWindow(self.toppanel, -1, size = (400, 400), style=wx.SB_VERTICAL)
 		self.historyPanel.SetMinSize((400, 400))
@@ -4888,7 +4888,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		del self.meta[self.videos[i]]
 		self.videos.pop(i)
 		if self.converting > i:
-			self.converting = self.converting - 1
+			self.converting -= 1
 	def onDelete(self, event):
 		if len(self.list.getAllSelectedItems()):
 			self.onDelSelection(event)

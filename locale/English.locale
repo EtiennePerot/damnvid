@@ -417,8 +417,8 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'Feature disabled':u'Feature disabled',
 		'This feature is disabled because you set the history size to 0.':u'This feature is disabled because you set the history size to 0.',
 		'Video history size':u'Video history size',
-		'Add from &history...':u'Add from &history...',
-		'(Clear history)':u'(Clear history)',
+		'Video &history...':u'Video &history...',
+		'Clear history':u'Clear history',
 		'Clears the video history.':u'Clears the video history.',
 		'(Empty history)':u'(Empty history)',
 		'The video history is empty.':u'The video history is empty.',
@@ -433,6 +433,10 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'Use system settings':u'Use system settings',
 		'Use HTTP/HTTPS proxy':u'Use HTTP/HTTPS proxy',
 		'Use SOCKS4 proxy':u'Use SOCKS4 proxy',
-		'Use SOCKS5 proxy':u'Use SOCKS5 proxy'
+		'Use SOCKS5 proxy':u'Use SOCKS5 proxy',
+		'History': u'History',
+		'Close': u'Close',
+		'The history feature has been disabled in the preferences.':u'The history feature has been disabled in the preferences.',
+		'The history is empty.':u'The history is empty.'
 	}
 }
