@@ -46,9 +46,9 @@ if len(missing2):
 	print locales[1], 'is missing the following', len(missing2), 'strings:'
 	for k in range(len(missing2)):
 		if k < len(missing2) - 1:
-			print '\t\t\'' + escape(missing2[k]) + '\':u\'' + escape(first['strings'][missing2[k]]) + '\','
+			print '\t\t\'' + escape(missing2[k]) + '\': u\'' + escape(first['strings'][missing2[k]]) + '\','
 		else:
-			print '\t\t\'' + escape(missing2[k]) + '\':u\'' + escape(first['strings'][missing2[k]]) + '\''
+			print '\t\t\'' + escape(missing2[k]) + '\': u\'' + escape(first['strings'][missing2[k]]) + '\''
 	print 'Don\'t forget to add a comma at the end of the last line before adding those lines in.'
 else:
 	print locales[1], 'is not missing anything.'
@@ -59,9 +59,9 @@ if len(missing1):
 	print locales[0], 'is missing the following', len(missing1), 'strings:'
 	for k in range(len(missing1)):
 		if k < len(missing1) - 1:
-			print '\t\t\'' + escape(missing1[k]) + '\':u\'' + escape(second['strings'][missing1[k]]) + '\','
+			print '\t\t\'' + escape(missing1[k]) + '\': u\'' + escape(second['strings'][missing1[k]]) + '\','
 		else:
-			print '\t\t\'' + escape(missing1[k]) + '\':u\'' + escape(second['strings'][missing1[k]]) + '\''
+			print '\t\t\'' + escape(missing1[k]) + '\': u\'' + escape(second['strings'][missing1[k]]) + '\''
 	print 'Don\'t forget to add a comma at the end of the last line before adding those lines in.'
 else:
 	print locales[0], 'is not missing anything.'

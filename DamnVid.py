@@ -1020,10 +1020,14 @@ def DamnURLOpen(req, data=None, throwerror=False):
 	except IOError, err:
 		if not hasattr(err, 'reason') and not hasattr(err, 'code'):
 			Damnlog('DamnURLOpen on', url, 'failed with IOError but without reason or code.')
-		elif not hasattr(err, 'reason'):
-			Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and no reason.')
 		else:
-			Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and reason', err.reason)
+			try:
+				Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and reason', err.reason)
+			except:
+				try:
+					Damnlog('DamnURLOpen on', url, 'failed with code', err.code, 'and no reason.')
+				except:
+					Damnlog('DamnURLOpen on', url, 'failed pretty badly.')
 		if throwerror:
 			raise err
 		return None
@@ -3779,7 +3783,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 				if DV.bit64:
 					os_exe_ext = '64' + os_exe_ext
 				self.passes = 1
-				cmd = [DamnFindBinary(('ffmpeg' + os_exe_ext, 'ffmpeg')), '-i', '?DAMNVID_VIDEO_STREAM?', '-y', '-passlogfile', DV.tmp_path + 'pass']
+				cmd = [DamnFindBinary(('ffmpeg-damnvid', 'ffmpeg' + os_exe_ext, 'ffmpeg')), '-i', '?DAMNVID_VIDEO_STREAM?', '-y', '-passlogfile', DV.tmp_path + 'pass']
 				for i in DV.preferences.keys():
 					if i[0:25] == 'damnvid-profile:encoding_':
 						i = i[16:]
