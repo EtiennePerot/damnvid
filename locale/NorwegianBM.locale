@@ -433,6 +433,14 @@ I tillegg til dette kan en av kodeprofiklene dine settes til forvalgt profil for
 		'Use system settings':u'Bruk systeminstillinger',
 		'Use HTTP/HTTPS proxy':u'Bruk HTTP/HTTPS proxy',
 		'Use SOCKS4 proxy':u'Bruk SOCKS4 proxy',
-		'Use SOCKS5 proxy':u'Bruk SOCKS5 proxy'
+		'Use SOCKS5 proxy':u'Bruk SOCKS5 proxy',
+		'The history is empty.':u'Loggen er tom.',
+		'The history feature has been disabled in the preferences.':u'Denne funksjonen er slått av.',
+		'(Clear search history)':u'(Tøm loggen)',
+		'History':u'Logg',
+		'Video &history...':u'Video &logg...',
+		'Close':u'Lukk',
+		'Clear history':u'Tøm logg'
+
 	}
 }
