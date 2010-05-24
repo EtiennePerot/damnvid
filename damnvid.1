@@ -9,7 +9,9 @@ DamnVid \- program for downloading and converting online videos
 
 ..SH SYNOPSIS
 .B damnvid
-.RI [ --config ] [ --rebuild-modules ] [ --flush ] [ -q ] [ --dump-locale-warnings ]
+.RI [ --config ] [ --flush ] [ -q ] [ --dump-locale-warnings ]
+.RI file
+.RI file module
 .br
 
 .SH DESCRIPTION
@@ -22,12 +24,10 @@ DamnVid is written in python and is cross-platform. DamnVid make use of the FFmp
 Quiet mode
 .IP \fB\--config\fP
 Use alternate config file
-.IP \fB\--rebuild-modules\fP
-Force rebuilding of all modules
 .IP \fB\--flush\fP
 ???
 .IP \fB\--dump-locale-warnings\fP
-???
+Creates a log file of strings that where found without translation
 
 .SH NOTES
 
