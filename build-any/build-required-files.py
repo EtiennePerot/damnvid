@@ -80,11 +80,6 @@ else:
 		'debian/damnvid.desktop': '/usr/share/applications/',
 		'build-deb/damnvid': '/usr/bin/'
 	}
-	# The following is temporary until ffmpeg is built correctly by Launchpad:
-	if platform.architecture()[0]=='64bit':
-		required_files.append('bin'+os.sep+'ffmpeg64')
-	else:
-		required_files.append('bin'+os.sep+'ffmpeg')
 required_file=open(outputFile,'w')
 for f in required_files:
         print 'Required:', f
