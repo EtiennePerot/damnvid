@@ -1,3 +1,10 @@
+damnvid (1.6-1ubuntu1) lucid; urgency=low
+
+  * The bash startup script where not passing on command line arguments
+  * Add man page
+
+ -- Andreas Noteng <andreas@noteng.no>  Mon, 24 May 2010 09:16:46 +0200
+
 damnvid (1.6-1) lucid; urgency=low
 
   * New upstream release
