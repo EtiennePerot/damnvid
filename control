@@ -4,12 +4,12 @@ Priority: extra
 Maintainer: Andreas Noteng <andreas@noteng.no>
 Build-Depends: debhelper (>= 7), python-support, python (>=2.5), quilt, python-wxtools, python-gdata (>=2.0), python-beautifulsoup
 Standards-Version: 3.8.3
-Homepage: http://code.google.com/p/damnvid/
+Homepage: http://damnvid.googlecode.com/
 
 Package: damnvid
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ffmpeg, python-wxtools, python-gdata, python-beautifulsoup, libavcodec-extra-52, python-wxgtk2.8 (>= 2.8.10)
-Description: an application to download and convert videos
- DamnVid downloads and converts videos from your hard drive or from dozens 
- of video sharing websites like YouTube, Dailymotion, Veoh, Metacafe, etc. 
- Basically, it's a video downloader and converter that sucks less. 
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-wxtools, python-gdata (>=2.0), python-beautifulsoup, python-wxgtk2.8 (>= 2.8.10)
+Description: An application to download and convert videos.
+ DamnVid downloads and converts videos from your hard drive or from dozens
+ of video sharing websites like YouTube, Dailymotion, Veoh, Metacafe, etc.
+ Basically, it's a video downloader and converter that sucks less.
