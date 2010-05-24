@@ -819,6 +819,7 @@ def DamnFindBinary(binary):
 		else:
 			Damnlog('Warning: Binary path', p,'is not a directory.')
 	Damnlog('!! Binary', binary, 'not found, returning simply', binary)
+	return binary
 def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None, bufsize=128):
 	if cwd is None:
 		cwd = DV.curdir
@@ -2203,7 +2204,7 @@ class DamnYouTubeService(thr.Thread):
 		while len(self.queries):
 			query = self.queries[0]
 			if query[0] == 'feed':
-				self.returnResult(DV.youtube_service.GetYouTubeVideoFeed(query[1]))
+				self.returnResult(DV.youtube_service.GetYouTubeVideoFeed(DamnUnicode(query[1])))
 			elif query[0] == 'image':
 				http = DamnURLOpen(query[1])
 				tmpf = self.getTempFile()
@@ -2216,7 +2217,7 @@ class DamnYouTubeService(thr.Thread):
 			self.queries.pop(0)
 			if not len(self.queries):
 				time.sleep(.5) # Hang around for a moment, wait for work
-		self.postEvent({'query':('done',)})
+		self.postEvent({'query':('done',)}) # All done, service will be respawned if needed later
 		try:
 			self.parent.loadlevel -= 1
 		except:
@@ -2353,8 +2354,8 @@ class DamnVidBrowser(wx.Dialog):
 		self.searchbox.SetValue(searchlabel)
 		Damnlog('Youtube browser API prefix is', prefix)
 		self.buildSearchbox()
-		Damnlog('YouTube browser search box populating complete, beginning actual search for', search,'at URL:',prefix + urllib2.quote(search))
-		self.getService().query(('feed', prefix + urllib2.quote(search)))
+		Damnlog('YouTube browser search box populating complete, beginning actual search for', search, 'at URL:', prefix + urllib2.quote(search))
+		self.getService().query(('feed', DamnUnicode(prefix + urllib2.quote(search))))
 		Damnlog('YouTube browser search results for', search, 'are in, destroying interface.')
 		for i in self.resultctrls:
 			i.Destroy()
