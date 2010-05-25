@@ -1,0 +1,4 @@
+# Compulsory line, this is a version 3 file
+version=3
+opts=downloadurlmangle=s#.*(damnvid-([\d.]+)-source\.tar\.bz2).*#http://damnvid.googlecode.com/files/$1#,filenamemangle=s#.*(damnvid-([\d.]+)-source\.tar\.bz2).*#$1# \
+    http://code.google.com/p/damnvid/downloads/list ^.*detail\?name=damnvid-([\d.]+)-source\.tar\.bz2.*
