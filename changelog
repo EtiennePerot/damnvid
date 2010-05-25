@@ -1,3 +1,17 @@
+damnvid (1.6+svn268-1) lucid; urgency=low
+
+  * Fix problem with long titles in YouTube browser
+
+ -- Andreas Noteng <andreas@noteng.no>  Tue, 25 May 2010 18:58:56 +0200
+
+damnvid (1.6-1ubuntu2) lucid; urgency=low
+
+  * Add psyco as a recommended package
+  * Updated man page
+  * Fix some minor issues with Norwegian translation
+
+ -- Andreas Noteng <andreas@noteng.no>  Tue, 25 May 2010 00:15:20 +0200
+
 damnvid (1.6-1ubuntu1) lucid; urgency=low
 
   * The bash startup script were not passing on command line arguments
