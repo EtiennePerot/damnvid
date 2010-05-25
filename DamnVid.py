@@ -4360,11 +4360,15 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.onListSelect()
 		Damnlog('DamnMainFrame properties OK, first run?',DV.first_run)
 		if DV.first_run:
-			dlg = wx.MessageDialog(self, DV.l('Welcome to DamnVid ') + DV.version + '!\n' + DV.l('Would you like DamnVid to check for updates every time it starts?'), DV.l('Welcome to DamnVid ') + DV.version + '!', wx.YES | wx.NO | wx.ICON_QUESTION)
-			if dlg.ShowModal() == wx.ID_YES:
+			if DV.os == 'mac':
 				DV.prefs.set('CheckForUpdates', 'True')
+				Damnlog('Skipping asking user for updates because this is a Mac and Mac users don\'t want to configure stuff.')
 			else:
-				DV.prefs.set('CheckForUpdates', 'False')
+				dlg = wx.MessageDialog(self, DV.l('Welcome to DamnVid ') + DV.version + '!\n' + DV.l('Would you like DamnVid to check for updates every time it starts?'), DV.l('Welcome to DamnVid ') + DV.version + '!', wx.YES | wx.NO | wx.ICON_QUESTION)
+				if dlg.ShowModal() == wx.ID_YES:
+					DV.prefs.set('CheckForUpdates', 'True')
+				else:
+					DV.prefs.set('CheckForUpdates', 'False')
 		if DV.prefs.get('CheckForUpdates') == 'True':
 			Damnlog('DamnMainFrame checking for updates.')
 			self.onCheckUpdates(None)
