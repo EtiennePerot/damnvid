@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
+import os, sys
 import shutil
 import re
 
-while not os.path.lexists('./DamnVid.py'):
-	os.chdir('./../')
+os.chdir(os.path.abspath(os.path.dirname(sys.argv[0]) + os.sep + '..'))
 def shazarr(f):
 	print 'Cleaning up:', f
 	if os.path.isdir(f):
