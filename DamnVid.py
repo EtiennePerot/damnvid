@@ -2395,7 +2395,16 @@ class DamnVidBrowser(wx.Dialog):
 				tmpsizer.Add((DV.control_hgap, 0))
 				infobox = wx.BoxSizer(wx.VERTICAL)
 				tmpsizer.Add(infobox, 1, wx.EXPAND)
-				title = DamnHyperlink(tmppanel, -1, self.cleanString(results.entry[i].media.title.text), self.cleanString(results.entry[i].media.player.url), wx.WHITE)
+				tmpTitle = self.cleanString(results.entry[i].media.title.text)
+				title = DamnHyperlink(tmppanel, -1, tmpTitle, self.cleanString(results.entry[i].media.player.url), wx.WHITE)
+				while title.GetBestSizeTuple()[0] > 208:
+					try:
+						title.Destroy()
+					except:
+						Damnlog('!Failed to destroy old title hyperlink while attempting to fit it inside the YouTube browser.')
+					tmpTitle = tmpTitle[:-8]
+					title = DamnHyperlink(tmppanel, -1, tmpTitle + u'...', self.cleanString(results.entry[i].media.player.url), wx.WHITE)
+				title.SetToolTip(wx.ToolTip(self.cleanString(results.entry[i].media.title.text)))
 				infobox.Add(title)
 				#infobox.Add((0,DV.control_vgap))
 				desc = self.makeDescPanel(results.entry[i].media.description.text, tmppanel, panelwidth - 2 * DV.border_padding)
