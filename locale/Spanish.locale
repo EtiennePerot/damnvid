@@ -424,7 +424,7 @@ Al ser capaz de crear múltiples instancias de estos perfiles te permiten conver
 		'The video history is empty.':u'El historial de vídeo está vacío.',
 		'Adds a damn video from the video history.':u'Añade un maldito vídeo desde el historial.',
 		'Show DamnVid':u'Mostrar DamnVid',
-		'Perform search when launched':u'Hacer una búsqueda nada más arrancar'
+		'Perform search when launched':u'Hacer una búsqueda nada más arrancar',
 		'Reset status':u'Reiniciar estado',
 		'QuickTime format (.mov)':u'Formato QuickTime (.mov)',
 		'Proxy':u'Proxy',
