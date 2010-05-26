@@ -3680,7 +3680,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 	def update(self, progress=None, statustext=None, status=None, dialog=None, go=None):
 		info = {}
 		if progress is not None:
-			info['progress'] = float(progress)
+			info['progress'] = min(100.0, max(0.0, float(progress)))
 		if statustext is not None:
 			info['statustext'] = DamnUnicode(statustext)
 		if status is not None:
