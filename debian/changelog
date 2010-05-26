@@ -1,4 +1,4 @@
-damnvid (1.6-1ubuntu1) lucid; urgency=low
+damnvid (1.6-1ubuntu2) lucid; urgency=low
 
   [Etienne Pérot]
   * Fix syntax error in spanish locale
