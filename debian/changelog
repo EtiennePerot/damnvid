@@ -1,3 +1,9 @@
+damnvid (1.6-1ubuntu2.09.10.1) karmic; urgency=low
+
+  * Backport to Karmic
+
+ -- Andreas Noteng <andreas@noteng.no>  Thu, 27 May 2010 06:53:16 +0200
+
 damnvid (1.6-1ubuntu2) lucid; urgency=low
 
   [Etienne Pérot]
