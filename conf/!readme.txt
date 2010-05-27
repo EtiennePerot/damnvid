@@ -1,4 +1,0 @@
-This is DamnVid's configuration directory, home of DamnVid's configuration file, conf.ini. You should normally never have to touch this, as you can edit the preferences easily with DamnVid's preferences dialog (DamnVid -> Preferences). But if something wrong happens for some reason, you can restore DamnVid's default configuration by copying conf.ini to:
-- %APPDATA%\DamnVid\damnvid.ini on Windows
-- ~/.damnvid/damnvid.ini on Linux
-- /Library/Preferences/DamnVid/DamnVid.ini on Mac OS X

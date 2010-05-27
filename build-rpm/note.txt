@@ -1,1 +1,0 @@
-There is no actual RPM build script; the RPM package is built during the deb building process. This folder is only here to hold RPM-package-related stuff.
