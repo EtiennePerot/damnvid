@@ -1,3 +1,10 @@
+damnvid (1.6-1ubuntu3) lucid; urgency=low
+
+  [Etienne Pérot]
+  * Add patch to make python pick the right wx version
+
+ -- Andreas Noteng <andreas@noteng.no>  Sat, 29 May 2010 09:33:05 +0200
+
 damnvid (1.6-1ubuntu2) lucid; urgency=low
 
   [Etienne Pérot]
