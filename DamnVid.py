@@ -3765,7 +3765,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 							else:
 								copied = float(total)
 								keepgoing = False
-							progress = min((100.0, copied / total * 100.0))
+							progress = max(0.0, min(100.0, copied / total * 100.0))
 							nowtime = float(time.time())
 							if lasttime + .5 < nowtime or not keepgoing: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
 								self.update(progress, status=self.parent.meta[self.parent.videos[self.parent.converting]]['status'] + ' [' + str(int(progress)) + '%]')
@@ -3956,9 +3956,10 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 		else:
 			res = REGEX_FFMPEG_TIME_EXTRACT.search(line)
 			if res:
+				progress = max(0.0, min(100.0, float(float(res.group(1)) / self.duration / float(self.totalpasses) + float(float(self.passes - 1) / float(self.totalpasses))) * 100.0))
 				DamnPostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, {
-					'progress':min(100.0, float(float(res.group(1)) / self.duration / float(self.totalpasses) + float(float(self.passes - 1) / float(self.totalpasses))) * 100.0),
-					'status':self.parent.meta[self.parent.videos[self.parent.converting]]['status'] + ' [' + str(int(100.0 * float(res.group(1)) / self.duration)) + '%]'
+					'progress': progress,
+					'status': self.parent.meta[self.parent.videos[self.parent.converting]]['status'] + ' [' + str(int(progress)) + '%]'
 				}))
 	def abortProcess(self): # Cannot send "q" because it's not a shell'd subprocess. Got to kill ffmpeg.
 		Damnlog('I\'m gonna kill dash nine, cause it\'s my time to shine.')
