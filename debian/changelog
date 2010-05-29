@@ -1,17 +1,3 @@
-damnvid (1.6-1ubuntu3) lucid; urgency=low
-
-  [Etienne Pérot]
-  * Add patch to pick the correct version of wx
-
- -- Andreas Noteng <andreas@noteng.no>  Sat, 29 May 2010 08:51:43 +0200
-
-damnvid (1.6-1ubuntu2) lucid; urgency=low
-
-  [Etienne Pérot]
-  * Fix syntax error in spanish locale
-
- -- Andreas Noteng <andreas@noteng.no>  Wed, 26 May 2010 13:19:00 +0200
-
 damnvid (1.6-1) lucid; urgency=low
 
   * New upstream release
