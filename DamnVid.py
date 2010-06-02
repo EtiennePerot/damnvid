@@ -27,6 +27,14 @@
 
 print 'Starting up.'
 print 'Importing wxPython.'
+try:
+	import wxversion
+	try:
+		wxversion.select('2.8')
+	except:
+		print 'Could not select version 2.8. Continuing anyway.'
+except:
+	print 'Could not import wxversion, continuing anyway.'
 import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
@@ -1182,7 +1190,9 @@ class DamnCurry:
 		self.func = func
 		self.pending = args[:]
 		self.kwargs = kwargs
+		Damnlog('DamnCurry initiated with function', func, 'and curry arguments:', self.pending, '; keyword arguments:', self.kwargs)
 	def __call__(self, *args, **kwargs):
+		Damnlog('DamnCurry for function', self.func, 'called with extra arguments:', args, 'and extra keyword args:', kwargs)
 		if kwargs and self.kwargs:
 			kw = self.kwargs.copy()
 			kw.update(kwargs)
@@ -2366,6 +2376,9 @@ class DamnVidBrowser(wx.Dialog):
 	def onLoad(self, event):
 		info = event.GetInfo()
 		Damnlog('onLoad event on YouTube browser. Event data:', info)
+		if info.has_key('newsearch'):
+			self.onSearchPostEvent(info['newsearch'], event)
+			return
 		if info['query'][0] == 'feed':
 			results = info['result']
 			boldfont = wx.SystemSettings.GetFont(wx.SYS_DEFAULT_GUI_FONT)
@@ -2520,8 +2533,11 @@ class DamnVidBrowser(wx.Dialog):
 			self.Bind(wx.EVT_MENU, DamnCurry(self.onSearchMenu, i), item)
 		Damnlog('History menu built, assigning it to search box.')
 		self.searchbox.SetMenu(boxmenu)
-	def onSearchMenu(self, query, event):
-		Damnlog('YouTube browser dialog received onSearchmenu event. Query is', query)
+	def onSearchMenu(self, query, event=None):
+		Damnlog('YouTube browser dialog received onSearchMenu event. Query is', query)
+		DamnPostEvent(self, DamnLoadingEvent(DV.evt_loading, -1, {'newsearch':query})) # Fix wxPython on Linux bug: Need to be in a new event loop iteration to do the search (and potentially, menu rebuilding).
+	def onSearchPostEvent(self, query, event=None):
+		Damnlog('YouTube browser dialog received onSearchPostEvent event. Query is', query)
 		if query is None: # Clear history
 			DV.prefs.seta('damnvid-search', 'history', [])
 			DV.prefs.save()
