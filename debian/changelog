@@ -1,3 +1,16 @@
+damnvid (1.6-1ubuntu4.09.10.1) karmic; urgency=low
+
+  * Backport to karmic
+
+ -- Andreas Noteng <andreas@noteng.no>  Thu, 03 Jun 2010 06:20:30 +0200
+
+damnvid (1.6-1ubuntu4) lucid; urgency=low
+
+  [Etienne Pérot]
+  * Work around bug 72 by delaying rebuilding of the searchbox
+
+ -- Andreas Noteng <andreas@noteng.no>  Thu, 03 Jun 2010 06:07:45 +0200
+
 damnvid (1.6-1ubuntu3.09.10.1) karmic; urgency=low
 
   * Bakcport to Karmic
