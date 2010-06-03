@@ -1,3 +1,9 @@
+damnvid (1.6-1ubuntu5.09.10.1) karmic; urgency=low
+
+  * Backport to Karmic
+
+ -- Andreas Noteng <andreas@noteng.no>  Thu, 03 Jun 2010 22:50:35 +0200
+
 damnvid (1.6-1ubuntu5) lucid; urgency=low
 
   * Add patch to set ssl to false for youtube
