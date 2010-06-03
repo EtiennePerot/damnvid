@@ -1,3 +1,24 @@
+damnvid (1.6-1ubuntu4) lucid; urgency=low
+
+  [Etienne Pérot]
+  * Work around bug 72 by delaying rebuilding of the searchbox
+
+ -- Andreas Noteng <andreas@noteng.no>  Thu, 03 Jun 2010 06:07:45 +0200
+
+damnvid (1.6-1ubuntu3) lucid; urgency=low
+
+  [Etienne Pérot]
+  * Add patch to make python pick the right wx version
+
+ -- Andreas Noteng <andreas@noteng.no>  Sat, 29 May 2010 09:33:05 +0200
+
+damnvid (1.6-1ubuntu2) lucid; urgency=low
+
+  [Etienne Pérot]
+  * Fix syntax error in spanish locale
+
+ -- Andreas Noteng <andreas@noteng.no>  Wed, 26 May 2010 13:19:00 +0200
+
 damnvid (1.6-1) lucid; urgency=low
 
   * New upstream release
