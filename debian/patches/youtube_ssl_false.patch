@@ -1,0 +1,12 @@
+Index: damnvid/DamnVid.py
+===================================================================
+--- damnvid.orig/DamnVid.py	2010-06-03 20:37:03.899132021 +0200
++++ damnvid/DamnVid.py	2010-06-03 20:38:14.000000000 +0200
+@@ -428,6 +428,7 @@
+ 	'libx264':[('coder', '1'), '+loop', ('cmp', '+chroma'), ('partitions', '+parti4x4+partp8x8+partb8x8'), ('g', '250'), ('subq', '6'), ('me_range', '16'), ('keyint_min', '25'), ('sc_threshold', '40'), ('i_qfactor', '0.71'), ('b_strategy', '1')]
+ }
+ DV.youtube_service = gdata.youtube.service.YouTubeService()
++DV.youtube_service.ssl = False 
+ Damnlog('Init underway, starting to declare fancier stuff.')
+ def DamnExecFile(f):
+ 	try:
