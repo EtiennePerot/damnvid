@@ -427,9 +427,9 @@ DV.codec_advanced_cl = {
 	'mpeg4':[('g', '300'), ('cmp', '2'), ('subcmp', '2'), ('trellis', '2'), '+4mv'],
 	'libx264':[('coder', '1'), '+loop', ('cmp', '+chroma'), ('partitions', '+parti4x4+partp8x8+partb8x8'), ('g', '250'), ('subq', '6'), ('me_range', '16'), ('keyint_min', '25'), ('sc_threshold', '40'), ('i_qfactor', '0.71'), ('b_strategy', '1')]
 }
-DV.youtube_service = gdata.youtube.service.YouTubeService()
-DV.youtube_service.ssl = False 
 Damnlog('Init underway, starting to declare fancier stuff.')
+DV.youtube_service = gdata.youtube.service.YouTubeService()
+DV.youtube_service.ssl = False
 def DamnExecFile(f):
 	try:
 		execfile(DamnUnicode(f))
@@ -955,24 +955,23 @@ if DV.dumplocalewarnings:
 	DV.argv = [x for x in DV.argv if x != '--dump-locale-warnings']
 if '-q' in DV.argv or '--flush':
 	DV.argv = [x for x in DV.argv if x != '-q' and x != '--flush']
-def DamnLocale(s, asunicode=True, warn=True):
-	k = DamnUnicode(s)
+def DamnLocale(s, warn=True, reverse=False):
 	s = DamnUnicode(s)
 	if DV.locale is None:
 		Damnlog('Locale warning: Locale is None.')
-		if asunicode:
-			return s
-		return k
-	if not DV.locale['strings'].has_key(k):
-		if warn and k not in DV.locale_warnings:
-			DV.locale_warnings.append(k)
-			Damnlog('Locale warning:', k, 'has no key for language', DV.lang)
-		if asunicode:
-			return s
-		return k
-	if asunicode:
-		return DamnUnicode(DV.locale['strings'][k])
-	return str(DV.locale['strings'][k].encode('ascii', 'ignore'))
+		return s
+	if reverse:
+		for i in DV.locale['strings'].iterkeys():
+			if DV.locale['strings'][i] == s:
+				return i
+		Damnlog('Reverse locale lookup atempt for:', s, 'failed for language', DV.lang)
+		return s
+	if not DV.locale['strings'].has_key(s):
+		if warn and s not in DV.locale_warnings:
+			DV.locale_warnings.append(s)
+			Damnlog('Locale warning:', s, 'has no key for language', DV.lang)
+		return s
+	return DamnUnicode(DV.locale['strings'][s])
 def DamnLoadCurrentLocale():
 	if DV.languages.has_key(DV.lang):
 		DV.locale = DV.languages[DV.lang]
@@ -2102,7 +2101,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 	def getp(self, profile, name):
 		if int(profile) == -1:
 			if name.lower() == 'name':
-				return DV.l('(Do not encode)')
+				return '(Do not encode)'
 			if name.lower() == 'outdir':
 				return self.get('defaultoutdir')
 		return self.gets('damnvid-profile-' + str(profile), name)
@@ -2857,7 +2856,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 		self.tree.SetItemImage(self.profileroot, self.treeimages.Add(wx.Bitmap(DV.images_path + 'profiles.png')))
 		self.profiles = []
 		for i in range(DV.prefs.profiles):
-			treeitem = self.tree.AppendItem(self.profileroot, DV.prefs.getp(i, 'name'))
+			treeitem = self.tree.AppendItem(self.profileroot, DV.l(DV.prefs.getp(i, 'name'), warn=False))
 			self.profiles.append(treeitem)
 			self.tree.SetItemImage(treeitem, self.treeimages.Add(wx.Bitmap(DV.images_path + 'profile.png')))
 		self.tree.ExpandAll()
@@ -3110,16 +3109,16 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 						self.prefpanesizer.Add(self.controls[i], (position[0], position[1]), (1, maxwidth[str(DV.preferences[i]['type'])]), wx.EXPAND)
 					self.controls[i].SetValue(val == 'True')
 					self.Bind(wx.EVT_CHECKBOX, self.onPrefChange, self.controls[i])
-				elif DV.preferences[i]['kind'][0:3] == 'int':
+				elif DV.preferences[i]['kind'][:3] == 'int':
 					choices = [self.defaultvalue]
-					if DV.preferences[i]['kind'][0:5] == 'intk:':
+					if DV.preferences[i]['kind'][:5] == 'intk:':
 						for f in range(int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find(':') + 1:DV.preferences[i]['kind'].find('-')]), int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find('-') + 1:])):
 							choices.append(str(pow(2, f)) + 'k')
 						if not val:
 							val = self.defaultvalue
 						self.controls[i] = self.makeList(DV.preferences[i]['strict'], choices, self.prefpane, val) # makeList takes care of the event binding
 						self.prefpanesizer.Add(self.controls[i], controlposition, controlspan, wx.EXPAND)
-					elif DV.preferences[i]['kind'][0:4] == 'int:':
+					elif DV.preferences[i]['kind'][:4] == 'int:':
 						interval = (int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find(':') + 1:DV.preferences[i]['kind'].find('-')]), int(DV.preferences[i]['kind'][DV.preferences[i]['kind'].find('-') + 1:]))
 						if not val:
 							val = '0'
@@ -3142,7 +3141,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 					self.Bind(wx.EVT_BUTTON, browseButton.onBrowse, browseButton)
 					pathsizer.Add(browseButton, 0)
 				elif DV.preferences[i]['kind'] == 'text':
-					self.controls[i] = wx.TextCtrl(self.prefpane, -1, val)
+					self.controls[i] = wx.TextCtrl(self.prefpane, -1, DV.l(val, warn=False))
 					self.Bind(wx.EVT_TEXT, self.onPrefChange, self.controls[i])
 					self.prefpanesizer.Add(self.controls[i], controlposition, controlspan, wx.EXPAND)
 				elif DV.preferences[i]['kind'] == 'locale':
@@ -3256,16 +3255,18 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 				val = int(self.controls[i].GetValue())
 			elif DV.preferences[genericpref]['kind'][0] == '%':
 				val = float(float(self.controls[i].GetValue())*float(int(DV.preferences[genericpref]['kind'][1:])) / 100.0)
-			elif DV.preferences[genericpref]['kind'] == 'dir' or DV.preferences[genericpref]['kind'] == 'text':
-				val = self.controls[i].GetValue()
+			elif DV.preferences[genericpref]['kind'] == 'text':
+				val = DV.l(self.controls[i].GetValue(), warn=False, reverse=True)
 				if genericpref == 'damnvid-profile:name':
 					name = val
+			elif DV.preferences[genericpref]['kind'] == 'dir':
+				val = self.controls[i].GetValue()
 			elif DV.preferences[genericpref]['kind'] == 'bool':
 				val = self.controls[i].IsChecked() # The str() representation takes care of True/False
 			if val is not None:
 				DV.prefs.sets(self.pane, prefname, DamnUnicode(val))
 		if name != None and self.tree.GetSelection() != self.treeroot and self.tree.GetItemParent(self.tree.GetSelection()) == self.profileroot:
-			self.tree.SetItemText(self.tree.GetSelection(), name)
+			self.tree.SetItemText(self.tree.GetSelection(), DV.l(name, warn=False))
 			self.prefpanelabel.SetLabel(name)
 	def onBrowseDir(self, button, path):
 		for i in self.controls.iterkeys():
@@ -3409,15 +3410,18 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 			self.forceSelect(self.modulelistitem)
 		dlg.Destroy()
 	def makeList(self, strict, choices, panel, value, localize=True):
+		Damnlog('makeList called with choices', choices,'; value', value,'; localized:', localize)
 		choices2 = []
 		for c in choices:
 			if not localize or c == self.defaultvalue:
 				choices2.append(c)
 			else:
 				choices2.append(DV.l(c))
+		if localize and value not in choices2:
+			value = DV.l(value)
 		if strict:
 			cont = wx.Choice(panel, -1, choices=choices2)
-			if value == self.defaultvalue or value == '(default)':
+			if value == self.defaultvalue or value == '(default)' or value not in choices2:
 				cont.SetSelection(0)
 			else:
 				for f in range(len(choices2)):
@@ -3425,7 +3429,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 						cont.SetSelection(f)
 			self.Bind(wx.EVT_CHOICE, self.onPrefChange, cont)
 		else:
-			cont = wx.ComboBox(panel, -1, choices=choices, value=value)
+			cont = wx.ComboBox(panel, -1, choices=choices2, value=value)
 			cont.SetValue(value) # Fixes bug on OS X where the value wouldn't be set if it's not one of the choices
 			self.Bind(wx.EVT_TEXT, self.onPrefChange, cont)
 		return cont
@@ -3457,7 +3461,7 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 			val = ''
 		elif type(DV.preference_type[name]['kind']) is type({}):
 			for key, i in DV.preference_type[name]['kind'].iteritems():
-				if i == val or DV.l(i) == val:
+				if i == val or DV.l(i, warn=False) == val:
 					return key
 		return val
 	def setListValue(self, name, strict, value):
