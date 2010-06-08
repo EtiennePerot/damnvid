@@ -1,3 +1,15 @@
+damnvid (1.6-1ubuntu6.09.10.1) karmic; urgency=low
+
+  * Backport to Karmic
+
+ -- Andreas Noteng <andreas@noteng.no>  Tue, 08 Jun 2010 13:59:24 +0200
+
+damnvid (1.6-1ubuntu6) lucid; urgency=low
+
+  * Update dependencies to require at least version 2.0 of python-gdata
+
+ -- Andreas Noteng <andreas@noteng.no>  Tue, 08 Jun 2010 13:31:02 +0200
+
 damnvid (1.6-1ubuntu5.09.10.1) karmic; urgency=low
 
   * Backport to Karmic
