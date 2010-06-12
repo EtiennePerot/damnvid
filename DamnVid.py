@@ -180,7 +180,6 @@ elif DV.os == 'mac':
 	DV.my_videos_path = DamnUnicode(os.path.expanduser('~' + DV.sep + 'Movies'))
 else:
 	DV.my_videos_path = DamnUnicode(os.path.expanduser('~' + DV.sep + 'Videos'))
-
 DV.conf_file_location = {
 	'nt':DamnUnicode(DV.appdata_path + DV.sep + 'DamnVid'),
 	'posix':DamnUnicode('~' + DV.sep + '.damnvid'),
@@ -244,7 +243,7 @@ class DamnLog:
 		s = u'\r\n' + self.getPrefix() + DamnUnicode(message.strip())
 		if DV.log_to_stdout:
 			try:
-				print s,
+				print s.strip()
 			except:
 				try:
 					print s.encode('utf8', errors='ignore'),
@@ -290,9 +289,16 @@ def Damnlog(*args):
 	return DV.log.log(' '.join(s))
 def DamnlogException(typ, value, tb):
 	try:
-		Damnlog('!!',u'\n'.join(traceback.format_exception(typ, value, tb)))
+		info = traceback.format_exception(typ, value, tb)
+		e = []
+		for i in info:
+			e.append(DamnUnicode(i).strip())
+		Damnlog('!!',u'\n'.join(e))
 	except:
-		pass
+		try:
+			Damnlog('!! Error while logging exception. Something is very wrong.')
+		except:
+			pass # Something is very, very wrong.
 try:
 	sys.excepthook = DamnlogException
 except:
@@ -441,6 +447,14 @@ def DamnExecFile(f):
 				execfile(DamnUnicode(f).encode('windows-1252'))
 			except:
 				pass
+class DamnThread(thr.Thread):
+	def run(self):
+		try:
+			self.go()
+		except:
+			DamnlogException(*(sys.exc_info()))
+	def go(self):
+		pass
 class DamnCookieJar(cookielib.CookieJar):
 	def _cookie_from_cookie_tuple(self, tup, request): # Work-around for cookielib bug with non-integer cookie versions (*ahem* @ Apple)
 		name, value, standard, rest = tup
@@ -741,12 +755,11 @@ class DamnVideoModule:
 		Damnlog('Module', self.name, 'returning video object:', obj)
 		return obj
 def DamnPostEvent(target, event):
-	Damnlog('Trying to send event', event, 'to target', target)
 	try:
 		wx.PostEvent(target, event)
 	except:
 		Damnlog('!! Failed delivering event', event, 'to target', target)
-class DamnModuleUpdateCheck(thr.Thread):
+class DamnModuleUpdateCheck(DamnThread):
 	def __init__(self, parent, modules, byevent=True):
 		Damnlog('Spawned module update checker for modules', modules, 'by event:', byevent)
 		self.parent = parent
@@ -756,7 +769,7 @@ class DamnModuleUpdateCheck(thr.Thread):
 		self.done = {}
 		self.downloaded = []
 		self.byevent = byevent
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 	def postEvent(self, module, result):
 		info = {'module':module, 'result':result}
 		Damnlog('Update checker sending event:', info, 'by event:', self.byevent)
@@ -764,7 +777,7 @@ class DamnModuleUpdateCheck(thr.Thread):
 			DamnPostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, info))
 		else:
 			self.parent.onLoad(info)
-	def run(self):
+	def go(self):
 		for module in self.modules:
 			if not module['about'].has_key('url'):
 				self.postEvent(module, 'cannot')
@@ -862,13 +875,13 @@ def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 if equal, -1 if v2
 	if len(v1) != len(v2):
 		return 2 * (len(v1) > len(v2)) - 1
 	return 0
-class DamnVidUpdater(thr.Thread):
+class DamnVidUpdater(DamnThread):
 	def __init__(self, parent, verbose=False, main=True, modules=True):
 		Damnlog('Spawned main updater thread')
 		self.parent = parent
 		self.todo = {'main':main, 'modules':modules}
 		self.info = {'main':None, 'modules':{}, 'verbose':verbose}
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 	def postEvent(self):
 		Damnlog('Main updated thread sending event', self.info)
 		DamnPostEvent(self.parent, DamnLoadingEvent(DV.evt_loading, -1, {'updateinfo':self.info}))
@@ -876,7 +889,7 @@ class DamnVidUpdater(thr.Thread):
 		if not info.has_key('module'):
 			return
 		self.info['modules'][info['module']['name']] = info['result']
-	def run(self):
+	def go(self):
 		if self.todo['main']:
 			regex = re.compile('<tt>([^<>]+)</tt>', re.IGNORECASE)
 			try:
@@ -1002,6 +1015,7 @@ ID_COL_VIDPATH = 3
 REGEX_PATH_MULTI_SEPARATOR_CHECK = re.compile('/+')
 REGEX_FFMPEG_DURATION_EXTRACT = re.compile('^\\s*Duration:\\s*(\\d+):(\\d\\d):([.\\d]+)', re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT = re.compile('time=([.\\d]+)', re.IGNORECASE)
+REGEX_FILENAME_SANE_CHARACTERS = re.compile(r"[^-a-z\] _=[~.,\d]", re.IGNORECASE)
 REGEX_HTTP_GENERIC = re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}#\w]*)?$', re.IGNORECASE)
 REGEX_HTTP_GENERIC_LOOSE = re.compile('https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}\w]*)?', re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME = re.compile('^.*/|[?#].*$')
@@ -1620,14 +1634,14 @@ class DamnEEgg(wx.Dialog):
 			self.vbox.Add(hbox, 0)
 	def onBtn(self, event):
 		self.Close(True)
-class DamnBugReporter(thr.Thread):
+class DamnBugReporter(DamnThread):
 	def __init__(self, desc, steps='', sysinfo='', email='', parent=None):
 		self.desc = desc
 		self.steps = steps
 		self.sysinfo = sysinfo
 		self.email = email
 		self.parent = parent
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 	def postEvent(self, title=None, dialog=None, error=False, closedialog=True):
 		info = {'title':title, 'dialog':dialog, 'error':error, 'closedialog':closedialog}
 		Damnlog('Posting a bug report update event with info', info)
@@ -1638,7 +1652,7 @@ class DamnBugReporter(thr.Thread):
 			DamnPostEvent(self.parent, DamnBugReportEvent(DV.evt_bugreporting, -1, info))
 		except:
 			Damnlog('Posting event failed - Window was closed?')
-	def run(self):
+	def go(self):
 		Damnlog('Bug reporter thread launched.')
 		if not len(self.desc):
 			Damnlog('Bug reporter not sending anything - bug description is empty.')
@@ -2176,10 +2190,10 @@ class DamnBrowseDirButton(wx.Button): # "Browse..." button for directories
 		dlg.Destroy()
 		if path != None:
 			self.callback(self, path)
-class DamnYouTubeService(thr.Thread):
+class DamnYouTubeService(DamnThread):
 	def __init__(self, parent, query=None):
 		self.parent = parent
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 		if query is None:
 			self.queries = None
 		else:
@@ -2204,7 +2218,7 @@ class DamnYouTubeService(thr.Thread):
 		while os.path.exists(name):
 			name = DV.tmp_path + str(random.random()) + '.tmp'
 		return name
-	def run(self):
+	def go(self):
 		while self.queries is None:
 			time.sleep(.025)
 		try:
@@ -2214,7 +2228,7 @@ class DamnYouTubeService(thr.Thread):
 		while len(self.queries):
 			query = self.queries[0]
 			if query[0] == 'feed':
-				self.returnResult(DV.youtube_service.GetYouTubeVideoFeed(DamnUnicode(query[1])))
+				self.returnResult(DV.youtube_service.GetYouTubeVideoFeed(DamnUnicode(query[1]).encode('utf8')))
 			elif query[0] == 'image':
 				http = DamnURLOpen(query[1])
 				tmpf = self.getTempFile()
@@ -2342,7 +2356,7 @@ class DamnVidBrowser(wx.Dialog):
 		self.searchbutton.LoadFile(DV.images_path + 'searching.gif')
 		self.searchbutton.Play()
 		Damnlog('YouTube browser interface updated and ready for search, resolving API query.')
-		prefix = 'http://gdata.youtube.com/feeds/api/videos?racy=include&orderby=viewCount&vq='
+		prefix = u'http://gdata.youtube.com/feeds/api/videos?racy=include&orderby=viewCount&vq='
 		isstandard = False
 		for i in self.standardchoices.keys():
 			if DV.l(self.standardchoices[i], warn=False) == search:
@@ -2350,7 +2364,7 @@ class DamnVidBrowser(wx.Dialog):
 				search = i
 		if search in self.standardchoices.keys():
 			Damnlog('Query is a standard choice:', search)
-			prefix = 'http://gdata.youtube.com/feeds/api/standardfeeds/'
+			prefix = u'http://gdata.youtube.com/feeds/api/standardfeeds/'
 			searchlabel = self.standardchoices[search]
 		else:
 			Damnlog('Query is not a standard choice. Updating query history.')
@@ -2364,8 +2378,8 @@ class DamnVidBrowser(wx.Dialog):
 		self.searchbox.SetValue(searchlabel)
 		Damnlog('Youtube browser API prefix is', prefix)
 		self.buildSearchbox()
-		Damnlog('YouTube browser search box populating complete, beginning actual search for', search, 'at URL:', prefix + urllib2.quote(search))
-		self.getService().query(('feed', DamnUnicode(prefix + urllib2.quote(search))))
+		Damnlog('YouTube browser search box populating complete, beginning actual search for', search, 'at URL:', prefix + urllib2.quote(search.encode('utf8')))
+		self.getService().query(('feed', DamnUnicode(prefix + urllib2.quote(search.encode('utf8')))))
 		Damnlog('YouTube browser search results for', search, 'are in, destroying interface.')
 		for i in self.resultctrls:
 			i.Destroy()
@@ -3559,9 +3573,9 @@ class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 	def onClose(self, event):
 		DV.prefs = DamnVidPrefs() # Reload from ini
 		self.Close(True)
-class DamnVideoLoader(thr.Thread):
+class DamnVideoLoader(DamnThread):
 	def __init__(self, parent, uris, thengo=False, feedback=True, allownonmodules=True):
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 		self.uris = []
 		if type(uris) not in (type(()), type([])):
 			uris = [uris]
@@ -3574,7 +3588,7 @@ class DamnVideoLoader(thr.Thread):
 		self.result = None
 		self.allownonmodules = allownonmodules
 		Damnlog('DamnVideoLoader spawned with parameters: parent =',parent,'; thengo?',thengo,'; feedback?',feedback,'; allow non-modules?',allownonmodules)
-	def run(self):
+	def go(self):
 		if self.feedback:
 			self.parent.toggleLoading(True)
 		self.vidLoop(self.uris)
@@ -3644,7 +3658,7 @@ class DamnVideoLoader(thr.Thread):
 								self.showDialog(DV.l('Duplicate found'), DV.l('This video is already in the list!'), wx.ICON_EXCLAMATION | wx.OK)
 						else:
 							self.addValid({'name':filename[0:filename.rfind('.')], 'profile':DV.prefs.get('defaultprofile'), 'profilemodified':False, 'fromfile':filename, 'uri':uri, 'dirname':os.path.dirname(uri), 'status':DV.l('Pending.'), 'icon':DamnGetListIcon('damnvid')})
-class DamnConverter(thr.Thread): # The actual converter, dammit
+class DamnConverter(DamnThread): # The actual converter, dammit
 	def __init__(self, parent):
 		self.parent = parent
 		self.sourceuri = parent.videos[parent.converting]
@@ -3652,7 +3666,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 		self.filename = None
 		self.tmpfilename = None
 		self.moduleextraargs = []
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 	def getURI(self, uri):
 		if self.parent.meta[self.sourceuri].has_key('downloadgetter') and self.parent.meta[self.sourceuri].has_key('module'):
 			if self.parent.meta[self.sourceuri]['module'] is not None:
@@ -3676,7 +3690,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 			s.append(i.replace('?DAMNVID_VIDEO_STREAM?', stream).replace('?DAMNVID_VIDEO_PASS?', str(self.passes)).replace('?DAMNVID_OUTPUT_FILE?', DV.tmp_path + self.tmpfilename))
 		return s
 	def gettmpfilename(self, path, prefix, ext):
-		prefix = DamnUnicode(DamnUnicode(prefix).encode('ascii', 'ignore'))
+		prefix = DamnUnicode(REGEX_FILENAME_SANE_CHARACTERS.sub(u'', DamnUnicode(DamnUnicode(prefix).encode('ascii', 'ignore'))))
 		ext = DamnUnicode(ext)
 		path = DamnUnicode(path)
 		tmpfilename = prefix + u'-0' + ext
@@ -3711,7 +3725,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 		if go is not None:
 			info['go'] = go
 		DamnPostEvent(self.parent, DamnProgressEvent(DV.evt_progress, -1, info))
-	def run(self):
+	def go(self):
 		self.uris = self.getURI(self.sourceuri)
 		self.abort = False
 		if not self.abort:
@@ -4005,7 +4019,7 @@ class DamnConverter(thr.Thread): # The actual converter, dammit
 					pass # Maybe the file wasn't created yet
 		except:
 			Damnlog('Error while trying to stop encoding process.')
-class DamnStreamCopy(thr.Thread):
+class DamnStreamCopy(DamnThread):
 	def __init__(self, s1, s2, buffer=1048576, background=True, closes1=True, closes2=True):
 		Damnlog('DamnStreamCopy spawned, will rip', s1, 'to', s2, ' when started. Background?', background)
 		self.s1 = s1
@@ -4018,15 +4032,15 @@ class DamnStreamCopy(thr.Thread):
 		self.buffer = buffer
 		self.closes1 = closes1
 		self.closes2 = closes2
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 	def start(self):
 		if self.background:
 			Damnlog('Starting stream copy in background thread.')
-			thr.Thread.start(self)
+			DamnThread.start(self)
 		else:
 			Damnlog('Starting stream copy in current thread.')
 			self.run()
-	def run(self):
+	def go(self):
 		firstread = True
 		firstwrite = True
 		Damnlog('Stream copy: Begin')
@@ -4057,18 +4071,18 @@ class DamnStreamCopy(thr.Thread):
 				self.s2.close()
 			except:
 				Damnlog('Stream copy: closing output stream failed.')
-class DamnDownloader(thr.Thread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
+class DamnDownloader(DamnThread): # Retrieves video by HTTP and feeds it back to ffmpeg via stdin
 	def __init__(self, uri, pipe, copy=None):
 		Damnlog('DamnDownloader spawned. URI:', uri, '; Pipe:', pipe)
 		self.uri = uri
 		self.pipe = pipe
 		self.copy = copy
-		thr.Thread.__init__(self)
+		DamnThread.__init__(self)
 	def timeouterror(self):
 		Damnlog('DamnDownloader timeout detection timer fired!')
 		self.timeouted = True
 		self.http.close()
-	def run(self):
+	def go(self):
 		self.amountwritten = 0
 		self.timeouted = True
 		Damnlog('DamnDownloader starting download for first time.')
