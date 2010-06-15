@@ -401,10 +401,15 @@ DV.images_path = DamnUnicode(DV.curdir + u'img/'.replace(u'/', DV.sep))
 Damnlog('Image path is', DV.images_path)
 Damnlog('My videos path is', DV.my_videos_path)
 DV.bin_paths = [DamnUnicode(DV.curdir + u'bin/'.replace(u'/', DV.sep))]
-try:
-	DV.bin_paths.extend(DamnUnicode(os.environ['PATH']).split(DamnUnicode(os.pathsep)))
-except:
-	pass
+if os.environ.has_key('PATH'):
+	DV.env_path = DamnUnicode(os.environ['PATH'])
+	if len(DV.env_path):
+		try:
+			DV.bin_paths.extend(DV.env_path.split(DamnUnicode(os.pathsep)))
+		except:
+			pass
+else:
+	DV.env_path = u''
 for i in range(len(DV.bin_paths)):
 	if DV.bin_paths[i][-1] != DV.sep:
 		DV.bin_paths[i] += DV.sep
@@ -2784,7 +2789,7 @@ class DamnHistoryViewer(wx.Dialog):
 class DamnVidPrefEditor(wx.Dialog): # Preference dialog (not manager)
 	def __init__(self, parent, id, title, main):
 		# Dialog init
-		wx.Dialog.__init__(self, parent, id, title)
+		wx.Dialog.__init__(self, parent, id, title, style=wx.RESIZE_BORDER)
 		self.parent = main
 		DV.prefs.save() # Save just in case, we're gonna modify stuff!
 		self.toppanel = wx.Panel(self, -1)
