@@ -123,6 +123,28 @@ def DamnOpenFile(f, m):
 				return open(f.encode('windows-1252'), m)
 			except:
 				return open(f.encode('utf8', 'ignore'), m)
+def DamnExecFile(f):
+	try:
+		execfile(DamnUnicode(f))
+	except:
+		try:
+			execfile(DamnUnicode(f).encode('utf8'))
+		except:
+			try:
+				execfile(DamnUnicode(f).encode('windows-1252'))
+			except:
+				pass
+def DamnOverridePath(prefix, otherwise=None):
+	prefix = DamnUnicode(prefix).lower()
+	for i in DV.argv:
+		if i[:len(prefix)].lower() == prefix:
+			result = i[len(prefix):]
+			if result[-1:] != DV.sep:
+				result += DV.sep
+			DV.argv = [x for x in DV.argv if x[:len(prefix)].lower() != prefix]
+			return result
+	if otherwise is not None:
+		return DamnUnicode(otherwise)
 # Begin constants
 class DamnEmpty:
 	pass
@@ -131,7 +153,9 @@ DV.sep = DamnUnicode(os.sep)
 DV.curdir = DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))) + DV.sep
 versionfile = DamnOpenFile(DV.curdir + 'version.damnvid', 'r')
 DV.version = DamnUnicode(versionfile.readline().strip())
-DV.argv = sys.argv[1:]
+DV.argv = []
+for i in sys.argv[1:]:
+	DV.argv.append(DamnUnicode(i))
 versionfile.close()
 del versionfile
 DV.blanksocket = socket.socket
@@ -139,6 +163,10 @@ DV.url = u'http://code.google.com/p/damnvid/'
 DV.url_halp = u'http://code.google.com/p/damnvid/wiki/Help'
 DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
 DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
+try:
+	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'overrides.damnvid')
+except:
+	pass # File is optional
 DV.gui_ok = False
 DV.streamTimeout = 30.0
 DV.icon = None # This will be defined when DamnMainFrame is initialized
@@ -180,6 +208,7 @@ elif DV.os == 'mac':
 	DV.my_videos_path = DamnUnicode(os.path.expanduser('~' + DV.sep + 'Movies'))
 else:
 	DV.my_videos_path = DamnUnicode(os.path.expanduser('~' + DV.sep + 'Videos'))
+DV.my_videos_path = DamnOverridePath('--myvideos=', DV.my_videos_path)
 DV.conf_file_location = {
 	'nt':DamnUnicode(DV.appdata_path + DV.sep + 'DamnVid'),
 	'posix':DamnUnicode('~' + DV.sep + '.damnvid'),
@@ -194,13 +223,7 @@ DV.conf_file_directory = DamnUnicode(DV.conf_file_location + DV.sep)
 DV.actual_conf_file_directory = DV.conf_file_directory
 if os.path.isdir(DV.curdir + u'portableConf'):
 	DV.conf_file_directory = DV.curdir + u'portableConf' + DV.sep
-for i in DV.argv:
-	if DamnUnicode(i)[:9].lower() == u'--config=':
-		DV.conf_file_directory = DamnUnicode(i)[9:]
-		if DV.conf_file_directory[-1:] != DV.conf_file_directory:
-			DV.conf_file_directory += DV.sep
-		DV.argv = [x for x in DV.argv if DamnUnicode(x)[:9] != u'--config=']
-		break
+DV.conf_file_directory = DamnOverridePath('--config=', DV.conf_file_directory)
 if not os.path.exists(DV.conf_file_directory):
 	try:
 		os.makedirs(DV.conf_file_directory)
@@ -274,8 +297,8 @@ class DamnLog:
 			self.stream.close()
 		except:
 			pass
-DV.log_to_stdout = '-q' not in sys.argv[1:]
-DV.log_stdout_flush = '--flush' in sys.argv[1:]
+DV.log_to_stdout = u'-q' not in DV.argv and u'--quiet' not in DV.argv
+DV.log_stdout_flush = u'--flush' in DV.argv
 DV.log = DamnLog()
 def Damnlog(*args):
 	s = []
@@ -376,6 +399,7 @@ else:
 	del lastversion
 DV.images_path = DamnUnicode(DV.curdir + u'img/'.replace(u'/', DV.sep))
 Damnlog('Image path is', DV.images_path)
+Damnlog('My videos path is', DV.my_videos_path)
 DV.bin_paths = [DamnUnicode(DV.curdir + u'bin/'.replace(u'/', DV.sep))]
 try:
 	DV.bin_paths.extend(DamnUnicode(os.environ['PATH']).split(DamnUnicode(os.pathsep)))
@@ -387,7 +411,7 @@ for i in range(len(DV.bin_paths)):
 Damnlog('Bin paths are', DV.bin_paths)
 DV.locale_path = DamnUnicode(DV.curdir + u'locale/'.replace(u'/', DV.sep))
 Damnlog('Locale path is', DV.locale_path)
-DV.tmp_path = DamnUnicode(DV.actual_conf_file_directory + u'temp/'.replace(u'/', DV.sep))
+DV.tmp_path = DamnOverridePath('--temp=', DV.actual_conf_file_directory + u'temp/'.replace(u'/', DV.sep))
 if not os.path.exists(DV.tmp_path):
 	os.makedirs(DV.tmp_path)
 Damnlog('Temp path is', DV.tmp_path)
@@ -436,17 +460,6 @@ DV.codec_advanced_cl = {
 Damnlog('Init underway, starting to declare fancier stuff.')
 DV.youtube_service = gdata.youtube.service.YouTubeService()
 DV.youtube_service.ssl = False
-def DamnExecFile(f):
-	try:
-		execfile(DamnUnicode(f))
-	except:
-		try:
-			execfile(DamnUnicode(f).encode('utf8'))
-		except:
-			try:
-				execfile(DamnUnicode(f).encode('windows-1252'))
-			except:
-				pass
 class DamnThread(thr.Thread):
 	def run(self):
 		try:
