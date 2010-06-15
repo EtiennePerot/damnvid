@@ -3868,6 +3868,11 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 				else:
 					Damnlog('Not encoding audio.')
 					cmd.append('-an')
+				if DV.prefs.get('threads'):
+					try:
+						cmd.extend(['-threads',str(int(DV.prefs.get('threads')))])
+					except:
+						pass # Threads preference is probably not a number
 				vidformat = DV.prefs.getp(self.profile, 'Encoding_f')
 				self.vcodec = DV.prefs.getp(self.profile, 'Encoding_vcodec')
 				self.acodec = DV.prefs.getp(self.profile, 'Encoding_acodec')
