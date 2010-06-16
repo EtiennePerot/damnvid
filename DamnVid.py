@@ -369,9 +369,17 @@ def DamnSysinfo():
 			sysinfo += u' / ' + DamnUnicode(platform.machine())
 		else:
 			sysinfo += u' / Unknown machine type'
+		sysinfo += u'\nPATH: '
+		if os.environ.has_key('PATH'):
+			sysinfo += DamnUnicode(os.environ['PATH'])
+		else:
+			sysinfo += u'(None)'
 		return DamnUnicode(sysinfo)
 	except:
-		return u'System information collection failed.'
+		try:
+			return u'System information collection failed. Got so far: ' + DamnUnicode(sysinfo)
+		except:
+			return u'System information collection failed.'
 Damnlog('System information:\n' + DamnSysinfo() + '\n(End of system information)')
 DV.first_run = False
 DV.updated = False
@@ -405,7 +413,9 @@ if os.environ.has_key('PATH'):
 	DV.env_path = DamnUnicode(os.environ['PATH'])
 	if len(DV.env_path):
 		try:
-			DV.bin_paths.extend(DV.env_path.split(DamnUnicode(os.pathsep)))
+			for i in DV.env_path.split(DamnUnicode(os.pathsep)):
+				if len(i):
+					DV.bin_paths.append(i)
 		except:
 			pass
 else:
