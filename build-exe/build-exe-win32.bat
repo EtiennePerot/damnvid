@@ -6,7 +6,6 @@
 @echo Building list of required files.
 @python build-any\build-required-files.py
 @python build-exe\find-system-paths.py
-@set /p nsis= < nsis-path.tmp
 @set /p python= < python32-path.tmp
 @echo Creating /package/ directory.
 @mkdir package
@@ -25,7 +24,7 @@
 @copy /Y ..\..\build-exe\unicows.dll .\unicows.dll
 @echo Packaging with NSIS.
 @python ..\..\build-exe\build-nsi.py
-@"%nsis%\makensis.exe" -V4 -NOCD ..\..\NSIS-win32.nsi
+@makensis -V4 -NOCD ..\..\NSIS-win32.nsi
 @echo Switching back to root directory.
 @cd ..\..
 @echo DamnVid packaged.

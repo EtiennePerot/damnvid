@@ -6,7 +6,7 @@ import py2exe
 import os, sys
 import shutil
 
-path2src = '../../DamnVid/'
+path2src = os.path.abspath(os.path.dirname(sys.argv[0])+os.sep+'..')+os.sep
 sys.path.append(path2src)
 versionfile = open(path2src + 'version.damnvid', 'r')
 version = versionfile.readline().strip()

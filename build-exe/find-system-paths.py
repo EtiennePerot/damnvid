@@ -2,8 +2,8 @@ import os, sys
 
 paths={
 	'nsis':['C:\Program Files\NSIS','C:\Program Files (x86)\NSIS'],
-	'python32':['C:\Python25-x86','C:\Python25'],
-	'python64':['C:\Python26','C:\Python26-x64']
+	'python32':['C:\Python25-x86','C:\Python26-x86'],
+	'python64':['C:\Python25','C:\Python26']
 }
 for k in paths.iterkeys():
 	for i in paths[k]:
