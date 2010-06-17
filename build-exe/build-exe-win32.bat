@@ -5,7 +5,7 @@
 @del /q DamnVid-setup*
 @echo Building list of required files.
 @python build-any\build-required-files.py
-@python build-exe\find-system-paths.py
+@python build-exe\find-system-paths-win32.py
 @set /p python= < python32-path.tmp
 @echo Creating /package/ directory.
 @mkdir package
@@ -33,5 +33,6 @@
 @ren DamnVid-setup.exe DamnVid-setup-%version%.exe
 @echo Cleaning up.
 @python build-any/cleanup.py
+@cd build-exe
 @echo All done.
 @pause
