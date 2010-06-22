@@ -26,6 +26,10 @@
 # - Psyco (optional, speeds up execution)
 
 print 'Starting up.'
+print 'Importing core.'
+from dCore import *
+print 'Importing log.'
+from dLog import *
 print 'Importing wxPython.'
 try:
 	import wxversion
@@ -39,6 +43,8 @@ import wx # Oh my wx, it's wx.
 import wx.animate # wx gif animations, oh my gif!
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
 import wx.lib.stattext # Static texts that respond to mouse events
+print 'Importing external UI.'
+from ui import dUI as UI
 print 'Importing os.'
 import os # Filesystem functions.
 print 'Importing traceback.'
@@ -90,50 +96,12 @@ print 'Importing tarfile.'
 import tarfile # Tar/gz file reading/writing (used for modules)
 print 'Importing threading.'
 import threading as thr # Threads
-print 'Imports done.'
 
-# Yeah, declaring this very early
-def DamnUnicode(s):
-	if type(s) is type(u''):
-		return s
-	if type(s) is type(''):
-		try:
-			return unicode(s)
-		except:
-			try:
-				return unicode(s.decode('utf8'))
-			except:
-				try:
-					return unicode(s.decode('windows-1252')) # Windows file paths with accents and weird characters
-				except:
-					return unicode(s, errors='ignore')
-	try:
-		return unicode(s)
-	except:
-		return s
-def DamnOpenFile(f, m):
-	f = DamnUnicode(f)
-	try:
-		return open(f, m)
-	except:
-		try:
-			return open(f.encode('utf8'), m)
-		except:
-			try:
-				return open(f.encode('windows-1252'), m)
-			except:
-				return open(f.encode('utf8', 'ignore'), m)
-def DamnExecFile(f):
-	try:
-		execfile(DamnUnicode(f))
-	except:
-		try:
-			execfile(DamnUnicode(f).encode('utf8'))
-		except:
-			try:
-				execfile(DamnUnicode(f).encode('windows-1252'))
-			except:
-				pass
+DV.log = DamnLog(stderr='-q' not in sys.argv and '--quiet' not in sys.argv, flush=True) # Temporary logger until we are far enough to know where should the log file go
+DV.sep = DamnUnicode(os.sep)
+DV.curdir = DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))) + DV.sep
+versionfile = DamnOpenFile(DV.curdir + 'version.damnvid', 'r')
+DV.version = DamnUnicode(versionfile.readline().strip())
 def DamnOverridePath(prefix, otherwise=None):
 	prefix = DamnUnicode(prefix).lower()
 	for i in DV.argv:
@@ -145,14 +113,6 @@ def DamnOverridePath(prefix, otherwise=None):
 			return result
 	if otherwise is not None:
 		return DamnUnicode(otherwise)
-# Begin constants
-class DamnEmpty:
-	pass
-DV = DamnEmpty() # The only global variable out there... not
-DV.sep = DamnUnicode(os.sep)
-DV.curdir = DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))) + DV.sep
-versionfile = DamnOpenFile(DV.curdir + 'version.damnvid', 'r')
-DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = []
 for i in sys.argv[1:]:
 	DV.argv.append(DamnUnicode(i))
@@ -164,7 +124,7 @@ DV.url_halp = u'http://code.google.com/p/damnvid/wiki/Help'
 DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
 DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
 try:
-	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'overrides.damnvid')
+	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'overrides.damnvid', globs=globals())
 except:
 	pass # File is optional
 DV.gui_ok = False
@@ -232,7 +192,7 @@ if not os.path.exists(DV.conf_file_directory):
 		try:
 			os.makedirs(DV.conf_file_directory)
 		except:
-			print 'Cannot create configuration directory!'
+			Damnlog('Cannot create configuration directory!')
 			pass
 DV.conf_file = DamnUnicode(DV.conf_file_directory + 'damnvid.ini')
 DV.log_file = DamnUnicode(DV.conf_file_directory + 'damnvid.log')
@@ -241,91 +201,7 @@ if os.path.exists(DV.log_file):
 		os.remove(DV.log_file)
 	except:
 		DV.log_file = None
-class DamnLog:
-	def __init__(self):
-		self.time = 0
-		try:
-			if not os.path.exists(DV.appdata_path):
-				self.makedirs(DV.appdata_path)
-			self.stream = DamnOpenFile(DV.log_file, 'w')
-			self.stream.write((self.getPrefix() + u'Log opened.').encode('utf8'))
-		except:
-			self.stream = None
-			try:
-				print 'Warning: No log stream!'
-				traceback.print_exc()
-			except:
-				pass
-	def getPrefix(self):
-		t = int(time.time())
-		if self.time != t:
-			self.time = t
-			return u'[' + DamnUnicode(time.strftime('%H:%M:%S')) + u'] '
-		return u''
-	def log(self, message):
-		s = u'\r\n' + self.getPrefix() + DamnUnicode(message.strip())
-		if DV.log_to_stdout:
-			try:
-				print s.strip()
-			except:
-				try:
-					print s.encode('utf8', errors='ignore'),
-				except:
-					print 'Cannot echo log string; invalid characters and/or non-tolerant output?'
-			if DV.log_stdout_flush:
-				sys.stdout.flush()
-		if self.stream is not None:
-			try:
-				return self.stream.write(s)
-			except:
-				try:
-					return self.stream.write(s.encode('utf8'))
-				except:
-					pass
-	def flush(self):
-		try:
-			self.stream.flush()
-		except:
-			pass
-		try:
-			os.fsync(self.stream)
-		except:
-			pass
-	def close(self):
-		self.log('Closing log.')
-		try:
-			self.stream.close()
-		except:
-			pass
-DV.log_to_stdout = u'-q' not in DV.argv and u'--quiet' not in DV.argv
-DV.log_stdout_flush = u'--flush' in DV.argv
-DV.log = DamnLog()
-def Damnlog(*args):
-	s = []
-	for i in args:
-		if type(i) is type(''):
-			s.append(DamnUnicode(i))
-		elif type(i) is type(u''):
-			s.append(i)
-		else:
-			s.append(DamnUnicode(i))
-	return DV.log.log(' '.join(s))
-def DamnlogException(typ, value, tb):
-	try:
-		info = traceback.format_exception(typ, value, tb)
-		e = []
-		for i in info:
-			e.append(DamnUnicode(i).strip())
-		Damnlog('!!',u'\n'.join(e))
-	except:
-		try:
-			Damnlog('!! Error while logging exception. Something is very wrong.')
-		except:
-			pass # Something is very, very wrong.
-try:
-	sys.excepthook = DamnlogException
-except:
-	pass
+DV.log = DamnLog(DV.log_file, stderr=u'-q' not in DV.argv and u'--quiet' not in DV.argv, flush=u'--flush' in DV.argv)
 if DV.bit64:
 	Damnlog('DamnVid started in 64-bit mode on', sys.platform)
 else:
@@ -473,6 +349,7 @@ DV.codec_advanced_cl = {
 	'libx264':[('coder', '1'), '+loop', ('cmp', '+chroma'), ('partitions', '+parti4x4+partp8x8+partb8x8'), ('g', '250'), ('subq', '6'), ('me_range', '16'), ('keyint_min', '25'), ('sc_threshold', '40'), ('i_qfactor', '0.71'), ('b_strategy', '1')]
 }
 Damnlog('Init underway, starting to declare fancier stuff.')
+DV.oldclipboard = u''
 DV.youtube_service = gdata.youtube.service.YouTubeService()
 DV.youtube_service.ssl = False
 class DamnThread(thr.Thread):
@@ -681,6 +558,9 @@ def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
 	return ret
 def DamnRegisterModule(module):
 	Damnlog('Attempting to register module', module)
+	if module.has_key('minversion'):
+		if DamnVersionCompare(module['minversion'], DV.version)==1:
+			return 'minversion'
 	DV.modules[module['name']] = module
 	DV.modulesstorage[module['name']] = {}
 	if module.has_key('register'):
@@ -870,7 +750,7 @@ def DamnFindBinary(binary):
 			Damnlog('Warning: Binary path', p,'is not a directory.')
 	Damnlog('!! Binary', binary, 'not found, returning simply', binary)
 	return binary
-def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None, bufsize=128):
+def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None, bufsize=0):
 	if cwd is None:
 		cwd = DV.curdir
 	cwd = DamnUnicode(cwd)
@@ -885,12 +765,15 @@ def DamnSpawner(cmd, shell=False, stderr=None, stdout=None, stdin=None, cwd=None
 			for i in cmd:
 				tempcmd.append(DamnUnicode(i).encode('windows-1252'))
 			Damnlog('Spawning subprocess on NT:', tempcmd)
+			Damnlog('Actual command:', subprocess.list2cmdline(tempcmd))
 			return subprocess.Popen(tempcmd, shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=bufsize) # Yes, ALL std's must be PIPEd, otherwise it doesn't work on win32 (see http://www.py2exe.org/index.cgi/Py2ExeSubprocessInteractions)
 		else:
 			Damnlog('Spawning subprocess on NT:', cmd)
+			Damnlog('Actual command:', subprocess.list2cmdline(cmd))
 			return subprocess.Popen(cmd.encode('windows-1252'), shell=shell, creationflags=win32process.CREATE_NO_WINDOW, stderr=subprocess.PIPE, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd.encode('windows-1252'), executable=None, bufsize=bufsize)
 	else:
 		Damnlog('Spawning subprocess on UNIX:', cmd)
+		Damnlog('Actual command:', subprocess.list2cmdline(cmd))
 		return subprocess.Popen(cmd, shell=shell, stderr=stderr, stdout=stdout, stdin=stdin, cwd=cwd, executable=None, bufsize=bufsize)
 def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 if equal, -1 if v2 is newer.
 	v1 = v1.split('.')
@@ -934,11 +817,11 @@ class DamnVidUpdater(DamnThread):
 def DamnLoadModule(module):
 	for i in os.listdir(module):
 		if not os.path.isdir(module + DV.sep + i) and i[-8:] == '.damnvid':
-			DamnExecFile(module + DV.sep + i)
+			DamnExecFile(module + DV.sep + i, globs=globals())
 def DamnLoadConfig(forcemodules=False):
 	Damnlog('Loading config.')
 	DV.preferences = None
-	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'preferences.damnvid')
+	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'preferences.damnvid', globs=globals())
 	DV.path_prefs = []
 	DV.defaultprefs = {
 	}
@@ -996,45 +879,11 @@ if DV.dumplocalewarnings:
 	DV.argv = [x for x in DV.argv if x != '--dump-locale-warnings']
 if '-q' in DV.argv or '--flush':
 	DV.argv = [x for x in DV.argv if x != '-q' and x != '--flush']
-def DamnLocale(s, warn=True, reverse=False):
-	s = DamnUnicode(s)
-	if DV.locale is None:
-		Damnlog('Locale warning: Locale is None.')
-		return s
-	if reverse:
-		for i in DV.locale['strings'].iterkeys():
-			if DV.locale['strings'][i] == s:
-				return i
-		Damnlog('Reverse locale lookup atempt for:', s, 'failed for language', DV.lang)
-		return s
-	if not DV.locale['strings'].has_key(s):
-		if warn and s not in DV.locale_warnings:
-			DV.locale_warnings.append(s)
-			Damnlog('Locale warning:', s, 'has no key for language', DV.lang)
-		return s
-	return DamnUnicode(DV.locale['strings'][s])
-def DamnLoadCurrentLocale():
-	if DV.languages.has_key(DV.lang):
-		DV.locale = DV.languages[DV.lang]
-	else:
-		DV.locale = None
 Damnlog('Loading initial config and modules.')
 DamnLoadConfig(forcemodules=(DV.first_run or DV.updated))
-Damnlog('Loading locales.')
-DV.languages = {}
-DV.l = DamnLocale # Function shortcut
-DV.locale = None
-DV.lang = 'English' # Default, will be overriden later if needed.
-for i in os.listdir(DV.locale_path):
-	if i[-7:].lower() == '.locale':
-		Damnlog('Loading locale', DV.locale_path + i)
-		DamnExecFile(DV.locale_path + i)
-DamnLoadCurrentLocale()
+from dLocale import *
+DamnLocaleInit()
 # Begin ID constants
-ID_MENU_EXIT = wx.ID_EXIT
-ID_MENU_PREFERENCES = wx.ID_PREFERENCES
-ID_MENU_HALP = wx.ID_HELP
-ID_MENU_ABOUT = wx.ID_ABOUT
 ID_COL_VIDNAME = 0
 ID_COL_VIDPROFILE = 1
 ID_COL_VIDSTAT = 2
@@ -1043,7 +892,8 @@ ID_COL_VIDPATH = 3
 REGEX_PATH_MULTI_SEPARATOR_CHECK = re.compile('/+')
 REGEX_FFMPEG_DURATION_EXTRACT = re.compile('^\\s*Duration:\\s*(\\d+):(\\d\\d):([.\\d]+)', re.IGNORECASE)
 REGEX_FFMPEG_TIME_EXTRACT = re.compile('time=([.\\d]+)', re.IGNORECASE)
-REGEX_FILENAME_SANE_CHARACTERS = re.compile(r"[^-a-z\] _=[~.,\d]", re.IGNORECASE)
+REGEX_FILENAME_SANE_CHARACTERS = re.compile(r'[-+/a-z _=~.,\d]', re.IGNORECASE)
+REGEX_SHELLARG_SAFE = re.compile(r'^[-+/\w_=~.,]+$', re.IGNORECASE)
 REGEX_HTTP_GENERIC = re.compile('^https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}#\w]*)?$', re.IGNORECASE)
 REGEX_HTTP_GENERIC_LOOSE = re.compile('https?://(?:[-_\w]+\.)+\w{2,4}(?:[/?][-_+&^%$=`~?.,/:;{}\w]*)?', re.IGNORECASE)
 REGEX_HTTP_EXTRACT_FILENAME = re.compile('^.*/|[?#].*$')
@@ -1173,14 +1023,15 @@ def DamnTempFile():
 	Damnlog('Temp file requested. Return:', name)
 	return name
 def DamnFriendlyDir(d):
+	d = DamnUnicode(d)
 	if DV.os == 'mac':
 		myvids = DV.l('Movies')
 	else:
 		myvids = DV.l('My Videos')
-	d = d.replace('?DAMNVID_MY_VIDEOS?', myvids)
+	d = d.replace(u'?DAMNVID_MY_VIDEOS?', myvids)
 	d = os.path.expanduser(d).replace(DV.my_videos_path, myvids).replace('/', DV.sep).replace('\\', DV.sep)
 	while d[-1:] == DV.sep:
-		d = d[0:-1]
+		d = d[:-1]
 	return d
 def DamnHtmlEntities(html):
 	return DamnUnicode(BeautifulSoup.BeautifulStoneSoup(html, convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES)).replace(u'&amp;', u'&') # Because BeautifulSoup, as good as it is, puts &amp;badentity where &badentitity; are. Gotta convert that back.
@@ -1306,7 +1157,7 @@ class DamnTrayIcon(wx.TaskBarIcon):
 		menu.AppendItem(show)
 		menu.Bind(wx.EVT_MENU, self.raiseParent, show)
 		if self.parent.converting == -1:
-			go = wx.MenuItem(menu, -1, DV.l('Let\'s go!'))
+			go = wx.MenuItem(menu, -1, DV.l('Start'))
 			menu.AppendItem(go)
 			menu.Bind(wx.EVT_MENU, self.parent.onGo, go)
 		else:
@@ -1751,6 +1602,13 @@ class DamnReportBug(wx.Dialog):
 		formtitle.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
 		panelbox.Add(formtitle)
 		panelbox.Add(wx.StaticText(panel, -1, DV.l('Thanks for taking the time to report a bug.')))
+		panelbox.Add((0, DV.border_padding*2))
+		panelbox.Add(wx.StaticText(panel, -1, DV.l('Before reporting a bug, please make sure to check for updates:')))
+		panelbox.Add((0, DV.border_padding))
+		checkupdates = wx.Button(panel, -1, DV.l('Check for updates'))
+		self.Bind(wx.EVT_BUTTON, self.parent.onCheckUpdates, checkupdates)
+		panelbox.Add(checkupdates, 0, wx.ALIGN_CENTER)
+		panelbox.Add((0, DV.border_padding*2))
 		panelbox.Add(wx.StaticText(panel, -1, DV.l('Please fill the form below to complete your bug report.')))
 		panelbox.Add((0, DV.border_padding))
 		panelbox.Add(wx.StaticLine(self, -1))
@@ -1888,10 +1746,11 @@ class DamnDoneDialog(wx.Dialog):
 		Damnlog('Building center UI of done dialog.')
 		if aborted:
 			title = wx.StaticText(panel, -1, DV.l('Video conversion aborted.'))
-			title.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
-		else:
+		elif len(content):
 			title = wx.StaticText(panel, -1, DV.l('Video conversion successful.'))
-			title.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+		else:
+			title = wx.StaticText(panel, -1, DV.l('Video conversion failed.'))
+		title.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
 		mainvbox.Add(title)
 		mainvbox.Add((0, DV.border_padding * 2))
 		if len(content):
@@ -2072,22 +1931,24 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 		f.close()
 		self.profiles = 0
 		for i in self.ini.sections():
-			if i[0:16] == 'damnvid-profile-':
+			if i[:16] == 'damnvid-profile-':
 				self.profiles = self.profiles + 1
 	def expandPath(self, value):
-		value = REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/', value.replace(DV.sep, '/').replace('?DAMNVID_MY_VIDEOS?', DV.my_videos_path.replace(DV.sep, '/'))).replace('/', DV.sep)
+		value = DamnUnicode(value)
+		value = REGEX_PATH_MULTI_SEPARATOR_CHECK.sub(u'/', value.replace(DV.sep, u'/').replace(u'?DAMNVID_MY_VIDEOS?', DV.my_videos_path.replace(DV.sep, u'/'))).replace(u'/', DV.sep)
 		if value[-1:] != DV.sep:
 			value += DV.sep
 		return value
 	def reducePath(self, value):
-		value = REGEX_PATH_MULTI_SEPARATOR_CHECK.sub('/', value.replace(DV.sep, '/').replace(DV.my_videos_path.replace(DV.sep, '/'), '?DAMNVID_MY_VIDEOS?')).replace(DV.sep, '/')
-		if value[-1:] != '/':
-			value += '/'
+		value = DamnUnicode(value)
+		value = REGEX_PATH_MULTI_SEPARATOR_CHECK.sub(u'/', value.replace(DV.sep, u'/').replace(DV.my_videos_path.replace(DV.sep, u'/'), u'?DAMNVID_MY_VIDEOS?')).replace(DV.sep, u'/')
+		if value[-1:] != u'/':
+			value += u'/'
 		return value
 	def gets(self, section, name):
 		name = name.lower()
 		shortsection = section
-		if shortsection[0:16] == 'damnvid-profile-':
+		if shortsection[:16] == 'damnvid-profile-':
 			shortsection = 'damnvid-profile'
 		if self.ini.has_section(section):
 			if self.ini.has_option(section, name):
@@ -2105,7 +1966,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 			self.ini.add_section(section)
 			self.sets(section, name, value)
 			return DamnUnicode(self.gets(section, name))
-		print 'No such pref:', section + ':' + name
+		Damnlog('No such pref:', section + ':' + name)
 	def sets(self, section, name, value):
 		name = name.lower()
 		value = DamnUnicode(value)
@@ -2114,7 +1975,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 				value = self.reducePath(value)
 			return self.ini.set(section, name, value.encode('utf8'))
 		else:
-			print 'No such section:', section
+			Damnlog('No such section:', section)
 	def rems(self, section, name=None):
 		try:
 			if name is None:
@@ -2122,7 +1983,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 			else:
 				self.ini.remove_option(section, name)
 		except:
-			print 'No such section/option'
+			Damnlog('No such section/option:', section, '/', name)
 	def lists(self, section):
 		prefs = []
 		if DV.preference_order.has_key(section):
@@ -2133,7 +1994,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 					prefs.append(i)
 		if len(prefs):
 			return prefs
-		print 'No such section.'
+		Damnlog('No such section:', section)
 	def listsections(self):
 		return self.ini.sections()
 	def get(self, name):
@@ -2726,10 +2587,15 @@ class DamnHistoryViewer(wx.Dialog):
 			icon = DV.listicons.getRawBitmap('fail')
 		tmpSizer.Add(DamnOmniElement(self, wx.StaticBitmap(self.historyPanel, -1, icon), uri), 0)
 		tmpSizer.Add((DV.border_padding / 2,0))
-		if len(title) > 50:
-			title = title[:50] + u'...'
-		# Todo: Make local files open locally if they exist
-		tmpSizer.Add(DamnOmniLink(self, self.historyPanel, title, uri), 0, wx.ALIGN_LEFT)
+		titlelink = DamnOmniLink(self, self.historyPanel, title, uri)
+		while titlelink.GetBestSizeTuple()[0] > 300:
+			try:
+				titlelink.Destroy()
+			except:
+				pass
+			title = title[:-2]
+			titlelink = DamnOmniLink(self, self.historyPanel, title, uri)
+		tmpSizer.Add(titlelink, 0, wx.ALIGN_LEFT)
 		tmpSizer.Add(wx.StaticText(self.historyPanel, -1, ''), 1)
 		addButton = wx.Button(self.historyPanel, -1, '+', size = (24,24))
 		self.Bind(wx.EVT_BUTTON, DamnCurry(self.onAdd, uri), addButton)
@@ -4186,47 +4052,11 @@ class DamnMainFrame(DamnFrame): # The main window
 		Damnlog('DamnMainFrame GUI building starting.')
 		DamnFrame.__init__(self, parent, wx.ID_ANY, title, size=(780, 580), style=wx.DEFAULT_FRAME_STYLE)
 		self.CreateStatusBar()
-		filemenu = wx.Menu()
-		menu_addfile = wx.MenuItem(filemenu, -1, DV.l('&Add files...'), DV.l('Adds damn videos from local files.'))
-		filemenu.AppendItem(menu_addfile)
-		self.Bind(wx.EVT_MENU, self.onAddFile, menu_addfile)
-		menu_addurl = wx.MenuItem(filemenu, -1, DV.l('Add &URL...'), DV.l('Adds a damn video from a URL.'))
-		filemenu.AppendItem(menu_addurl)
-		self.Bind(wx.EVT_MENU, self.onAddURL, menu_addurl)
-		menu_history = wx.MenuItem(filemenu, -1, DV.l('Video &history...'), DV.l('Opens DamnVid\'s video history.'))
-		filemenu.AppendItem(menu_history)
-		self.Bind(wx.EVT_MENU, self.onOpenHistory, menu_history)
-		filemenu.AppendSeparator()
-		filemenu.Append(ID_MENU_EXIT, DV.l('E&xit'), DV.l('Terminates DamnVid.'))
-		self.Bind(wx.EVT_MENU, self.onExit, id=ID_MENU_EXIT)
-		vidmenu = wx.Menu()
-		menu_letsgo = wx.MenuItem(vidmenu, -1, DV.l('Let\'s &go!'), DV.l('Processes all the videos in the list.'))
-		vidmenu.AppendItem(menu_letsgo)
-		self.Bind(wx.EVT_MENU, self.onGo, menu_letsgo)
-		vidmenu.AppendSeparator()
-		self.prefmenuitem = vidmenu.Append(ID_MENU_PREFERENCES, DV.l('Preferences'), DV.l('Opens DamnVid\'s preferences, allowing you to customize its settings.'))
-		self.Bind(wx.EVT_MENU, self.onPrefs, id=ID_MENU_PREFERENCES)
-		halpmenu = wx.Menu()
-		halpmenu.Append(ID_MENU_HALP, DV.l('&Help'), DV.l('Opens DamnVid\'s help.'))
-		self.Bind(wx.EVT_MENU, self.onHalp, id=ID_MENU_HALP)
-		menu_reportbug = wx.MenuItem(halpmenu, -1, DV.l('Report a bug'), DV.l('Submit a new bug report.'))
-		halpmenu.AppendItem(menu_reportbug)
-		self.Bind(wx.EVT_MENU, self.onReportBug, menu_reportbug)
-		menu_checkupdates = wx.MenuItem(halpmenu, -1, DV.l('Check for updates...'), DV.l('Checks if a new version of DamnVid is available.'))
-		halpmenu.AppendItem(menu_checkupdates)
-		self.Bind(wx.EVT_MENU, self.onCheckUpdates, menu_checkupdates)
-		halpmenu.AppendSeparator()
-		halpmenu.Append(ID_MENU_ABOUT, DV.l('&About DamnVid ') + DV.version + '...', DV.l('Displays information about DamnVid.'))
-		self.Bind(wx.EVT_MENU, self.onAboutDV, id=ID_MENU_ABOUT)
-		self.menubar = wx.MenuBar()
-		self.menubar.Append(filemenu, DV.l('&File'))
-		self.menubar.Append(vidmenu, DV.l('&DamnVid'))
-		self.menubar.Append(halpmenu, DV.l('&Help'))
-		self.SetMenuBar(self.menubar)
+		self.SetMenuBar(UI.Menubar(self))
 		Damnlog('DamnMainFrame menu bar is up.')
 		vbox = wx.BoxSizer(wx.VERTICAL)
 		self.SetSizer(vbox)
-		#vbox.Add((0,DV.border_padding)) Actually, do NOT add a padding there, it looks better when stuck on the edge
+		#vbox.Add((0,DV.border_padding)) #Actually, do NOT add a padding there, it looks better when stuck on the edge
 		panel = wx.Panel(self, -1)
 		vbox.Add(panel, 1, wx.EXPAND)
 		grid = wx.FlexGridSizer(2, 2, 8, 8)
@@ -4311,7 +4141,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		sizer2.Add(self.deletebutton, 0, wx.ALIGN_CENTER)
 		sizer2.Add((0, DV.control_vgap))
 		self.Bind(wx.EVT_BUTTON, self.onDelete, self.deletebutton)
-		self.gobutton1 = wx.Button(panel2, -1, DV.l('Let\'s go!'))
+		self.gobutton1 = wx.Button(panel2, -1, DV.l('Start'))
 		sizer2.Add(self.gobutton1, 0, wx.ALIGN_CENTER)
 		sizer2.Add((0, DV.border_padding))
 		buttonwidth = sizer2.GetMinSizeTuple()[0]
@@ -4321,7 +4151,6 @@ class DamnMainFrame(DamnFrame): # The main window
 		panel3.SetSizer(hbox3)
 		hbox3.Add(wx.StaticText(panel3, -1, DV.l('Current video: ')), 0, wx.ALIGN_CENTER_VERTICAL)
 		self.gauge1 = wx.Gauge(panel3, -1)
-		self.gauge1.SetSize((self.gauge1.GetSizeTuple()[0], hbox3.GetSizeTuple()[1]))
 		hbox3.Add(self.gauge1, 1, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)
 		#self.gobutton2=wx.Button(bottompanel,-1,'Let\'s go!')
 		#self.Bind(wx.EVT_BUTTON,self.onGo,self.gobutton2)
@@ -4338,6 +4167,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.stopbutton = wx.Button(panel4, -1, DV.l('Stop'))
 		for button in (self.addByFile, self.addByURL, self.btnRename, self.btnMoveUp, self.btnMoveDown, self.deletebutton, self.gobutton1, self.stopbutton, self.btnSearch):
 			button.SetMinSize((buttonwidth, button.GetSizeTuple()[1]))
+		self.gauge1.SetMaxSize((-1, self.stopbutton.GetSizeTuple()[1]))
 		self.profiledropdown.SetMinSize((buttonwidth, tmplistheight))
 		self.profiledropdown.Bind(wx.EVT_CHOICE, self.onChangeProfileDropdown)
 		self.profilepanel.Show()
@@ -4567,14 +4397,15 @@ class DamnMainFrame(DamnFrame): # The main window
 		Damnlog('onAddURL event fired:',event)
 		default = ''
 		try:
-			if wx.TheClipboard.Open():
-				dataobject = wx.TextDataObject()
-				wx.TheClipboard.GetData(dataobject)
-				default = dataobject.GetText()
-				wx.TheClipboard.Close()
-				Damnlog('Text scavenged from clipboard:',default)
-				if not self.validURI(default):
-					default = '' # Only set that as default text if the clipboard's text content is not a URL
+			if not wx.TheClipboard.IsOpened():
+				if wx.TheClipboard.Open():
+					dataobject = wx.TextDataObject()
+					wx.TheClipboard.GetData(dataobject)
+					default = dataobject.GetText()
+					wx.TheClipboard.Close()
+					Damnlog('Text scavenged from clipboard:',default)
+					if not self.validURI(default):
+						default = '' # Only set that as default text if the clipboard's text content is not a URL
 		except:
 			default = ''
 		try:
@@ -5023,20 +4854,24 @@ class DamnMainFrame(DamnFrame): # The main window
 	def onClipboardTimer(self, event):
 		self.clipboardtimer.Stop()
 		try:
-			if DV.gui_ok and DV.prefs.get('clipboard') == 'True':
+			if DV.gui_ok and DV.prefs.get('clipboard') == 'True' and not wx.TheClipboard.IsOpened():
 				if wx.TheClipboard.Open():
 					dataobject = wx.TextDataObject()
 					wx.TheClipboard.GetData(dataobject)
 					clip = dataobject.GetText()
 					wx.TheClipboard.Close()
-					if self.validURI(clip) == 'Video site' and clip not in self.clippedvideos:
-						self.clippedvideos.append(clip)
-						if self.addurl is not None:
-							self.addurl.onAdd(val=clip)
-						else:
-							self.addVid([clip], DV.prefs.get('autoconvert') == 'True')
+					clip = DamnUnicode(clip)
+					if DV.oldclipboard != clip:
+						DV.oldclipboard = clip
+						Damnlog('Text scavenged from clipboard (in loop):', clip)
+						if self.validURI(clip) == 'Video site' and clip not in self.clippedvideos:
+							self.clippedvideos.append(clip)
+							if self.addurl is not None:
+								self.addurl.onAdd(val=clip)
+							else:
+								self.addVid([clip], DV.prefs.get('autoconvert') == 'True')
 		except:
-			pass # The clipboard might not get opened properly, or the prefs object might not exist yet. Just silently pass, gonna catch up at next timer event.
+			Damnlog('Failed to open clipboard.') # The clipboard might not get opened properly, or the prefs object might not exist yet. Just silently pass, gonna catch up at next timer event.
 		try:
 			wx.TheClipboard.Close() # Try to close it, just in case it's left open.
 		except:
@@ -5134,7 +4969,6 @@ def DamnMain():
 		Damnlog('Cleaned temp directory.')
 	except:
 		Damnlog('Could not clean temp directory. Nothing fatal...')
-	DV.log.close()
 	if DV.dumplocalewarnings:
 		Damnlog('Starting locale warnings dump')
 		try:
@@ -5144,6 +4978,7 @@ def DamnMain():
 			Damnlog('Successful locale warnings dump.')
 		except:
 			Damnlog('Failed to dump locale warnings.')
+	DV.log.close()
 try:
 	DamnMain()
 except:

@@ -137,6 +137,7 @@ DamnRegisterModule({
 	'title':'YouTube',
 	'type':'video',
 	'version':'1.8',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -192,21 +193,21 @@ YouTube HD (720p/1080p) is also supported, as well as playlist batch downloading
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/YouTube/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		},
 		'outdirhd720':{
 			'name':'Output directory for 720p videos',
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		},
 		'outdirhd1080':{
 			'name':'Output directory for 1080p videos',
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		},
 		'maxplaylist':{
 			'name':'Maximum videos from playlists',

@@ -39,7 +39,8 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'Reset all...': u'Restaurer tout',
 		'Invalid configuration file.': u'Fichier de configuration invalide.',
 		'Update': u'Mise à jour',
-		'Video conversion aborted.': u'Conversion de la vidéo annulée.',
+		'Video conversion aborted.': u'Conversion annulée.',
+		'Video conversion failed.': u'Échec de conversion.',
 		'Add some videos in the list first.': u'Ajoutez d\'abord des vidéos à la liste.',
 		'Aborted': u'Annulé',
 		'Are you sure you want to uninstall the module: ': u'Êtes vous sûr de vouloir désinstaller le module: ',
@@ -101,7 +102,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'Browse...': u'Recherche...',
 		'Select some videos!': u'Sélectionnez des vidéos!',
 		'Check for updates': u'Mise à jour',
-		'Let\'s &go!': u'&C\'est parti!',
+		'Start': u'Lancer',
 		'There was a problem while checking for updates. You are running DamnVid ': u'Il y a eu un problème pendant la recherche de mises à jours. Vous utilisez DamnVid ',
 		'Invalid file': u'Fichier invalide',
 		'Error: Could not find the module file.': u'Erreur: Impossible de trouver le fichier du module.',
@@ -370,7 +371,6 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'Maximum videos from playlists': u'Nombre maximal de vidéos dans une liste',
 		' However, your version (': u' Cependant, votre version (',
 		') seems different than the latest version available online. Where would you get that?': u') semble être différente de celle disponible en ligne. Où avez vous trouvé cela?',
-		'Let\'s go!':u'C\'est parti!',
 		'Report a bug':u'Signaler un bug',
 		'Submit a new bug report.':u'Soumettre un rapport de bug.',
 		'Send':u'Envoyer',
@@ -443,6 +443,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'History': u'Historique',
 		'Close': u'Fermer',
 		'The history feature has been disabled in the preferences.':u'L\'historique est désactivé dans les préférences.',
-		'The history is empty.':u'L\'historique est vide.'
+		'The history is empty.':u'L\'historique est vide.',
+		'Before reporting a bug, please make sure to check for updates:': u'Avant de signaler un bug, vérifiez que DamnVid est à jour:'
 	}
 }

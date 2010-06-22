@@ -61,6 +61,7 @@ DamnRegisterModule({
 	'title':'Vimeo',
 	'type':'video',
 	'version':'1.0',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -102,7 +103,7 @@ HD is supported, as well as videos marked as "undownloadable" on the site.""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Vimeo/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		},
 		'profilehd':{
 			'name':'Default profile for HD videos',
@@ -116,7 +117,7 @@ HD is supported, as well as videos marked as "undownloadable" on the site.""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'preferences_order':['profile','outdir'],

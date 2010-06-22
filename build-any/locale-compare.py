@@ -56,7 +56,7 @@ for k in second['strings'].keys():
 	if k not in first['strings'].keys():
 		missing1.append(k)
 if len(missing1):
-	print locales[0], 'is missing the following', len(missing1), 'strings:'
+	print locales[1], 'has the following', len(missing1), 'unused strings:'
 	for k in range(len(missing1)):
 		if k < len(missing1) - 1:
 			print '\t\t\'' + escape(missing1[k]) + '\': u\'' + escape(second['strings'][missing1[k]]) + '\','

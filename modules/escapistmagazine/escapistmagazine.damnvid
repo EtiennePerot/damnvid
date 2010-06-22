@@ -58,6 +58,7 @@ DamnRegisterModule({
 	'title':'The Escapist',
 	'type':'video',
 	'version':'1.2',
+	'minversion':'1.7',
 	'author':{
 		'name':'Palmer',
 		'email':'palmnet@gmail.com',
@@ -100,7 +101,7 @@ Some parts by Etienne Perot.""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Escapist/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'preferences_order':['profile','outdir'],

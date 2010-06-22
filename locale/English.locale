@@ -40,6 +40,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'Invalid configuration file.': u'Invalid configuration file.',
 		'Update': u'Update',
 		'Video conversion aborted.': u'Video conversion aborted.',
+		'Video conversion failed.': u'Video conversion failed.',
 		'Add some videos in the list first.': u'Add some videos in the list first.',
 		'Aborted': u'Aborted',
 		'Are you sure you want to uninstall the module: ': u'Are you sure you want to uninstall the module: ',
@@ -101,7 +102,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'Browse...': u'Browse...',
 		'Select some videos!': u'Select some videos!',
 		'Check for updates': u'Check for updates',
-		'Let\'s &go!': u'Let\'s &go!',
+		'Start': u'Start',
 		'There was a problem while checking for updates. You are running DamnVid ': u'There was a problem while checking for updates. You are running DamnVid ',
 		'Invalid file': u'Invalid file',
 		'Error: Could not find the module file.': u'Error: Could not find the module file.',
@@ -443,6 +444,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'History': u'History',
 		'Close': u'Close',
 		'The history feature has been disabled in the preferences.':u'The history feature has been disabled in the preferences.',
-		'The history is empty.':u'The history is empty.'
+		'The history is empty.':u'The history is empty.',
+		'Before reporting a bug, please make sure to check for updates:': u'Before reporting a bug, please make sure to check for updates:'
 	}
 }

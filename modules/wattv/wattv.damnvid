@@ -45,6 +45,7 @@ DamnRegisterModule({
 	'title':'wat.tv',
 	'type':'video',
 	'version':'1.0',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -81,7 +82,7 @@ Works on "undownloadable" videos as well.""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/wat.tv/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'register':{

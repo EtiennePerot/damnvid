@@ -52,6 +52,7 @@ DamnRegisterModule({
 	'title':'JeuxVideos.com',
 	'type':'video',
 	'version':'1.0',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -88,7 +89,7 @@ It automatically selects the HD version of the video if it is available.""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/JeuxVideo/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'register':{

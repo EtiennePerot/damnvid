@@ -30,6 +30,7 @@ DamnRegisterModule({
 	'title':'Google Video',
 	'type':'video',
 	'version':'1.0',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -66,7 +67,7 @@ Not all videos can be downloaded (only those with a Download button).""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Google Video/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'register':{

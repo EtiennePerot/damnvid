@@ -41,6 +41,7 @@ DamnRegisterModule({
 	'title':'Veoh',
 	'type':'video',
 	'version':'1.0',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -77,7 +78,7 @@ Only some of the videos from external sites embedded on Veoh are supported, thou
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Veoh/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'register':{

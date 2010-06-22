@@ -45,6 +45,7 @@ DamnRegisterModule({
 	'title':'Metacafe',
 	'type':'video',
 	'version':'1.1',
+	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
 		'email':'admin@biringa.com',
@@ -80,7 +81,7 @@ DamnRegisterModule({
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Metacafe/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'register':{

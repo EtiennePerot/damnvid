@@ -6,12 +6,13 @@ import platform
 import shutil
 import getopt
 import subprocess
+import py_compile
 
 def procs(command):
 	p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	for l in p.stdout:
 		print '>', l.strip()
-	p.communicate()
+	return p.communicate()
 
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
@@ -34,15 +35,12 @@ if os.path.exists(outputFile):
 if os.path.exists('COPYING'):
 	os.remove('COPYING')
 shutil.copyfile('build-any/COPYING','./COPYING')
-ext='py'
+required_files.extend(['version.damnvid','COPYING'])
 if OSNAME=='nt':
-	ext='exe'
-required_files.extend(['DamnVid.'+ext,'version.damnvid','COPYING'])
-del ext
-if OSNAME=='nt':
+	required_files.append('DamnVid.exe')
 	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')
 	required_files.append('DamnVid.exe.manifest')
-required_dirs=['img','conf','locale','socks']
+required_dirs=['img','conf','locale']
 def addDir(d):
 	global required_files
 	for f in os.listdir(d):
@@ -62,12 +60,39 @@ for f in os.listdir('./modules/'):
 for f in os.listdir('./modules/'):
 	if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
 		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
+def addModule(f, recursive=True):
+	global required_files
+	if OSNAME != 'posix':
+		return
+	if os.path.isdir(f):
+		for i in os.listdir(f):
+			if os.path.isdir(f + os.sep + i) and recursive:
+				addModule(f + os.sep + i)
+			elif f[-3:] == '.py':
+				addModule(f + os.sep + i)
+	elif f[-3:] == '.py':
+		try:
+			py_compile.compile(f)
+			if os.path.exists(f+'o'):
+				required_files.append(f+'o')
+			elif os.path.exists(f+'c'):
+				required_files.append(f+'c')
+			else:
+				required_files.append(f)
+		except:
+			print >> sys.stderr, 'Error while compyling', f
+			required_files.append(f)
 for f in os.listdir('.'):
 	if f[-15:]=='.module.damnvid':
 		if os.path.lexists('modules/'+f):
 			os.remove('modules/'+f)
 		os.rename(f,'modules/'+f)
 		required_files.append('modules'+os.sep+f)
+	if f[-3:] == '.py':
+		addModule(f)
+addModule('.', recursive=False)
+addModule('ui')
+addModule('socks')
 specialfiles = {}
 if OSNAME=='nt':
 	required_files.extend(['bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll'])

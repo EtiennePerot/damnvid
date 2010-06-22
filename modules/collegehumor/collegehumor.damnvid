@@ -62,7 +62,7 @@ CHTV originals are supported, as well as user-submitted videos.""",
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/CollegeHumor/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 		}
 	},
 	'preferences_order':['profile','outdir'],
