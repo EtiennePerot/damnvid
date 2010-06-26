@@ -1,2 +1,2 @@
 # -*- coding: utf-8 -*-
-__all__ = ['dUI']
+from dUI import *

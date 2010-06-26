@@ -91,3 +91,7 @@ def Damnlog(*args):
 	if DamnLog.__dict__.has_key('instance'):
 		return DamnLog.instance.log(*args)
 	return None
+def DamnlogException(*args):
+	if DamnLog.__dict__.has_key('instance'):
+		return DamnLog.instance.logException(*args)
+	return None

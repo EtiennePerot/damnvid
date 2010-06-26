@@ -1,50 +1,75 @@
 # -*- coding: utf-8 -*-
-try:
-	import wxversion
+from dCore import *
+from dConstants import *
+from dConfig import *
+from dLog import *
+from dWx import wx
+
+def DamnFadeIn(frame):
+	if not frame.CanSetTransparent() or not DV.prefs.get('splashscreen') == 'True':
+		frame.Show()
+		return
+	frame.SetTransparent(0)
+	frame.Show()
+	frame.fadeTimer = wx.Timer(frame)
+	frame.fadeCurrent = 0
+	frame.fadeDelta = 1
+	frame.fadeInterval = 4
+	frame.fadeLagTolerance = 2
+	frame.fadeObjective = 255
+	frame.fadeTime = time.time() * 1000
+	frame.fadeDestroy = False
+	frame.Bind(wx.EVT_TIMER, DamnCurry(DamnFadeCycle, frame), frame.fadeTimer)
+	frame.fadeTimer.Start(frame.fadeInterval)
+def DamnFadeOut(frame, destroy=True):
+	if not frame.CanSetTransparent() or not DV.prefs.get('splashscreen') == 'True':
+		frame.Hide()
+		if destroy:
+			frame.Destroy()
+		return
+	frame.fadeTimer = wx.Timer(frame)
+	frame.fadeCurrent = 255
+	frame.fadeDelta = -1
+	frame.fadeInterval = 4
+	frame.fadeLagTolerance = 2
+	frame.fadeObjective = 0
+	frame.fadeTime = time.time() * 1000
+	frame.fadeDestroy = destroy
+	frame.Bind(wx.EVT_TIMER, DamnCurry(DamnFadeCycle, frame), frame.fadeTimer)
+	frame.fadeTimer.Start(frame.fadeInterval)
+def DamnFadeCycle(frame, event=None):
 	try:
-		wxversion.select('2.8')
+		frame.SetTransparent(frame.fadeCurrent)
 	except:
 		pass
-except:
-	pass
-import wx
-from dLocale import *
-class Menubar(wx.MenuBar):
-	def __init__(self, parent=None):
-		self.parent = parent
-		wx.MenuBar.__init__(self)
-		filemenu = wx.Menu()
-		menu_addfile = wx.MenuItem(filemenu, -1, DV.l('&Add files...'), DV.l('Adds damn videos from local files.'))
-		filemenu.AppendItem(menu_addfile)
-		self.parent.Bind(wx.EVT_MENU, self.parent.onAddFile, menu_addfile)
-		menu_addurl = wx.MenuItem(filemenu, -1, DV.l('Add &URL...'), DV.l('Adds a damn video from a URL.'))
-		filemenu.AppendItem(menu_addurl)
-		self.parent.Bind(wx.EVT_MENU, self.parent.onAddURL, menu_addurl)
-		menu_history = wx.MenuItem(filemenu, -1, DV.l('Video &history...'), DV.l('Opens DamnVid\'s video history.'))
-		filemenu.AppendItem(menu_history)
-		self.parent.Bind(wx.EVT_MENU, self.parent.onOpenHistory, menu_history)
-		filemenu.AppendSeparator()
-		filemenu.Append(wx.ID_EXIT, DV.l('E&xit'), DV.l('Terminates DamnVid.'))
-		self.parent.Bind(wx.EVT_MENU, self.parent.onExit, id=wx.ID_EXIT)
-		vidmenu = wx.Menu()
-		menu_letsgo = wx.MenuItem(vidmenu, -1, DV.l('Start'), DV.l('Processes all the videos in the list.'))
-		vidmenu.AppendItem(menu_letsgo)
-		self.parent.Bind(wx.EVT_MENU, self.parent.onGo, menu_letsgo)
-		vidmenu.AppendSeparator()
-		self.parent.prefmenuitem = vidmenu.Append(wx.ID_PREFERENCES, DV.l('Preferences'), DV.l('Opens DamnVid\'s preferences, allowing you to customize its settings.'))
-		self.parent.Bind(wx.EVT_MENU, self.parent.onPrefs, id=wx.ID_PREFERENCES)
-		halpmenu = wx.Menu()
-		halpmenu.Append(wx.ID_HELP, DV.l('&Help'), DV.l('Opens DamnVid\'s help.'))
-		self.parent.Bind(wx.EVT_MENU, self.parent.onHalp, id=wx.ID_HELP)
-		menu_reportbug = wx.MenuItem(halpmenu, -1, DV.l('Report a bug'), DV.l('Submit a new bug report.'))
-		halpmenu.AppendItem(menu_reportbug)
-		self.parent.Bind(wx.EVT_MENU, self.parent.onReportBug, menu_reportbug)
-		menu_checkupdates = wx.MenuItem(halpmenu, -1, DV.l('Check for updates...'), DV.l('Checks if a new version of DamnVid is available.'))
-		halpmenu.AppendItem(menu_checkupdates)
-		self.parent.Bind(wx.EVT_MENU, self.parent.onCheckUpdates, menu_checkupdates)
-		halpmenu.AppendSeparator()
-		halpmenu.Append(wx.ID_ABOUT, DV.l('&About DamnVid ') + DV.version + '...', DV.l('Displays information about DamnVid.'))
-		self.parent.Bind(wx.EVT_MENU, self.parent.onAboutDV, id=wx.ID_ABOUT)
-		self.Append(filemenu, DV.l('&File'))
-		self.Append(vidmenu, DV.l('&DamnVid'))
-		self.Append(halpmenu, DV.l('&Help'))
+	newTime = time.time() * 1000
+	if newTime - frame.fadeTime > frame.fadeInterval * frame.fadeLagTolerance:
+		frame.fadeDelta *= 2 # Increase fade delta to make up for machine slowness.
+		frame.fadeLagTolerance *= 2
+	frame.fadeTime = newTime
+	frame.fadeCurrent += frame.fadeDelta
+	if (frame.fadeDelta > 0 and frame.fadeCurrent >= frame.fadeObjective) or (frame.fadeDelta < 0 and frame.fadeCurrent <= frame.fadeObjective):
+		try:
+			frame.SetTransparent(frame.fadeObjective)
+		except:
+			pass
+		frame.fadeTimer.Stop()
+		if frame.fadeDestroy:
+			frame.Destroy()
+class DamnFrame(wx.Frame):
+	def fadeIn(self):
+		DamnFadeIn(self)
+	def fadeOut(self, destroy=True):
+		DamnFadeOut(self, destroy)
+
+# Now load UI stuff
+from dEvent import *
+from dWidgets import *
+from dPrefEditor import *
+from dDoneDialog import *
+from dAddURLDialog import *
+from dAboutDialog import *
+from dReportBug import *
+from dBrowser import *
+from dVideoHistory import *
+from dMainFrame import *
