@@ -3,10 +3,10 @@ from dCore import *
 from dLog import *
 from dThread import *
 import dSysInfo
+import time
 import random
 import socket
 import traceback
-import urllib2
 import cookielib
 import gdata.youtube.service # YouTube service
 import gdata.projecthosting.client # Google Code service
@@ -14,6 +14,9 @@ import BeautifulSoup
 DV.blanksocket = socket.socket
 DV.youtube_service = gdata.youtube.service.YouTubeService()
 DV.youtube_service.ssl = False
+DV.streamTimeout = 17.5
+socket.setdefaulttimeout(DV.streamTimeout)
+import urllib2
 class DamnCookieJar(cookielib.CookieJar):
 	def _cookie_from_cookie_tuple(self, tup, request): # Work-around for cookielib bug with non-integer cookie versions (*ahem* @ Apple)
 		name, value, standard, rest = tup
@@ -84,17 +87,159 @@ def DamnURLOpener():
 	Damnlog('URL opener installed, proxy settings loaded.')
 	return DV.urllib2_urlopener
 from dConfig import *
-def DamnURLOpen(req, data=None, throwerror=False):
-	Damnlog('DamnURLOpen called with request',req,'; data',data,'; Throw error?',throwerror)
+class DamnURLRequest(urllib2.Request):
+	def __str__(self):
+		return u'<DamnURLRequest of: ' + DamnUnicode(urllib2.Request.get_full_url(self)) + u'>'
+	def __repr__(self):
+		return self.__str__()
+class DamnResumableDownload:
+	def __init__(self, req, data=None, resumeat=None, resumable=True, buffer=32768, autoopen=True, autofetch=True):
+		Damnlog('DamnResumableDownload initiated with request', req, 'and data', data, '; Resumat at:', resumeat, '; Resumable:', resumable,'; Buffer size:', buffer, '; Auto-open:', autoopen,'; Auto-fetch:', autofetch)
+		self.req = req
+		self.url = req
+		self.data = data
+		self.resumable = resumable
+		self.buffersize = buffer
+		self.buffer = ''
+		if type(req) in (type(''), type(u'')):
+			req = DamnURLRequest(DamnUnicode(req))
+		self.stream = None
+		self.progress = 0
+		if resumeat is not None:
+			self.progress = resumeat
+		self.fetchThread = None
+		self.autofetch = autofetch
+		self.hasTimeout = False
+		if autoopen:
+			self.open()
+		if self.autofetch:
+			self.spawnFetcher()
+	def __str__(self):
+		return u'<DamnResumableDownload of: ' + DamnUnicode(self.url) + u'>'
+	def __repr__(self):
+		return self.__str__()
+	def open(self):
+		Damnlog('DamnResumableDownload opening', self.url)
+		if self.stream is not None:
+			self.close()
+		if self.progress > 0:
+			self.req.add_header('Range', 'bytes=' + str(self.progress) + '-')
+		try:
+			self.stream = urllib2.urlopen(self.req)
+			return self.stream
+		except urllib2.URLError, e:
+			Damnlog('! DamnResumableDownload failed opening with URLError', e, 'on', self.url)
+			if hasattr(e, 'code'):
+				Damnlog('!! DamnResumableDownload opening URLError has code', e.code, 'on', self.url,'; raising exception.')
+				raise e
+		except socket.timeout, e:
+			Damnlog('! DamnResumableDownload failed opening with socket timeout error', e, 'on', self.url)
+		except socket.error, e:
+			Damnlog('! DamnResumableDownload failed opening with socket error', e, 'on', self.url)
+		except Exception, e:
+			Damnlog('! DamnResumableDownload failed opening with unknown error', e, 'on', self.url)
+			self.hasTimeout = True
+		time.sleep(DV.streamTimeout/2)
+		self.open()
+	def info(self):
+		self.ensureOpen()
+		return self.stream.info()
+	def ensureOpen(self):
+		if self.stream is None:
+			self.open()
+	def timeout(self):
+		Damnlog('DamnResumableDownload timeout error for', self.url)
+		self.hasTimeout = True
+		self.close()
+	def fetchBuffer(self):
+		if self.hasTimeout:
+			time.sleep(DV.streamTimeout/2) # Sleep for a bit before giving it another shot
+		self.hasTimeout = False
+		tmptimer = DamnTimer(DV.streamTimeout, self.timeout)
+		tmptimer.start()
+		self.ensureOpen()
+		try:
+			c = self.stream.read(self.buffersize)
+		except urllib2.URLError, e:
+			Damnlog('! DamnResumableDownload failed reading with URLError', e, 'on', self.url)
+			if hasattr(e, 'code'):
+				Damnlog('!! DamnResumableDownload reading URLError has code', e.code, 'on', self.url,'; raising exception.')
+				raise e
+			self.hasTimeout = True
+		except socket.timeout, e:
+			Damnlog('! DamnResumableDownload failed reading with socket timeout error', e, 'on', self.url)
+			self.hasTimeout = True
+		except socket.error, e:
+			Damnlog('! DamnResumableDownload failed reading with socket error', e, 'on', self.url)
+			self.hasTimeout = True
+		except Exception, e:
+			Damnlog('! DamnResumableDownload failed reading with unknown error', e, 'on', self.url)
+			self.hasTimeout = True
+		if self.hasTimeout:
+			self.close()
+			return self.fetchBuffer()
+		try:
+			tmptimer.cancel()
+		except:
+			pass
+		self.buffer += c
+		self.progress += len(c)
+	def spawnFetcher(self):
+		self.fetchThread = DamnThreadedFunction(self.fetchBuffer)
+		self.fetchThread.start()
+	def joinFetcher(self):
+		if self.fetchThread is not None:
+			self.fetchThread.join()
+			self.fetchThread = None
+	def readBuffer(self):
+		if self.fetchThread is None:
+			self.spawnFetcher()
+		self.joinFetcher()
+		if self.autofetch and len(self.buffer) <= self.buffersize:
+			self.spawnFetcher()
+	def read(self, bytes=None):
+		if bytes is None:
+			bytes = -1
+		if bytes == -1:
+			buffer = ''
+			i = self.read(self.buffersize)
+			while len(i):
+				buffer += i
+				i = self.read(self.buffersize)
+			return buffer
+		if len(self.buffer) >= bytes: # If the buffer is rich enough
+			buffer = self.buffer[:bytes]
+			self.buffer = self.buffer[bytes:]
+			return buffer
+		oldBuffer = len(self.buffer)
+		self.readBuffer()
+		if oldBuffer < len(self.buffer): # There is still stuff left
+			return self.read(bytes) # Then keep downloading
+		buffer = self.buffer # Otherwise stream ended, just flush the buffer
+		self.buffer = ''
+		return buffer
+	def readAll(self):
+		Damnlog('DamnResumableDownload reading all for', self.url)
+		return self.read(-1)
+	def close(self):
+		Damnlog('DamnResumableDownload closing', self.url)
+		if self.stream is not None:
+			try:
+				self.stream.close()
+			except:
+				Damnlog('! DamnResumableDownload failed closing', self.url)
+			self.stream = None
+def DamnURLOpen(req, data=None, throwerror=False, autoresume=True, resumeat=None):
+	Damnlog('DamnURLOpen called with request', req, '; data', data,'; Throw error?', throwerror, '; Autoresume?', autoresume)
 	url = req
 	if type(req) in (type(''), type(u'')):
-		req = urllib2.Request(DamnUnicode(req))
+		req = DamnURLRequest(DamnUnicode(req))
 		Damnlog('Request was', url, '; request is now',req)
 	try:
 		if data is not None:
-			pipe = urllib2.urlopen(req, data)
+			pipe = DamnResumableDownload(req, data, resumable=autoresume, resumeat=resumeat)
 		else:
-			pipe = urllib2.urlopen(req)
+			pipe = DamnResumableDownload(req, resumable=autoresume, resumeat=resumeat)
 		Damnlog('DamnURLOpen successful, returning stream.')
 		return pipe
 	except IOError, err:
@@ -137,12 +282,8 @@ def DamnURLPicker(urls, urlonly=False, resumeat=None):
 		i = DamnUnicode(i)
 		if i not in tried:
 			tried.append(i)
-			if resumeat is None:
-				request = urllib2.Request(i)
-			else:
-				request = urllib2.Request(i, None, {'Range':'bytes=' + str(resumeat) + '-*'})
 			try:
-				pipe = DamnURLOpen(request, throwerror=True)
+				pipe = DamnURLOpen(i, throwerror=True, resumeat=resumeat)
 				if urlonly:
 					try:
 						pipe.close()
@@ -433,7 +574,7 @@ class DamnBugReporter(DamnThread):
 			f.close()
 			logdump = DamnUnicode(logdump.strip())
 			Damnlog('Log dump done, uploading to pastebin.')
-			http = DamnURLOpen(urllib2.Request('http://pastehtml.com/upload/create?input_type=txt&result=address', urllib.urlencode({'txt':logdump.encode('utf8')})))
+			http = DamnURLOpen(DamnURLRequest('http://pastehtml.com/upload/create?input_type=txt&result=address', urllib.urlencode({'txt':logdump.encode('utf8')})))
 			pasteurl = http.read(-1)
 			http.close()
 			Damnlog('Uploaded to', pasteurl)

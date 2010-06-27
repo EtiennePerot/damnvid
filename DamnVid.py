@@ -116,7 +116,6 @@ try:
 except:
 	pass # File is optional
 DV.gui_ok = False
-DV.streamTimeout = 30.0
 DV.icon = None # This will be defined when DamnMainFrame is initialized
 DV.icon2 = None
 DV.icon16 = None

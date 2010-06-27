@@ -49,8 +49,8 @@ class DamnModule_ITMSPodcasts(DamnVideoModule):
 		if self.playlist:
 			return None
 		if self.itmspodcasts_itunesu:
-			return DamnGetListIcon('itmspodcasts-itunesu')
-		return DamnGetListIcon('itmspodcasts')
+			return 'itmspodcasts-itunesu'
+		return 'itmspodcasts'
 	def renewTicket(self):
 		return
 	def getDownload(self):

@@ -103,8 +103,8 @@ class DamnModule_YouTube(DamnVideoModule):
 		if self.playlist:
 			return None
 		if self.hd:
-			return DamnGetListIcon('youtubehd')
-		return DamnGetListIcon('youtube')
+			return 'youtubehd'
+		return 'youtube'
 	def renewTicket(self):
 		if self.playlist:
 			return None

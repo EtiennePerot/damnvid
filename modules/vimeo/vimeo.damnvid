@@ -29,7 +29,7 @@ class DamnModule_Vimeo(DamnVideoModule):
 		return DamnVideoModule.getTitle(self)
 	def getIcon(self):
 		if self.vimeo_hd is not None:
-			return DamnGetListIcon(self.name+'hd')
+			return self.name+'hd'
 		return DamnVideoModule.getIcon(self)
 	def getProfile(self):
 		if self.vimeo_hd is not None:
