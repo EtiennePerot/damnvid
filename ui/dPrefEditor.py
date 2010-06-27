@@ -4,7 +4,10 @@ from dModules import *
 class DamnPrefEditor(wx.Dialog): # Preference dialog (not manager)
 	def __init__(self, parent, id, title, main):
 		# Dialog init
-		wx.Dialog.__init__(self, parent, id, title, style=wx.RESIZE_BORDER)
+		if DV.os == u'posix': # Let the window be resizable on linux only
+			wx.Dialog.__init__(self, parent, id, title, style=wx.RESIZE_BORDER)
+		else:
+			wx.Dialog.__init__(self, parent, id, title)
 		self.parent = main
 		DV.prefs.save() # Save just in case, we're gonna modify stuff!
 		self.toppanel = wx.Panel(self, -1)

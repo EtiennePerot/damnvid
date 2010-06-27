@@ -25,9 +25,9 @@ def cleanDir(d, deletables):
 def cleanAll(d, deletables):
 	if d[-1] == os.sep:
 		d = d[:-1]
-	for i in os.listdir(d):
+	for f in os.listdir(d):
 		if os.path.isdir(f):
-			cleanAll(d + os.sep + f. deletables)
+			cleanAll(d + os.sep + f, deletables)
 	cleanDir(d, deletables)
 cleanDir('.', ['COPYING', 'DamnVid.exe.manifest', 'required-files.txt', 'damnvid.spec', 'package', 'usr', 'DamnVid.app', '*.module.damnvid', '*.so', '*.so.*', 'build.tar.gz', 'library.zip', 'py', 'NSIS-win32.nsi', 'DamnVid', '*.tmp', 'damnvid-locale-warnings.log'])
 cleanDir('.' + os.sep + 'modules', ['*.module.damnvid'])

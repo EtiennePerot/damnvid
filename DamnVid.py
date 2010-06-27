@@ -149,6 +149,10 @@ if DV.os == 'nt':
 	ctypes.windll.shell32.SHGetFolderPathA(None, 0xE, None, 0, DV.my_videos_path)
 	ctypes.windll.shell32.SHGetFolderPathA(None, 0x1A, None, 0, DV.appdata_path)
 	DV.my_videos_path = DamnUnicode(DV.my_videos_path.value)
+	if not DV.my_videos_path:
+		DV.my_videos_path = ctypes.create_string_buffer(wintypes.MAX_PATH)
+		ctypes.windll.shell32.SHGetFolderPathA(None, 0x5, None, 0, DV.my_videos_path)
+		DV.my_videos_path = DamnUnicode(DV.my_videos_path.value) + DV.sep + u'My Videos'
 	DV.appdata_path = DamnUnicode(DV.appdata_path.value)
 	del ctypes, wintypes
 	# Do not delete win32process, it is used in the DamnSpawner class.
