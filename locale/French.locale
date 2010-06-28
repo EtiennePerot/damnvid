@@ -123,7 +123,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'- a victory (as in a race or other competition); "he was happy to get the win"': u'- une victoire (comme dans une course ou une autre compétition); "Il était heureux d\'avoir eu la victoire"',
 		'This is a droptarget: You may drop video files and folders here (or in the big list as well).': u'Ceci est une zone de largage de fichiers: Vous pouvez lâcher des dossiers et fichiers vidéos ici (ou dans la liste).',
 		'This is not a valid URL!': u'Ceci n\'est pas un URL valide!',
-		'- Tatara (Linux compatibility/packaging)': u'- Tatara (Compatiblité)',
+		'- Andreas Noteng (Packaging)': u'- Andreas Noteng (Paquetage)',
 		'- Benoit Philippe (Testing)':u'- Benoît Philippe (Tests)',
 		'Processes all the videos in the list.': u'Encode toutes les vidéos de la liste.',
 		'Contributors:': u'Contributeurs:',

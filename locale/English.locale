@@ -123,7 +123,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'- a victory (as in a race or other competition); "he was happy to get the win"': u'- a victory (as in a race or other competition); "he was happy to get the win"',
 		'This is a droptarget: You may drop video files and folders here (or in the big list as well).': u'This is a droptarget: You may drop video files and folders here (or in the big list as well).',
 		'This is not a valid URL!': u'This is not a valid URL!',
-		'- Tatara (Linux compatibility/packaging)': u'- Tatara (Linux compatibility/packaging)',
+		'- Andreas Noteng (Packaging)': u'- Andreas Noteng (Packaging)',
 		'- Benoit Philippe (Testing)':u'- Benoît Philippe (Testing)',
 		'Processes all the videos in the list.': u'Processes all the videos in the list.',
 		'Contributors:': u'Contributors:',

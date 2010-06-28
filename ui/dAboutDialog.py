@@ -90,7 +90,7 @@ class DamnAboutDamnVid(wx.Dialog):
 		vbox2.Add((0, DV.border_padding * 2))
 		vbox2.Add(DamnHyperlink(panel, -1, DV.url, DV.url))
 		vbox2.Add(wx.StaticText(panel, -1, DV.l('Contributors:')))
-		vbox2.Add(wx.StaticText(panel, -1, DV.l('- Tatara (Linux compatibility/packaging)')))
+		vbox2.Add(wx.StaticText(panel, -1, DV.l('- Andreas Noteng (Packaging)')))
 		vbox2.Add(wx.StaticText(panel, -1, DV.l('- Palmer (Graphics)')))
 		vbox2.Add(wx.StaticText(panel, -1, DV.l('- Benoit Philippe (Testing)')))
 		vbox2.Add(wx.StaticText(panel, -1, DV.l('Special thanks to:')))
