@@ -7,25 +7,31 @@ try:
 except:
 	import dummy_threading as thr
 class DamnThread(thr.Thread):
-	def __init__(self):
+	def __init__(self, autostart=False):
 		thr.Thread.__init__(self)
-		self.isDone = False
+		self.done = False
+		if autostart:
+			self.start()
 	def start(self):
 		thr.Thread.start(self)
 		return self # Allows chaining
 	def run(self):
-		self.isDone = False
+		self.done = False
 		try:
 			self.go()
 		except:
 			DamnlogException(*(sys.exc_info()))
-		self.isDone = True
+		self.done = True
 	def go(self):
 		pass
-	def join(self):
-		if self.isDone:
+	def join(self, timeout=None):
+		if self.isDone():
 			return None
-		return thr.Thread.join(self)
+		if timeout is None:
+			return thr.Thread.join(self)
+		return thr.Thread.join(self, timeout)
+	def isDone(self):
+		return self.done
 def DamnTimerException(func):
 	try:
 		func()
@@ -33,9 +39,22 @@ def DamnTimerException(func):
 		DamnlogException(*(sys.exc_info()))
 def DamnTimer(timer, func):
 	return thr.Timer(timer, DamnCurry(DamnTimerException, func))
+class DamnThreadedFunctionNotDoneException(Exception):
+	pass
 class DamnThreadedFunction(DamnThread):
-	def __init__(self, func):
+	def __init__(self, func, autostart=False):
 		self.func = func
-		DamnThread.__init__(self)
+		self.result = None
+		self.exception = None
+		DamnThread.__init__(self, autostart=autostart)
+	def getResult(self):
+		if self.isDone():
+			if self.exception is not None:
+				raise self.exception
+			return self.result
+		raise DamnThreadedFunctionNotDoneException()
 	def go(self):
-		return self.func()
+		try:
+			self.result = self.func()
+		except Exception, e:
+			self.exception = e

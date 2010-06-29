@@ -67,6 +67,7 @@ def DamnOpenFileManager(directory, *args):
 def DamnLaunchFile(f, *args):
 	f = DamnUnicode(f)
 	if DV.os == 'nt':
+		import win32api
 		DamnSpawner([u'cmd', u'/c', u'start ' + DamnUnicode(win32api.GetShortPathName(f)).replace(u'"', u'\\"')])
 	else:
 		DamnOpenFileManager(f) # Hax! It works because 'open' or 'xdg-open' do not only open directories.

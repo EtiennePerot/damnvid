@@ -14,7 +14,7 @@ import BeautifulSoup
 DV.blanksocket = socket.socket
 DV.youtube_service = gdata.youtube.service.YouTubeService()
 DV.youtube_service.ssl = False
-DV.streamTimeout = 17.5
+DV.streamTimeout = 30.0
 socket.setdefaulttimeout(DV.streamTimeout)
 import urllib2
 class DamnCookieJar(cookielib.CookieJar):
@@ -92,6 +92,15 @@ class DamnURLRequest(urllib2.Request):
 		return u'<DamnURLRequest of: ' + DamnUnicode(urllib2.Request.get_full_url(self)) + u'>'
 	def __repr__(self):
 		return self.__str__()
+def DamnTimeoutStreamRead(stream, bytes=-1, timeout=None):
+	if timeout is None:
+		timeout = DV.streamTimeout
+	t = DamnThreadedFunction(DamnCurry(stream.read, bytes), autostart=True)
+	t.join(timeout)
+	try:
+		return t.getResult()
+	except DamnThreadedFunctionNotDoneException:
+		return None
 class DamnResumableDownload:
 	def __init__(self, req, data=None, resumeat=None, resumable=True, buffer=32768, autoopen=True, autofetch=True):
 		Damnlog('DamnResumableDownload initiated with request', req, 'and data', data, '; Resumat at:', resumeat, '; Resumable:', resumable,'; Buffer size:', buffer, '; Auto-open:', autoopen,'; Auto-fetch:', autofetch)
@@ -155,11 +164,12 @@ class DamnResumableDownload:
 		if self.hasTimeout:
 			time.sleep(DV.streamTimeout/2) # Sleep for a bit before giving it another shot
 		self.hasTimeout = False
-		tmptimer = DamnTimer(DV.streamTimeout, self.timeout)
-		tmptimer.start()
 		self.ensureOpen()
 		try:
-			c = self.stream.read(self.buffersize)
+			c = DamnTimeoutStreamRead(self.stream, self.buffersize)
+			if c is None:
+				Damnlog('! DamnResumableDownload got None while trying to read stream of', self.url)
+				self.hasTimeout = True
 		except urllib2.URLError, e:
 			Damnlog('! DamnResumableDownload failed reading with URLError', e, 'on', self.url)
 			if hasattr(e, 'code'):
@@ -178,15 +188,10 @@ class DamnResumableDownload:
 		if self.hasTimeout:
 			self.close()
 			return self.fetchBuffer()
-		try:
-			tmptimer.cancel()
-		except:
-			pass
 		self.buffer += c
 		self.progress += len(c)
 	def spawnFetcher(self):
-		self.fetchThread = DamnThreadedFunction(self.fetchBuffer)
-		self.fetchThread.start()
+		self.fetchThread = DamnThreadedFunction(self.fetchBuffer, autostart=True)
 	def joinFetcher(self):
 		if self.fetchThread is not None:
 			self.fetchThread.join()
