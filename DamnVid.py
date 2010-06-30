@@ -26,95 +26,40 @@
 # - Psyco (optional, speeds up execution)
 
 print 'Starting up.'
+import os # Filesystem functions.
+import time # Sleepin'
+import shutil # Shell utilities (copyfile)
+import sys # System stuff
+import platform # Platform information
 print 'Importing core.'
 from dCore import *
 print 'Importing log.'
 from dLog import *
 print 'Importing system info.'
 import dSysInfo
-print 'Importing converter.'
-from dConverter import *
-print 'Importing wxPython.'
-try:
-	import wxversion
-	try:
-		wxversion.select('2.8')
-	except:
-		print 'Could not select version 2.8. Continuing anyway.'
-except:
-	print 'Could not import wxversion, continuing anyway.'
-import wx # Oh my wx, it's wx.
-import wx.animate # wx gif animations, oh my gif!
-from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin # Mixin for wx.ListrCtrl, to enable autowidth on columns
-import wx.lib.stattext # Static texts that respond to mouse events
-print 'Importing os.'
-import os # Filesystem functions.
-print 'Importing traceback.'
-import traceback # Traces, yay.
-print 'Importing regexes.'
-import re # Regular expressions \o/
-print 'Importing subprocess.'
-import subprocess # Spawn sub-processes (ffmpeg, taskkill)
-print 'Importing time.'
-import time # Sleepin'
-print 'Importing urllib.'
-import urllib2 # Fetch data from the tubes, encode/decode URLs
-import urllib # Sadly required as well, for its urlencode function
-print 'Importing socks.'
-import socks # SOCKS proxy client
-print 'Importing socket.'
-import socket # Used to override the default socket in case of a SOCKS proxy
-print 'Importing cookielib.'
-import cookielib # Cookie handling. Yum, warm, freshly-baked cookies.
-print 'Importing signal.'
-import signal # Process signals
-print 'Importing webbrowser.'
-import webbrowser # Open a page in default browser
-print 'Importing random.'
-import random # Generate temporary files
-print 'Importing shutil.'
-import shutil # Shell utilities (copyfile)
-print 'Importing sys.'
-import sys # System stuff
-print 'Importing platform.'
-import platform # Platform information
-print 'Importing ConfigParser.'
-import ConfigParser # INI file parsing and writing
-print 'Importing base64.'
-import base64 # Base64 encoding/decoding
-print 'Importing gdata -> YouTube.'
-import gdata.youtube.service # YouTube service
-print 'Importing gdata -> Google Code.'
-import gdata.projecthosting.client # Google Code service
-print 'Importing xmlrpclib.'
-import xmlrpclib # XML RPC server communication, used in modules
-print 'Importing BeautifulSoup.'
-import BeautifulSoup # Tag soup parsing! From http://www.crummy.com/software/BeautifulSoup/
-print 'Importing unicodedata.'
-import unicodedata # Unicode normalization
-print 'Importing hashlib.'
-import hashlib # MD5 hashes
-print 'Importing tarfile.'
-import tarfile # Tar/gz file reading/writing (used for modules)
+print 'Primary imports done.'
 
 DV.log = DamnLog(stderr='-q' not in sys.argv and '--quiet' not in sys.argv, flush=True) # Temporary logger until we are far enough to know where should the log file go
 DV.sep = DamnUnicode(os.sep)
 DV.curdir = DamnUnicode(os.path.dirname(os.path.abspath(sys.argv[0]))) + DV.sep
-versionfile = DamnOpenFile(DV.curdir + 'version.damnvid', 'r')
+DV.url = u'http://code.google.com/p/damnvid/'
+DV.url_halp = u'http://code.google.com/p/damnvid/wiki/Help'
+DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
+DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
+DV.product = u'DamnVid'
+DV.safeUpperProduct = u'DamnVid'
+DV.safeProduct = u'damnvid'
+try:
+	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'product.d', globs=globals())
+except:
+	pass # File is optional
+versionfile = DamnOpenFile(DV.curdir + 'version.' + DV.safeProduct, 'r')
 DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = []
 for i in sys.argv[1:]:
 	DV.argv.append(DamnUnicode(i))
 versionfile.close()
 del versionfile
-DV.url = u'http://code.google.com/p/damnvid/'
-DV.url_halp = u'http://code.google.com/p/damnvid/wiki/Help'
-DV.url_update = u'http://code.google.com/p/damnvid/wiki/CurrentVersion'
-DV.url_download = u'http://code.google.com/p/damnvid/downloads/'
-try:
-	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'overrides.damnvid', globs=globals())
-except:
-	pass # File is optional
 DV.gui_ok = False
 DV.icon = None # This will be defined when DamnMainFrame is initialized
 DV.icon2 = None
@@ -140,9 +85,8 @@ else:
 	if platform.architecture()[0] == '64bit':
 		DV.bit64 = True
 if DV.os == 'nt':
-	import win32process, win32api
 	# Need to determine the location of the "My Videos" and "Application Data" folder.
-	import ctypes
+	import win32process, win32api, ctypes
 	from ctypes import wintypes
 	DV.my_videos_path = ctypes.create_string_buffer(wintypes.MAX_PATH)
 	DV.appdata_path = ctypes.create_string_buffer(wintypes.MAX_PATH)
@@ -162,9 +106,9 @@ else:
 	DV.my_videos_path = DamnUnicode(os.path.expanduser('~' + DV.sep + 'Videos'))
 DV.my_videos_path = DamnOverridePath('--myvideos=', DV.my_videos_path)
 DV.conf_file_location = {
-	'nt':DamnUnicode(DV.appdata_path + DV.sep + 'DamnVid'),
-	'posix':DamnUnicode('~' + DV.sep + '.damnvid'),
-	'mac':DamnUnicode('~' + DV.sep + 'Library' + DV.sep + 'Preferences' + DV.sep + 'DamnVid')
+	'nt':DamnUnicode(DV.appdata_path + DV.sep + DV.safeUpperProduct),
+	'posix':DamnUnicode('~' + DV.sep + '.' + DV.safeProduct),
+	'mac':DamnUnicode('~' + DV.sep + 'Library' + DV.sep + 'Preferences' + DV.sep + DV.safeUpperProduct)
 }
 if DV.os == 'posix' or DV.os == 'mac':
 	DV.conf_file_location = DamnUnicode(os.path.expanduser(DV.conf_file_location[DV.os]))
@@ -186,8 +130,8 @@ if not os.path.exists(DV.conf_file_directory):
 		except:
 			Damnlog('Cannot create configuration directory!')
 			pass
-DV.conf_file = DamnUnicode(DV.conf_file_directory + 'damnvid.ini')
-DV.log_file = DamnUnicode(DV.conf_file_directory + 'damnvid.log')
+DV.conf_file = DamnUnicode(DV.conf_file_directory + DV.safeProduct + '.ini')
+DV.log_file = DamnUnicode(DV.conf_file_directory + DV.safeProduct + '.log')
 if os.path.exists(DV.log_file):
 	try:
 		os.remove(DV.log_file)
@@ -213,21 +157,21 @@ if not os.path.exists(DV.conf_file):
 	if not os.path.exists(os.path.dirname(DV.conf_file)):
 		os.makedirs(os.path.dirname(DV.conf_file))
 	shutil.copyfile(DV.curdir + u'conf' + DV.sep + u'conf.ini', DV.conf_file)
-	lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.damnvid', 'w')
+	lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'w')
 	lastversion.write(DV.version)
 	lastversion.close()
 	del lastversion
 	DV.first_run = True
 else:
-	if os.path.exists(DV.conf_file_directory + u'lastversion.damnvid'):
-		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.damnvid', 'r')
+	if os.path.exists(DV.conf_file_directory + u'lastversion.' + DV.safeProduct):
+		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'r')
 		version = lastversion.readline().strip()
 		lastversion.close()
 		DV.updated = version != DV.version
 		del version
 	else:
 		DV.updated = True
-		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.damnvid', 'w')
+		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'w')
 		lastversion.write(DV.version.encode('utf8'))
 		lastversion.close()
 	del lastversion
@@ -305,15 +249,17 @@ print 'Importing threading.'
 from dThread import *
 print 'Importing config.'
 from dConfig import *
+print 'Importing converter.'
+from dConverter import *
 print 'Importing tubes.'
 from dTubes import *
 print 'Importing spawner.'
 from dSpawn import *
-print 'Importing loader.'
+print 'Importing video loader.'
 from dLoader import *
 print 'Importing updater.'
 from dUpdater import *
-print 'Importing external UI.'
+print 'Importing UI.'
 from ui import *
 DV.oldclipboard = u''
 DV.locale_warnings = []
@@ -324,10 +270,11 @@ if '-q' in DV.argv or '--flush':
 	DV.argv = [x for x in DV.argv if x != '-q' and x != '--flush']
 Damnlog('Loading initial config and modules.')
 DamnLoadConfig(forcemodules=(DV.first_run or DV.updated))
+print 'Initializing localization.'
 from dLocale import *
 DamnLocaleInit()
 Damnlog('End init, begin declarations.')
-class DamnVid(wx.App):
+class DamnApp(wx.App):
 	def OnInit(self):
 		showsplash = False
 		if True:
@@ -358,9 +305,10 @@ class DamnVid(wx.App):
 		if len(args):
 			vids = []
 			for i in args:
-				if i[-15:].lower() == '.module.damnvid':
+				i = DamnUnicode(i)
+				if i.lower().endswith(u'.module.' + DV.safeProduct):
 					DamnInstallModule(i)
-				elif i[-8:].lower() != '.damnvid':
+				elif not i.lower().endswith(u'.' + DV.safeProduct):
 					DV.prefs.set('LastFileDir', os.path.dirname(i))
 					vids.append(i)
 			if len(vids):
@@ -373,7 +321,7 @@ class DamnVid(wx.App):
 		self.loadArgs(name)
 def DamnMain():
 	Damnlog('All done, starting wx app already.')
-	app = DamnVid(0)
+	app = DamnApp(0)
 	DV.gui_ok = True
 	Damnlog('App up, entering main loop.')
 	app.MainLoop()
@@ -388,7 +336,7 @@ def DamnMain():
 	if DV.dumplocalewarnings:
 		Damnlog('Starting locale warnings dump')
 		try:
-			f = DamnOpenFile('damnvid-locale-warnings.log', 'w')
+			f = DamnOpenFile(DV.safeProduct + '-locale-warnings.log', 'w')
 			f.write(u'\n'.join(DV.locale_warnings).encode('utf8'))
 			f.close()
 			Damnlog('Successful locale warnings dump.')

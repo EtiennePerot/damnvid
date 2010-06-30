@@ -4,6 +4,7 @@ from dConstants import *
 from dLog import *
 from dThread import *
 from dTubes import *
+from dModules import *
 import re
 class DamnModuleUpdateCheck(DamnThread):
 	def __init__(self, parent, modules, byevent=True):

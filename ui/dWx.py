@@ -8,7 +8,9 @@ try:
 except:
 	pass
 import wx as DamnWx
+import wx.animate
 from wx.lib.mixins.listctrl import ListCtrlAutoWidthMixin
+import wx.lib.stattext
 wx = DamnWx
 wx.ListCtrlAutoWidthMixin = ListCtrlAutoWidthMixin
 del DamnWx, ListCtrlAutoWidthMixin
