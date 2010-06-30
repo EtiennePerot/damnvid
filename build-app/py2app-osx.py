@@ -15,7 +15,7 @@ for f in files.readlines():
 		if curfile.find(os.sep)==-1:
 			data_files.append(path2src+curfile)
 		else:
-			data_files.append((curfile[0:curfile.rfind(os.sep)],[path2src+curfile]))
+			data_files.append((curfile[:curfile.rfind(os.sep)],[path2src+curfile]))
 files.close()
 setup(
 	app=[path2src+'DamnVid.py'],

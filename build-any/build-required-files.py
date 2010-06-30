@@ -17,12 +17,12 @@ def procs(command):
 OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
 	OSNAME='mac'
-required_files=[]
 os.chdir(os.path.abspath(os.path.dirname(sys.argv[0]) + os.sep + '..'))
 procs(['python', 'build-any' + os.sep + 'cleanup.py'])
-opts, args = getopt.getopt(sys.argv[1:], 'o:d:')
+opts, args = getopt.getopt(sys.argv[1:], 'o:d:f:')
 outputFile = 'required-files.txt'
 destFolder = None
+forkFolder = None
 for option, argument in opts:
 	if option == '-o':
 		outputFile = argument
@@ -30,25 +30,39 @@ for option, argument in opts:
 		destFolder = argument
 		if destFolder[-1] != os.sep:
 			destFolder += os.sep
+	elif option == '-f':
+		forkFolder = 'forks' + os.sep + argument
+		if forkFolder[-1] != os.sep:
+			forkFolder += os.sep
 if os.path.exists(outputFile):
 	os.remove(outputFile)
 if os.path.exists('COPYING'):
 	os.remove('COPYING')
+required_files=[]
+def addFile(*args):
+	global required_files, forkFolder
+	for f in args:
+		if forkFolder is not None:
+			if os.path.exists(forkFolder + f):
+				required_files.append(forkFolder + ':' + f)
+			else:
+				required_files.append(f)
+		else:
+			required_files.append(f)
 shutil.copyfile('build-any/COPYING','./COPYING')
-required_files.extend(['version.damnvid','COPYING'])
+addFile('version.damnvid','COPYING')
 if OSNAME=='nt':
-	required_files.append('DamnVid.exe')
+	addFile('DamnVid.exe')
 	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')
-	required_files.append('DamnVid.exe.manifest')
+	addFile('DamnVid.exe.manifest')
 required_dirs=['img','conf','locale']
 def addDir(d):
-	global required_files
 	for f in os.listdir(d):
 		if f.find('.svn')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.module.damnvid')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1:
 			if os.path.isdir(d+os.sep+f):
 				addDir(d+os.sep+f)
 			else:
-				required_files.append(d+os.sep+f)
+				addFile(d+os.sep+f)
 for d in required_dirs:
 	addDir(d)
 for f in os.listdir('./'):
@@ -61,7 +75,6 @@ for f in os.listdir('./modules/'):
 	if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
 		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
 def addModule(f, recursive=True):
-	global required_files
 	if OSNAME != 'posix':
 		return
 	if os.path.isdir(f):
@@ -74,20 +87,20 @@ def addModule(f, recursive=True):
 		try:
 			py_compile.compile(f)
 			if os.path.exists(f+'o'):
-				required_files.append(f+'o')
+				addFile(f+'o')
 			elif os.path.exists(f+'c'):
-				required_files.append(f+'c')
+				addFile(f+'c')
 			else:
-				required_files.append(f)
+				addFile(f)
 		except:
 			print >> sys.stderr, 'Error while compyling', f
-			required_files.append(f)
+			addFile(f)
 for f in os.listdir('.'):
 	if f[-15:]=='.module.damnvid':
 		if os.path.lexists('modules/'+f):
 			os.remove('modules/'+f)
 		os.rename(f,'modules/'+f)
-		required_files.append('modules'+os.sep+f)
+		addFile('modules'+os.sep+f)
 	if f[-3:] == '.py':
 		addModule(f)
 addModule('.', recursive=False)
@@ -95,10 +108,10 @@ addModule('ui')
 addModule('socks')
 specialfiles = {}
 if OSNAME=='nt':
-	required_files.extend(['bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll'])
+	addFile('bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll')
 	specialfiles = {}
 elif OSNAME=='mac':
-	required_files.append('bin'+os.sep+'ffmpegosx')
+	addFile('bin'+os.sep+'ffmpegosx')
 	specialfiles = {}
 else:
 	specialfiles = {
