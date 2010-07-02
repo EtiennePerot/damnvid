@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 
 DV.languages['Dutch']={
 	'title':u'Dutch',
@@ -81,7 +81,7 @@ Daarnaast is het mogelijk om een profiel in te stellen per bron. Op deze manier 
 		'Source': u'Bron',
 		'No videos selected!': u'Geen videos geselecteerd!',
 		'DamnVid preferences': u'DamnVid voorkeuren',
-		'DamnVid is up-to-date! The latest version is ': u'DamnVid is up-to-date! The laatste versie is ',
+		'DamnVid is up-to-date! The latest version is ': u'DamnVid is up-to-date! De laatste versie is ',
 		'Encoding profile': u'Encodeer profiel',
 		' by ': u' door ',
 		'Are you sure?': u'Weet je dat zeker?',
@@ -158,7 +158,7 @@ Daarnaast is het mogelijk om een profiel in te stellen per bron. Op deze manier 
 		'Displays information about DamnVid.': u'Geef informatie over DamnVid weer.',
 		'Your clipboard is being monitored.': u'Je klembord wordt in de gaten gehouden.',
 		'&Help': u'&Help',
-		'Check the checkbox above if you want it to be monitored.': u'Vink de checkbox hierboven aan als je wil dat het in de gaten wordt gehouden.',
+		'Check the checkbox above if you want it to be monitored.': u'Vink de checkbox hierboven aan als je wil dat het klembord in de gaten wordt gehouden.',
 		'Want to go to the download page and download the update?': u'Wil je naar de download pagina en de updates downloaden?',
 		'Secret Stoat!': u'Secret Stoat!',
 		'- winnings: something won (especially money)': u'- winnings: something won (especially money)',
