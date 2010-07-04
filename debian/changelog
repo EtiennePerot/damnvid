@@ -1,3 +1,9 @@
+damnvid (1.6+svn348-0ubuntu1) lucid; urgency=low
+
+  * Update to svn revision 348
+
+ -- Andreas Noteng <andreas@noteng.no>  Sun, 04 Jul 2010 19:38:52 +0200
+
 damnvid (1.6-1ubuntu6) lucid; urgency=low
 
   * Update dependencies to require at least version 2.0 of python-gdata
