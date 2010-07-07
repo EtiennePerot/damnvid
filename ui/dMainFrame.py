@@ -196,8 +196,8 @@ class DamnMainFrame(DamnFrame): # The main window
 		Damnlog('DamnMainFrame: init stage 1 done.')
 	def init2(self):
 		Damnlog('Starting DamnMainFrame init stage 2.')
-		if os.path.exists(DV.conf_file_directory + 'lastversion.damnvid'):
-			lastversion = DamnOpenFile(DV.conf_file_directory + 'lastversion.damnvid', 'r')
+		if os.path.exists(DV.conf_file_directory + u'lastversion.' + DV.safeProduct):
+			lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'r')
 			dvversion = lastversion.readline().strip()
 			lastversion.close()
 			del lastversion
@@ -208,7 +208,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		Damnlog('Read version:',dvversion,';running version:',DV.version)
 		if dvversion != DV.version: # Just updated to new version, ask what to do about the preferences
 			#dlg = wx.MessageDialog(self, DV.l('DamnVid was updated to ') + DV.version + '.\n' + DV.l('locale:damnvid-updated-export-prefs'), DV.l('DamnVid was successfully updated'), wx.YES | wx.NO | wx.ICON_QUESTION)
-			tmpprefs = DamnVidPrefs()
+			tmpprefs = DamnPrefs()
 			try:
 				checkupdates = tmpprefs.get('CheckForUpdates')
 				locale = tmpprefs.get('locale')
@@ -230,11 +230,11 @@ class DamnMainFrame(DamnFrame): # The main window
 			del tmpprefs
 			os.remove(DV.conf_file)
 			shutil.copyfile(DV.curdir + 'conf' + DV.sep + 'conf.ini', DV.conf_file)
-			lastversion = DamnOpenFile(DV.conf_file_directory + 'lastversion.damnvid', 'w')
+			lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'w')
 			lastversion.write(DV.version.encode('utf8'))
 			lastversion.close()
 			del lastversion
-			tmpprefs = DamnVidPrefs()
+			tmpprefs = DamnPrefs()
 			try:
 				tmpprefs.set('CheckForUpdates', checkupdates)
 				tmpprefs.set('locale', locale)
@@ -249,7 +249,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.thisbatch = 0
 		self.thisvideo = []
 		self.meta = {}
-		DV.prefs = DamnVidPrefs()
+		DV.prefs = DamnPrefs()
 		self.converting = -1
 		self.isclosing = False
 		self.searchopen = False
@@ -315,7 +315,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.updateHistory()
 		Damnlog('DamnMainFrame: Main window all ready,')
 	def onMinimize(self, event):
-		if DV.os == 'posix':
+		if DV.os == u'posix':
 			return # Do not do anything on Linux, let the window manager handle it
 		Damnlog('DamnMainFrame iconize event fired. Is being minimized?', event.Iconized())
 		if self.isclosing:
@@ -593,6 +593,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		if info.has_key('go'):
 			self.go(info['go'])
 	def go(self, aborted=False):
+		Damnlog('Time to go. Aborted?', aborted)
 		self.converting = -1
 		for i in range(len(self.videos)):
 			if self.videos[i] not in self.thisvideo and self.meta[self.videos[i]]['status'] != DV.l('Success!'):
@@ -622,12 +623,12 @@ class DamnMainFrame(DamnFrame): # The main window
 		self.onListSelect()
 	def onGo(self, event=None):
 		if not len(self.videos):
-			dlg = wx.MessageDialog(None, DV.l('Put some videos in the list first!'), DV.l('No videos!'), wx.ICON_EXCLAMATION | wx.OK)
+			dlg = wx.MessageDialog(self, DV.l('Put some videos in the list first!'), DV.l('No videos!'), wx.ICON_EXCLAMATION | wx.OK)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
 		elif self.converting != -1:
-			dlg = wx.MessageDialog(None, DV.l('DamnVid is already converting!'), DV.l('Already converting!'), wx.ICON_EXCLAMATION | wx.OK)
+			dlg = wx.MessageDialog(self, DV.l('DamnVid is already converting!'), DV.l('Already converting!'), wx.ICON_EXCLAMATION | wx.OK)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
@@ -637,7 +638,7 @@ class DamnMainFrame(DamnFrame): # The main window
 				if self.meta[i]['status'] == DV.l('Success!'):
 					success = success + 1
 			if success == len(self.videos):
-				dlg = wx.MessageDialog(None, DV.l('All videos in the list have already been processed!'), DV.l('Already done'), wx.OK | wx.ICON_INFORMATION)
+				dlg = wx.MessageDialog(self, DV.l('All videos in the list have already been processed!'), DV.l('Already done'), wx.OK | wx.ICON_INFORMATION)
 				dlg.SetIcon(DV.icon)
 				dlg.ShowModal()
 				dlg.Destroy()
@@ -654,18 +655,18 @@ class DamnMainFrame(DamnFrame): # The main window
 	def onRename(self, event):
 		item = self.list.getAllSelectedItems()
 		if len(item) > 1:
-			dlg = wx.MessageDialog(None, DV.l('You can only rename one video at a time.'), DV.l('Multiple videos selected.'), wx.ICON_EXCLAMATION | wx.OK)
+			dlg = wx.MessageDialog(self, DV.l('You can only rename one video at a time.'), DV.l('Multiple videos selected.'), wx.ICON_EXCLAMATION | wx.OK)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
 		elif not len(item):
-			dlg = wx.MessageDialog(None, DV.l('Select a video in order to rename it.'), DV.l('No videos selected'), wx.ICON_EXCLAMATION | wx.OK)
+			dlg = wx.MessageDialog(self, DV.l('Select a video in order to rename it.'), DV.l('No videos selected'), wx.ICON_EXCLAMATION | wx.OK)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
 		else:
 			item = item[0]
-			dlg = wx.TextEntryDialog(None, DV.l('Enter the new name for "') + self.meta[self.videos[item]]['name'] + '".', DV.l('Rename'), self.meta[self.videos[item]]['name'])
+			dlg = wx.TextEntryDialog(self, DV.l('Enter the new name for "') + self.meta[self.videos[item]]['name'] + '".', DV.l('Rename'), self.meta[self.videos[item]]['name'])
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			newname = dlg.GetValue()
@@ -710,12 +711,12 @@ class DamnMainFrame(DamnFrame): # The main window
 				for i in items:
 					self.invertVids(i, i - 1)
 			else:
-				dlg = wx.MessageDialog(None, DV.l('You\'ve selected the first item in the list, which cannot be moved further up!'), DV.l('Invalid selection'), wx.OK | wx.ICON_EXCLAMATION)
+				dlg = wx.MessageDialog(self, DV.l('You\'ve selected the first item in the list, which cannot be moved further up!'), DV.l('Invalid selection'), wx.OK | wx.ICON_EXCLAMATION)
 				dlg.SetIcon(DV.icon)
 				dlg.ShowModal()
 				dlg.Destroy()
 		else:
-			dlg = wx.MessageDialog(None, DV.l('Select some videos in the list first.'), DV.l('No videos selected!'), wx.OK | wx.ICON_EXCLAMATION)
+			dlg = wx.MessageDialog(self, DV.l('Select some videos in the list first.'), DV.l('No videos selected!'), wx.OK | wx.ICON_EXCLAMATION)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
@@ -727,12 +728,12 @@ class DamnMainFrame(DamnFrame): # The main window
 				for i in reversed(self.list.getAllSelectedItems()):
 					self.invertVids(i, i + 1)
 			else:
-				dlg = wx.MessageDialog(None, DV.l('You\'ve selected the last item in the list, which cannot be moved further down!'), DV.l('Invalid selection'), wx.OK | wx.ICON_EXCLAMATION)
+				dlg = wx.MessageDialog(self, DV.l('You\'ve selected the last item in the list, which cannot be moved further down!'), DV.l('Invalid selection'), wx.OK | wx.ICON_EXCLAMATION)
 				dlg.SetIcon(DV.icon)
 				dlg.ShowModal()
 				dlg.Destroy()
 		else:
-			dlg = wx.MessageDialog(None, DV.l('Select some videos in the list first.'), DV.l('No videos selected!'), wx.OK | wx.ICON_EXCLAMATION)
+			dlg = wx.MessageDialog(self, DV.l('Select some videos in the list first.'), DV.l('No videos selected!'), wx.OK | wx.ICON_EXCLAMATION)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
@@ -790,7 +791,7 @@ class DamnMainFrame(DamnFrame): # The main window
 	def onHalp(self, event):
 		webbrowser.open(DV.url_halp, 2)
 	def onReportBug(self, event):
-		dlg = DamnReportBug(None, -1, main=self)
+		dlg = DamnReportBug(self, -1, main=self)
 		dlg.SetIcon(DV.icon)
 		dlg.ShowModal()
 		dlg.Destroy()
@@ -798,7 +799,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		updater = DamnVidUpdater(self, verbose=event is not None)
 		updater.start()
 	def onAboutDV(self, event):
-		dlg = DamnAboutDamnVid(None, -1, main=self)
+		dlg = DamnAboutDamnVid(self, -1, main=self)
 		dlg.SetIcon(DV.icon)
 		dlg.ShowModal()
 		dlg.Destroy()
@@ -828,7 +829,7 @@ class DamnMainFrame(DamnFrame): # The main window
 		items = self.list.getAllSelectedItems()
 		if len(items):
 			if self.converting in items:
-				dlg = wx.MessageDialog(None, DV.l('Stop the video conversion before deleting the video being converted.'), DV.l('Cannot delete this video'), wx.ICON_EXCLAMATION | wx.OK)
+				dlg = wx.MessageDialog(self, DV.l('Stop the video conversion before deleting the video being converted.'), DV.l('Cannot delete this video'), wx.ICON_EXCLAMATION | wx.OK)
 				dlg.SetIcon(DV.icon)
 				dlg.ShowModal()
 				dlg.Destroy()
@@ -837,7 +838,7 @@ class DamnMainFrame(DamnFrame): # The main window
 					self.delVid(i)
 			self.onListSelect()
 		else:
-			dlg = wx.MessageDialog(None, DV.l('You must select some videos from the list first!'), DV.l('Select some videos!'), wx.ICON_EXCLAMATION | wx.OK)
+			dlg = wx.MessageDialog(self, DV.l('You must select some videos from the list first!'), DV.l('Select some videos!'), wx.ICON_EXCLAMATION | wx.OK)
 			dlg.SetIcon(DV.icon)
 			dlg.ShowModal()
 			dlg.Destroy()
@@ -852,7 +853,7 @@ class DamnMainFrame(DamnFrame): # The main window
 				self.thisbatch = 0
 				self.meta = {}
 		else:
-			dlg = wx.MessageDialog(None, DV.l('Add some videos in the list first.'), DV.l('No videos!'), wx.OK | wx.ICON_EXCLAMATION)
+			dlg = wx.MessageDialog(self, DV.l('Add some videos in the list first.'), DV.l('No videos!'), wx.OK | wx.ICON_EXCLAMATION)
 			dlg.SetIcon(DV.icon)
 			dlg.Destroy()
 	def onResize(self, event):
@@ -889,7 +890,7 @@ class DamnMainFrame(DamnFrame): # The main window
 	def onClose(self, event):
 		Damnlog('Main window onClose event fired. Converting?', self.converting, '; Is already closing?', self.isclosing)
 		if self.converting != -1:
-			dlg = wx.MessageDialog(None, DV.l('DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.') + '\r\n' + DV.l('Continue?'), DV.l('Conversion in progress'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_EXCLAMATION)
+			dlg = wx.MessageDialog(self, DV.l('DamnVid is currently converting a video! Closing DamnVid will cause it to abort the conversion.') + '\r\n' + DV.l('Continue?'), DV.l('Conversion in progress'), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_EXCLAMATION)
 			dlg.SetIcon(DV.icon)
 			if dlg.ShowModal() == wx.ID_YES:
 				Damnlog('User forced shutdown!')

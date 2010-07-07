@@ -115,7 +115,7 @@ def DamnIterModules(keys=True): # Lawl, this spells "DamnIt"
 		ret.append(DV.modules[i])
 	return ret
 def DamnRegisterModule(module):
-	Damnlog('Attempting to register module', module)
+	Damnlog('Attempting to register module', module['name'])
 	if module.has_key('minversion'):
 		if DamnVersionCompare(module['minversion'], DV.version)==1:
 			return 'minversion'
@@ -137,7 +137,7 @@ def DamnRegisterModule(module):
 			DV.preference_order['damnvid-module-' + module['name']] = module['preferences_order']
 		else:
 			DV.preference_order['damnvid-module-' + module['name']] = module['preferences'].keys()
-	Damnlog('Module registered:', module)
+	Damnlog('Module registered:', module['name'])
 def DamnGetAlternateModule(uri):
 	Damnlog('Got request to get new module for URI:', uri)
 	urlgrabber = DamnVideoLoader(None, [uri], feedback=False, allownonmodules=False)

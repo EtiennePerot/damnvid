@@ -2,6 +2,7 @@
 # This defined all the functions and modules that each module has access to.
 
 from dCore import *
+import dLog
 import os
 
 def DamnLoadModuleFile(f):
@@ -16,14 +17,12 @@ def DamnLoadModuleFile(f):
 	for m in globalModules:
 		for v in dir(m):
 			env[v] = m.__dict__[v]
-	print '----'
-	print env.keys()
-	print '------'
+	env['Damnlog'] = DamnCurry(dLog.Damnlog, 'Module>') # Prefixed log function
 	DamnExecFile(f, globs=env, locs=env)
 
 def DamnLoadModule(module):
 	module = DamnUnicode(module)
 	for i in os.listdir(module):
 		i = DamnUnicode(i)
-		if not os.path.isdir(module + DV.sep + i) and i[-8:] == u'.damnvid':
+		if not os.path.isdir(module + DV.sep + i) and i.lower().endswith(u'.' + DV.safeProduct):
 			DamnLoadModuleFile(module + DV.sep + i)

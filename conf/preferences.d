@@ -318,7 +318,7 @@ DV.preferences={
 		'type':DV.preference_type_misc,
 		'kind':'dir',
 		'strict':False,
-		'default':'?DAMNVID_MY_VIDEOS?/DamnVid/Downloads/'
+		'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
 	},
 	'damnvid:defaultwebprofile':{
 		'name':'Directly-downloaded videos profile',

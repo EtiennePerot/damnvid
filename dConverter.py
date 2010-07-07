@@ -14,10 +14,12 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 		self.filename = None
 		self.tmpfilename = None
 		self.moduleextraargs = []
+		Damnlog('DamnConverter initialized with parent', parent, '; Source URI:', self.sourceuri)
 		DamnThread.__init__(self)
 	def getURI(self, uri):
 		if self.parent.meta[self.sourceuri].has_key('downloadgetter') and self.parent.meta[self.sourceuri].has_key('module'):
 			if self.parent.meta[self.sourceuri]['module'] is not None:
+				Damnlog('DamnConverter downloadgetter exists; calling it:', self.parent.meta[self.sourceuri]['downloadgetter'])
 				uri = self.parent.meta[self.sourceuri]['downloadgetter']()
 				self.moduleextraargs = self.parent.meta[self.sourceuri]['module'].getFFmpegArgs()
 				if not self.parent.meta[self.sourceuri]['profilemodified']:
@@ -74,10 +76,15 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 			info['go'] = go
 		DV.postEvent(self.parent, (DV.evt_progress, -1, info))
 	def go(self):
+		Damnlog('DamnConverter started.')
 		self.uris = self.getURI(self.sourceuri)
 		self.abort = False
+		Damnlog('DamnConverter URIs are', self.uris)
 		if not self.abort:
 			if True:
+				if not len(self.uris):
+					Damnlog('!! There are no URIs to download.')
+					return
 				Damnlog('Conversion routine starting, URI is', self.uris[0])
 				self.uri = self.uris[0]
 				self.update(0)
@@ -95,7 +102,7 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 					if self.outdir is None:
 						self.outdir = DV.prefs.get('defaultweboutdir')
 				if self.outdir[-1:] == DV.sep:
-					self.outdir = self.outdir[0:-1]
+					self.outdir = self.outdir[:-1]
 				if not os.path.exists(self.outdir):
 					os.makedirs(self.outdir)
 				elif not os.path.isdir(self.outdir):
@@ -109,7 +116,7 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 						failed = False
 						if self.stream == '-': # Spawn a downloader
 							src = DamnURLPicker(self.uris)
-							total = int(src.info()['Content-Length'])
+							total = int(src.info('Content-length'))
 							Damnlog('Total bytes:', total)
 							ext = 'avi'
 							try:

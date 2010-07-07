@@ -37,6 +37,8 @@ print 'Importing log.'
 from dLog import *
 print 'Importing system info.'
 import dSysInfo
+print 'Importing localization.'
+from dLocale import *
 print 'Primary imports done.'
 
 DV.log = DamnLog(stderr='-q' not in sys.argv and '--quiet' not in sys.argv, flush=True) # Temporary logger until we are far enough to know where should the log file go
@@ -53,6 +55,7 @@ try:
 	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'product.d', globs=globals())
 except:
 	pass # File is optional
+DamnLocaleAddOverride('%moduleext%', u'.module.' + DV.safeProduct)
 versionfile = DamnOpenFile(DV.curdir + 'version.' + DV.safeProduct, 'r')
 DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = []
@@ -271,14 +274,13 @@ if '-q' in DV.argv or '--flush':
 Damnlog('Loading initial config and modules.')
 DamnLoadConfig(forcemodules=(DV.first_run or DV.updated))
 print 'Initializing localization.'
-from dLocale import *
 DamnLocaleInit()
 Damnlog('End init, begin declarations.')
 class DamnApp(wx.App):
 	def OnInit(self):
 		showsplash = False
 		if True:
-			DV.prefs = DamnVidPrefs()
+			DV.prefs = DamnPrefs()
 			DV.lang = DV.prefs.get('locale')
 			DamnLoadCurrentLocale()
 			if DV.prefs.get('splashscreen') == 'True':

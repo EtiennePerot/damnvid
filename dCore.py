@@ -17,7 +17,10 @@ def DamnUnicode(s):
 	try:
 		return unicode(s)
 	except:
-		return s
+		try:
+			return DamnUnicode(str(s))
+		except:
+			return s
 def DamnOpenFile(f, m):
 	f = DamnUnicode(f)
 	try:
@@ -67,6 +70,10 @@ class DamnCurry:
 		self.func = func
 		self.pending = args[:]
 		self.kwargs = kwargs
+	def __str__(self):
+		return u'<DamnCurry of ' + DamnUnicode(self.func) + u'; args = ' + DamnUnicode(self.pending) + u'; kwargs = ' + DamnUnicode(self.kwargs) + u'>'
+	def __repr__(self):
+		return self.__str__()
 	def __call__(self, *args, **kwargs):
 		if kwargs and self.kwargs:
 			kw = self.kwargs.copy()

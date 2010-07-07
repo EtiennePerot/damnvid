@@ -5,11 +5,12 @@ import traceback
 from dCore import *
 
 class DamnLog:
-	def __init__(self, logpath=None, stderr=True, flush=False, handleerrors=True):
+	def __init__(self, logpath=None, stderr=True, flush=False, handleerrors=True, overrides={}):
 		DamnLog.instance = self
 		self.time = 0
 		self.streams = []
 		self.autoflush = flush
+		self.overrides = {}
 		if logpath is not None:
 			try:
 				if not os.path.exists(os.path.dirname(logpath)):
@@ -52,7 +53,10 @@ class DamnLog:
 		import dCore
 		s = []
 		for i in args:
-			s.append(dCore.DamnUnicode(i))
+			i = dCore.DamnUnicode(i)
+			for k in self.overrides.iterkeys():
+				i = i.replace(k, self.overrides[k])
+			s.append(i)
 		return self.write(u' '.join(s))
 	def logException(self, typ, value, tb):
 		import traceback
@@ -87,6 +91,8 @@ class DamnLog:
 					s.close()
 				except:
 					pass
+	def addOverride(target, replacement=u''):
+		self.overrides[DamnUnicode(target)] = DamnUnicode(replacement)
 def Damnlog(*args):
 	if DamnLog.__dict__.has_key('instance'):
 		return DamnLog.instance.log(*args)
@@ -95,3 +101,5 @@ def DamnlogException(*args):
 	if DamnLog.__dict__.has_key('instance'):
 		return DamnLog.instance.logException(*args)
 	return None
+def DamnlogOverride(target, replacement=u''):
+	DamnLog.instance.addOverride(target, replacement)

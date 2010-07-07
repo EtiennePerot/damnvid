@@ -9,7 +9,7 @@ import os
 import shutil
 import ConfigParser
 import base64
-class DamnVidPrefs: # Preference manager (backend, not GUI)
+class DamnPrefs: # Preference manager (backend, not GUI)
 	def __init__(self):
 		self.conf = {}
 		f = DamnOpenFile(DV.conf_file, 'r')
@@ -153,7 +153,7 @@ class DamnVidPrefs: # Preference manager (backend, not GUI)
 def DamnLoadConfig(forcemodules=False):
 	Damnlog('Loading config.')
 	DV.preferences = None
-	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'preferences.damnvid', globs=globals())
+	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'preferences.d', globs=globals())
 	DV.path_prefs = []
 	DV.defaultprefs = {
 	}
@@ -184,21 +184,21 @@ def DamnLoadConfig(forcemodules=False):
 		if '--rebuild-modules' in DV.argv: # DEBUG ONLY; rebuilds all modules
 			Damnlog('Careful, rebuilding all modules!')
 			DV.argv = [x for x in DV.argv if x != '--rebuild-modules']
-			for i in os.listdir('./'):
-				if i[-15:] == '.module.damnvid':
+			for i in os.listdir('.'):
+				if i.lower().endswith(u'.module.' + DV.safeProduct):
 					os.remove(i)
 			for i in os.listdir(DV.curdir + 'modules/'):
-				if i[-15:] == '.module.damnvid':
+				if i.lower().endswith(u'.module.' + DV.safeProduct):
 					os.remove(DV.curdir + 'modules/' + i)
 			for i in os.listdir(DV.curdir + 'modules'):
 				if os.path.isdir(DV.curdir + 'modules/' + i) and i.find('svn') == -1:
 					Damnlog('Building module ' + i)
 					DamnSpawner(['python', 'build-any/module-package.py', DV.curdir + 'modules/' + i ], cwd=DV.curdir).wait()
 			for i in os.listdir(DV.curdir):
-				if i[-15:] == '.module.damnvid':
+				if i.lower().endswith(u'.module.' + DV.safeProduct):
 					os.rename(DV.curdir + i, DV.curdir + 'modules/' + i)
 		for i in os.listdir(DV.curdir + 'modules'):
-			if i[-15:] == '.module.damnvid':
+			if i.lower().endswith(u'.module.' + DV.safeProduct):
 				Damnlog('Installing', i)
 				DamnInstallModule(DV.curdir + 'modules' + DV.sep + i)
 	for i in os.listdir(DV.modules_path):
