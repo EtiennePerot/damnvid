@@ -1,3 +1,9 @@
+damnvid (1.6+svn20100623-1) lucid; urgency=low
+
+  * Experimental build
+
+ -- Andreas Noteng <andreas@noteng.no>  Wed, 23 Jun 2010 21:52:27 +0200
+
 damnvid (1.6-1ubuntu6) lucid; urgency=low
 
   * Update dependencies to require at least version 2.0 of python-gdata
