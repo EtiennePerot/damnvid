@@ -8,14 +8,10 @@
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
-#export DEB_BUILD_OPTION="nostrip"
+export DEB_BUILD_OPTION="nostrip"
 
-#build:
-#	python -OO build-any/build-required-files.py -o debian/install -d /usr/share/damnvid
+build:
+	python -OO build-any/build-required-files.py -o debian/install -d /usr/share/damnvid
 
-#%:
-#	dh --with quilt  $@
-DEB_PYTHON_SYSTEM=pysupport
-
-include /usr/share/cdbs/1/rules/debhelper.mk
-include /usr/share/cdbs/1/class/python-distutils.mk
+%:
+	dh --with quilt  $@
