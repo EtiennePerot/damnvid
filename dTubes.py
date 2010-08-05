@@ -5,6 +5,7 @@ from dThread import *
 import dSysInfo
 import time
 import random
+import re
 import socket
 import traceback
 import cookielib
@@ -15,6 +16,7 @@ DV.blanksocket = socket.socket
 DV.youtube_service = gdata.youtube.service.YouTubeService()
 DV.youtube_service.ssl = False
 DV.streamTimeout = 30.0
+DV.stripHtmlEntities = re.compile('&[^;]+;')
 socket.setdefaulttimeout(DV.streamTimeout)
 import urllib2
 class DamnCookieJar(cookielib.CookieJar):
@@ -333,7 +335,7 @@ def DamnURLPicker(urls, urlonly=False, resumeat=None):
 				return pipe
 			except IOError, err:
 				if not hasattr(err, 'reason') and not hasattr(err, 'code'):
-					Damnlog('DamnURLPicker returning none because of an IOError without reason or code')
+					Damnlog('DamnURLPicker returning None because of an IOError without reason or code')
 					return None
 	Damnlog('DamnURLPicker returning None because no URLs are valid')
 	return None
@@ -631,4 +633,8 @@ class DamnBugReporter(DamnThread):
 		Damnlog('Issue submission successful.')
 		self.postEvent(DV.l('Success'), DV.l('Bug report submitted successfully. Thanks!'), error=False, closedialog=True)
 def DamnHtmlEntities(html):
-	return DamnUnicode(BeautifulSoup.BeautifulStoneSoup(html, convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES)).replace(u'&amp;', u'&') # Because BeautifulSoup, as good as it is, puts &amp;badentity where &badentitity; are. Gotta convert that back.
+	try:
+		return DamnUnicode(BeautifulSoup.BeautifulStoneSoup(html, convertEntities=BeautifulSoup.BeautifulStoneSoup.HTML_ENTITIES)).replace(u'&amp;', u'&') # Because BeautifulSoup, as good as it is, puts &amp;badentity where &badentitity; are. Gotta convert that back.
+	except:
+		Damnlog('Error while parsing HTML entities:', html)
+		return DamnUnicode(DV.stripHtmlEntities.sub(u'', DamnUnicode(html)))

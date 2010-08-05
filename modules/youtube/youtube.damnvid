@@ -7,7 +7,7 @@ class DamnModule_YouTube(DamnVideoModule):
 		self.regex={
 			'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
 			'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
-			'title':(re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),re.compile('<title>\s*YouTube\s*-*\s*([^<>]+?)\s*</title>', re.IGNORECASE),self.regex['title']),
+			'title':(re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),re.compile('<meta[^<>]*name="?title"?[^<>]*content="\s*([^"<>]+)\s*"', re.IGNORECASE),re.compile('<title>\s*YouTube\s*-*\s*([^<>]+?)\s*</title>', re.IGNORECASE),self.regex['title']),
 			'ticket':(re.compile('(?:^|&)token=([^&]+)',re.IGNORECASE),re.compile('(?:^|&)fmt_stream_map=([^&]+)',re.IGNORECASE))
 		}
 		self.hd=None
@@ -27,8 +27,8 @@ class DamnModule_YouTube(DamnVideoModule):
 			return None
 		if self.title is None:
 			html=DamnURLGetAll(self.link, onerror='')
-			res=self.regex['title'][1].search(html)
 			gottitle = False
+			res=self.regex['title'][1].search(html)
 			if res:
 				self.title=DamnUnicode(DamnHtmlEntities(res.group(1)))
 				gottitle = True
@@ -37,6 +37,11 @@ class DamnModule_YouTube(DamnVideoModule):
 				if res:
 					self.title=DamnUnicode(DamnHtmlEntities(res.group(1)))
 					gottitle = True
+				else:
+					res=self.regex['title'][3].search(html)
+					if res:
+						self.title=DamnUnicode(DamnHtmlEntities(res.group(1)))
+						gottitle = True
 			self.YouTube_GetTicket(html)
 			if not gottitle:
 				html=DamnURLGetAll('http://www.youtube.com/get_video_info?video_id='+self.id[3:], onerror='')
@@ -49,16 +54,19 @@ class DamnModule_YouTube(DamnVideoModule):
 						pass # Happens with unicode errors and stuff
 				self.YouTube_GetTicket(html)
 		return DamnVideoModule.getTitle(self)
+	def YouTube_BuildURL(self, t, fmt=None, asv=3):
+		url = 'http://www.youtube.com/get_video?asv='+str(asv)+'&video_id='+self.id[3:]+'&t='+str(t)
+		if fmt is not None:
+			url += '&fmt='+str(fmt)
+		return DamnUnicode(url)
 	def YouTube_GetTicket(self, html):
-		print 'Passthrough', html[:128]
 		res2=self.regex['ticket'][0].search(html)
 		if res2:
-			print 'res2 match'
-			self.newTicket(res2.group(1)) # res2.group(1) should be urllib2.unquote()'d, but since we're going to put it back into URLs we don't need to decode it.
+			self.newTicket(DamnUnicode(res2.group(1))) # res2.group(1) should be urllib2.unquote()'d, but since we're going to put it back into URLs we don't need to decode it.
 			if self.hd is None:
-				url=DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22', 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=18', 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)],True)
-				if url=='http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=22':
-					if DamnURLOpen('http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+res2.group(1)+'&fmt=37') is None:
+				url=DamnURLPicker([self.YouTube_BuildURL(res2.group(1),22), self.YouTube_BuildURL(res2.group(1),18), self.YouTube_BuildURL(res2.group(1))],True)
+				if url==self.YouTube_BuildURL(res2.group(1),22):
+					if DamnURLOpen(self.YouTube_BuildURL(res2.group(1),37)) is None:
 						self.hd = '720'
 					else:
 						self.hd = '1080'
@@ -67,19 +75,18 @@ class DamnModule_YouTube(DamnVideoModule):
 		else:
 			res2=self.regex['ticket'][1].search(html)
 			if res2:
-				print 'res2 match 2'
 				formats = DamnUnicode(urllib2.unquote(res2.group(1))).split(u',')
-				print 'Formats are', formats
 				qualitys = {}
 				directUrls = []
+				nocacheUrls = []
 				for i in formats:
 					i = i.split(u'|')
 					if len(i) < 2:
-						print 'i is not 2:', i
 						continue
 					qualitys[i[1]] = i[0]
-					directUrls.append(i[1])
-				print 'directURLS are now', directUrls
+					directUrls.append(DamnUnicode(i[1]))
+					if i[1].find('lscache')!=-1:
+						nocacheUrls.append(i[1].replace('lscache','nonxt'))
 				if self.hd is None:
 					url = DamnURLPicker(directUrls, True)
 					if url in qualitys:
@@ -93,7 +100,7 @@ class DamnModule_YouTube(DamnVideoModule):
 							pass
 					if self.hd is None:
 						self.hd = False
-				print 'directURLs', directUrls
+				directUrls.extend(nocacheUrls)
 				self.newTicket(directUrls)
 	def getProfile(self):
 		if self.playlist:
@@ -116,9 +123,9 @@ class DamnModule_YouTube(DamnVideoModule):
 	def renewTicket(self):
 		if self.playlist:
 			return None
-		if self.ticket is None or self.ticketdate+15<time.time():
+		if self.ticket is None:# or self.ticketdate+15<time.time():
 			self.YouTube_GetTicket(DamnURLGetAll('http://www.youtube.com/get_video_info?video_id='+self.id[3:], onerror=''))
-			if self.ticket is None or self.ticketdate+15<time.time():
+			if self.ticket is None:# or self.ticketdate+15<time.time():
 				self.YouTube_GetTicket(DamnURLGetAll(self.link, onerror=''))
 	def getDownload(self):
 		if self.playlist:
@@ -145,7 +152,7 @@ DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
 	'type':'video',
-	'version':'1.8',
+	'version':'1.92',
 	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',

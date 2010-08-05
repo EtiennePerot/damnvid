@@ -60,7 +60,7 @@ def DamnVersionCompare(v1, v2): # Returns 1 if v1 is newer, 0 if equal, -1 if v2
 		if len(v2) <= i:
 			return 1
 		if v1[i] != v2[i]:
-			return 2 * int(v1[i] > v2[i]) - 1
+			return 2 * int(int(v1[i]) > int(v2[i])) - 1
 	if len(v1) != len(v2):
 		return 2 * (len(v1) > len(v2)) - 1
 	return 0

@@ -87,6 +87,9 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 					return
 				Damnlog('Conversion routine starting, URI is', self.uris[0])
 				self.uri = self.uris[0]
+				if self.uri is None:
+					Damnlog('!! URI is None.')
+					return
 				self.update(0)
 				self.parent.thisvideo.append(self.parent.videos[self.parent.converting])
 				self.filename = unicodedata.normalize('NFKD', DamnUnicode(REGEX_FILE_CLEANUP_FILENAME.sub('', self.parent.meta[self.parent.videos[self.parent.converting]]['name']))).encode('utf8', 'ignore').replace('/', '').replace('\\', '').strip() # Heck of a line!
@@ -116,7 +119,10 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 						failed = False
 						if self.stream == '-': # Spawn a downloader
 							src = DamnURLPicker(self.uris)
-							total = int(src.info('Content-length'))
+							try:
+								total = int(src.info('Content-length'))
+							except:
+								total = None
 							Damnlog('Total bytes:', total)
 							ext = 'avi'
 							try:
@@ -130,7 +136,10 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 								tmpuri = 'Video.' + ext # And pray for the best!
 							Damnlog('Temp URI is', tmpuri)
 						else: # Just copy the file, lol
-							total = int(os.lstat(self.stream).st_size)
+							try:
+								total = int(os.lstat(self.stream).st_size)
+							except:
+								total = None
 							src = DamnOpenFile(self.stream, 'rb')
 							tmpuri = self.stream
 							Damnlog('Total is', total, '; Temp URI is', tmpuri)
@@ -153,9 +162,15 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 								dst.write(i)
 								copied += 4096.0
 							else:
-								copied = float(total)
+								if total is not None:
+									copied = float(total)
+								else:
+									copied = None
 								keepgoing = False
-							progress = max(0.0, min(100.0, copied / total * 100.0))
+							if total is not None:
+								progress = max(0.0, min(100.0, copied / total * 100.0))
+							else:
+								progress = 0.0
 							nowtime = float(time.time())
 							if lasttime + .5 < nowtime or not keepgoing: # Do not send a progress update more than 2 times per second, otherwise the event queue can get overloaded. On some platforms, time() is an int, but that doesn't matter; the progress will be updated once a second instead of 2 times, which is still acceptable.
 								self.update(progress, status=self.parent.meta[self.parent.videos[self.parent.converting]]['status'] + ' [' + str(int(progress)) + '%]')

@@ -55,8 +55,8 @@ try:
 	DamnExecFile(DV.curdir + u'conf' + DV.sep + u'product.d', globs=globals())
 except:
 	pass # File is optional
-DamnLocaleAddOverride('%moduleext%', u'.module.' + DV.safeProduct)
-versionfile = DamnOpenFile(DV.curdir + 'version.' + DV.safeProduct, 'r')
+DamnLocaleAddOverride('%moduleext%', u'module.' + DV.safeProduct)
+versionfile = DamnOpenFile(DV.curdir + 'version.d', 'r')
 DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = []
 for i in sys.argv[1:]:
@@ -160,21 +160,21 @@ if not os.path.exists(DV.conf_file):
 	if not os.path.exists(os.path.dirname(DV.conf_file)):
 		os.makedirs(os.path.dirname(DV.conf_file))
 	shutil.copyfile(DV.curdir + u'conf' + DV.sep + u'conf.ini', DV.conf_file)
-	lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'w')
+	lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.d', 'w')
 	lastversion.write(DV.version)
 	lastversion.close()
 	del lastversion
 	DV.first_run = True
 else:
-	if os.path.exists(DV.conf_file_directory + u'lastversion.' + DV.safeProduct):
-		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'r')
+	if os.path.exists(DV.conf_file_directory + u'lastversion.d'):
+		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.d', 'r')
 		version = lastversion.readline().strip()
 		lastversion.close()
 		DV.updated = version != DV.version
 		del version
 	else:
 		DV.updated = True
-		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.' + DV.safeProduct, 'w')
+		lastversion = DamnOpenFile(DV.conf_file_directory + u'lastversion.d', 'w')
 		lastversion.write(DV.version.encode('utf8'))
 		lastversion.close()
 	del lastversion

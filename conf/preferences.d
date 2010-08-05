@@ -136,6 +136,7 @@ DV.preferences={
 			'mpeg1video':'MPEG video format (.mpg)',
 			'mpeg2video':'MPEG-2 video format (.mpg)',
 			'mpegts':'MPEG-2-TS (Transport Stream) format (.mpg)',
+			'wmv':'Windows Media Video (.wmv)',
 			'vob':'MPEG-2-PS (Program Stream) format (.vob)',
 			'mp4':'MP4 format (.mp4)',
 			'mp3':'MP3 format, audio only (.mp3)',
@@ -149,7 +150,7 @@ DV.preferences={
 			'3gp':'3GPP format (.3gp)',
 			'3g2':'3GPP2 format (.3g2)'
 		},
-		'order':['avi','flv','mpeg1video','mpeg2video','mpegts','mp4','mp3','mov','wma','ipod','psp','rm','matroska','ogg','vob','3gp','3g2'],
+		'order':['avi','flv','mpeg1video','mpeg2video','mpegts','mp4','mp3','mov','wmv','wma','ipod','psp','rm','matroska','ogg','vob','3gp','3g2'],
 		'strict':True,
 		'default':'avi'
 	},
