@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=1.0
-Type=Application
-Terminal=false
-Exec=damnvid
-Categories=GTK;GNOME;AudioVideo;Audio;Video;AudioVideoEditing;Recorder;
-Name=DamnVid
-Comment=Video downloader and converter
-Icon=/usr/share/damnvid/img/icon.ico
