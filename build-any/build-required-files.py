@@ -115,7 +115,7 @@ elif OSNAME=='mac':
 	specialfiles = {}
 else:
 	specialfiles = {
-		'debian/damnvid.desktop': '/usr/share/applications/',
+		'build-deb/damnvid.desktop': '/usr/share/applications/',
 		'build-deb/damnvid': '/usr/bin/'
 	}
 required_file=open(outputFile,'w')
