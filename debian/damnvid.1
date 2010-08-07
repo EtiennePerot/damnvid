@@ -20,7 +20,11 @@ From the command line, you can specify the path of local video files to add to \
 .IP \fB\-q\fP
 Quiet mode.
 .IP \fB\--config=CONFIGDIR\fP
-Stores configuration in CONFIGDIR.
+Stores configuration in CONFIGDIR (default: $HOME/.damnvid)
+.IP \fB\--myvideos=VIDEOSDIR\fP
+Treats VIDEOSDIR as your Videos folder (default: $HOME/Videos)
+.IP \fB\--temp=TMPDIR\fP
+Stores temporary files in TMPDIR (default: CONFIGDIR/temp)
 .IP \fB\--flush\fP
 Forces Python to run unbuffered (use this if the log gets truncated).
 .IP \fB\--dump-locale-warnings\fP
