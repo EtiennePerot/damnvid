@@ -50,7 +50,7 @@ def addFile(*args):
 		else:
 			required_files.append(f)
 shutil.copyfile('build-any/COPYING','./COPYING')
-addFile('version.damnvid','COPYING')
+addFile('version.d','COPYING')
 if OSNAME=='nt':
 	addFile('DamnVid.exe')
 	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')

@@ -8,7 +8,7 @@ import shutil
 
 path2src = os.path.abspath(os.path.dirname(sys.argv[0])+os.sep+'..')+os.sep
 sys.path.append(path2src)
-versionfile = open(path2src + 'version.damnvid', 'r')
+versionfile = open(path2src + 'version.d', 'r')
 version = versionfile.readline().strip()
 versionfile.close()
 description = 'DamnVid'

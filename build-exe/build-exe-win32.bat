@@ -6,7 +6,7 @@
 @cd ..\..
 @echo DamnVid packaged.
 @echo Renaming setup.
-@set /p version= < version.damnvid
+@set /p version= < version.d
 @ren DamnVid-setup.exe DamnVid-setup-%version%.exe
 @echo Cleaning up.
 @%python%\python -OO build-any/cleanup.py
