@@ -3,7 +3,7 @@ Section: video
 Priority: extra
 Maintainer: Andreas Noteng <andreas@noteng.no>
 Build-Depends: debhelper (>= 7), python-support, python (>=2.5), quilt, python-wxtools, python-gdata (>=2.0), python-beautifulsoup
-Standards-Version: 3.8.3
+Standards-Version: 3.9.1
 Homepage: http://damnvid.googlecode.com/
 
 Package: damnvid
