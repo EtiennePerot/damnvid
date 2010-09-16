@@ -91,6 +91,19 @@ def DamnNothing(*args, **kwargs):
 	return
 class DamnEmpty:
 	pass
+class DamnDummy:
+	def __getitem__(self, key):
+		return self
+	def __getattr__(self, name):
+		return self
+	def __call__(self, *args, **kwargs):
+		return self
+	def __repr__(self):
+		return 'DamnDummy()'
+	def __str__(self):
+		return 'DamnDummy'
+	def __unicode__(self):
+		return u'DamnDummy'
 DV = DamnEmpty()
 def DamnOverridePath(prefix, otherwise=None):
 	global DV

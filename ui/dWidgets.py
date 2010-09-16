@@ -4,6 +4,92 @@ from dSpawn import *
 from dUI import *
 from dWx import *
 import random, hashlib
+class DamnIconList(wx.ImageList): # An imagelist with dictionary-like association, not stupid IDs, and graceful failure. Can also be initialized with delay.
+	def __init__(self, width=16, height=16, mask=True, initialCount=0, fail=None, initNow=False):
+		self.list = {}
+		self.args = (width, height, mask, initialCount)
+		self.init = False
+		self.fail = fail
+		self.width = width
+		self.height = height
+		self.rawbitmaps = {}
+		self.blankid = None
+		self.blankbitmap = None
+		if initNow:
+			self.initWX()
+	def initWX(self):
+		wx.ImageList.__init__(self, self.args[0], self.args[1], self.args[2], self.args[3])
+		self.init = True
+		self.resetList(self.list)
+	def add(self, bitmap, handle=None):
+		Damnlog('Adding', bitmap, 'to icon list, with handle', handle)
+		while handle is None or handle in self.list.keys():
+			Damnlog('!Icon conflict found with handle', handle)
+			handle = hashlib.md5(str(random.random()) + str(random.random())).hexdigest()
+		if self.init:
+			handle = DamnUnicode(handle)
+			if type(bitmap) in (type(''), type(u'')):
+				bitmap = wx.Bitmap(bitmap)
+			self.list[handle] = self.Add(bitmap)
+			self.rawbitmaps[handle] = bitmap
+		else:
+			self.list[handle] = bitmap
+		return handle
+	def getRawBitmap(self, handle):
+		Damnlog('Getting raw bitmap for handle', handle)
+		if type(handle) not in (type(''), type(u'')):
+			for k in self.list.keys():
+				if self.list[k] == handle:
+					handle = k
+		handle = DamnUnicode(handle)
+		if handle not in self.list.keys() or handle == u'fail':
+			Damnlog('Handle', handle, 'is invalid; returning default bitmap.')
+			return self.blankbitmap
+		return self.rawbitmaps[handle]
+	def get(self, handle):
+		Damnlog('Getting icon for handle', handle)
+		if not self.init:
+			return
+		if type(handle) in (type(''), type(u'')):
+			handle = DamnUnicode(handle)
+			if handle == u'fail':
+				Damnlog('Handle', handle, 'is fail; returning default bitmap.')
+				handle = self.blankid
+			elif handle in self.list.keys():
+				handle = self.list[handle]
+			else:
+				Damnlog('Handle', handle, 'is invalid; returning default bitmap.')
+				handle = self.blankid
+		return handle
+	def getHandle(self, img):
+		Damnlog('Getting handle for image ID', img)
+		if not self.init:
+			return
+		img = int(img)
+		for i in self.list.keys():
+			if self.list[i] == img:
+				Damnlog('Found handle', i,'for ID', img)
+				return DamnUnicode(i)
+		Damnlog('Couldn\'t find handle for ID', img,'; returning fail.')
+		return u'fail'
+	def getBitmap(self, handle):
+		Damnlog('Getting bitmap for handle', handle)
+		return self.GetBitmap(self.get(handle))
+	def resetList(self, items={}):
+		self.list = {}
+		if self.init:
+			self.RemoveAll()
+			if self.fail is None:
+				blank = wx.EmptyBitmap(self.width, self.height)
+			else:
+				blank = wx.Bitmap(self.fail)
+			self.blankid = self.Add(blank)
+			self.blankbitmap = blank
+		for i in items.keys():
+			self.add(items[i], i)
+DV.listicons = DamnIconList(16, 16, fail=DV.images_path + 'video.png')
+def DamnGetListIcon(icon):
+	return DV.listicons.get(icon)
 class DamnSplashScreen(wx.SplashScreen):
 	def __init__(self):
 		wx.SplashScreen.__init__(self, wx.Bitmap(DV.images_path + 'splashscreen.png', wx.BITMAP_TYPE_PNG), wx.SPLASH_CENTRE_ON_SCREEN | wx.STAY_ON_TOP, 10000, None)
@@ -30,7 +116,7 @@ class DamnListContextMenu(wx.Menu): # Context menu when right-clicking on the Da
 			self.AppendItem(moveup)
 			moveup.Enable(self.items[0] > 0)
 			self.Bind(wx.EVT_MENU, self.parent.parent.onMoveUp, moveup)
-			movedown = wx.MenuItem(self, -1, 'Move down')
+			movedown = wx.MenuItem(self, -1, DV.l('Move down'))
 			self.AppendItem(movedown)
 			movedown.Enable(self.items[-1] < self.parent.GetItemCount() - 1)
 			self.Bind(wx.EVT_MENU, self.parent.parent.onMoveDown, movedown)
@@ -251,89 +337,3 @@ class DamnTrayIcon(wx.TaskBarIcon):
 	def onClose(self, event=None):
 		self.raiseParent()
 		self.parent.onClose(event)
-class DamnIconList(wx.ImageList): # An imagelist with dictionary-like association, not stupid IDs, and graceful failure. Can also be initialized with delay.
-	def __init__(self, width=16, height=16, mask=True, initialCount=0, fail=None, initNow=False):
-		self.list = {}
-		self.args = (width, height, mask, initialCount)
-		self.init = False
-		self.fail = fail
-		self.width = width
-		self.height = height
-		self.rawbitmaps = {}
-		self.blankid = None
-		self.blankbitmap = None
-		if initNow:
-			self.initWX()
-	def initWX(self):
-		wx.ImageList.__init__(self, self.args[0], self.args[1], self.args[2], self.args[3])
-		self.init = True
-		self.resetList(self.list)
-	def add(self, bitmap, handle=None):
-		Damnlog('Adding', bitmap, 'to icon list, with handle', handle)
-		while handle is None or handle in self.list.keys():
-			Damnlog('!Icon conflict found with handle', handle)
-			handle = hashlib.md5(str(random.random()) + str(random.random())).hexdigest()
-		if self.init:
-			handle = DamnUnicode(handle)
-			if type(bitmap) in (type(''), type(u'')):
-				bitmap = wx.Bitmap(bitmap)
-			self.list[handle] = self.Add(bitmap)
-			self.rawbitmaps[handle] = bitmap
-		else:
-			self.list[handle] = bitmap
-		return handle
-	def getRawBitmap(self, handle):
-		Damnlog('Getting raw bitmap for handle', handle)
-		if type(handle) not in (type(''), type(u'')):
-			for k in self.list.keys():
-				if self.list[k] == handle:
-					handle = k
-		handle = DamnUnicode(handle)
-		if handle not in self.list.keys() or handle == u'fail':
-			Damnlog('Handle', handle, 'is invalid; returning default bitmap.')
-			return self.blankbitmap
-		return self.rawbitmaps[handle]
-	def get(self, handle):
-		Damnlog('Getting icon for handle', handle)
-		if not self.init:
-			return
-		if type(handle) in (type(''), type(u'')):
-			handle = DamnUnicode(handle)
-			if handle == u'fail':
-				Damnlog('Handle', handle, 'is fail; returning default bitmap.')
-				handle = self.blankid
-			elif handle in self.list.keys():
-				handle = self.list[handle]
-			else:
-				Damnlog('Handle', handle, 'is invalid; returning default bitmap.')
-				handle = self.blankid
-		return handle
-	def getHandle(self, img):
-		Damnlog('Getting handle for image ID', img)
-		if not self.init:
-			return
-		img = int(img)
-		for i in self.list.keys():
-			if self.list[i] == img:
-				Damnlog('Found handle', i,'for ID', img)
-				return DamnUnicode(i)
-		Damnlog('Couldn\'t find handle for ID', img,'; returning fail.')
-		return u'fail'
-	def getBitmap(self, handle):
-		Damnlog('Getting bitmap for handle', handle)
-		return self.GetBitmap(self.get(handle))
-	def resetList(self, items={}):
-		self.list = {}
-		if self.init:
-			self.RemoveAll()
-			if self.fail is None:
-				blank = wx.EmptyBitmap(self.width, self.height)
-			else:
-				blank = wx.Bitmap(self.fail)
-			self.blankid = self.Add(blank)
-			self.blankbitmap = blank
-		for i in items.keys():
-			self.add(items[i], i)
-DV.listicons = DamnIconList(16, 16, fail=DV.images_path + 'video.png')
-def DamnGetListIcon(icon):
-	return DV.listicons.get(icon)

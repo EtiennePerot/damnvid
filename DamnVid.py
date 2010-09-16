@@ -210,41 +210,6 @@ if not os.path.exists(DV.tmp_path):
 		Damnlog('Temp path created successfully.')
 	except:
 		Damnlog('Could not create temp path, continuing anyway.')
-DV.file_ext = {
-	'avi':u'avi',
-	'flv':u'flv',
-	'mpeg1video':u'mpg',
-	'mpeg2video':u'mpg',
-	'mpegts':u'mpg',
-	'mp4':u'mp4',
-	'mov':u'mov',
-	'ipod':u'mp4',
-	'psp':u'mp4',
-	'rm':u'rm',
-	'matroska':u'mkv',
-	'ogg':u'ogg',
-	'vob':u'vob',
-	'3gp':u'3gp',
-	'3g2':u'3g2',
-	'mp3':u'mp3',
-	'mp2':u'mp2'
-}
-DV.file_ext_by_codec = {
-	'rv10':u'rm',
-	'rv20':u'rm',
-	'flv':u'flv',
-	'theora':u'ogg',
-	'wmv1':u'wmv',
-	'wmv2':u'wmv',
-	'ac3':u'ac3',
-	'vorbis':u'ogg',
-	'wmav1':u'wma',
-	'wmav2':u'wma'
-} # Just in case the format isn't defined, fall back to DV.file_ext_by_codec. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
-DV.codec_advanced_cl = {
-	'mpeg4':[('g', '300'), ('cmp', '2'), ('subcmp', '2'), ('trellis', '2'), '+4mv'],
-	'libx264':[('coder', '1'), '+loop', ('cmp', '+chroma'), ('partitions', '+parti4x4+partp8x8+partb8x8'), ('g', '250'), ('subq', '6'), ('me_range', '16'), ('keyint_min', '25'), ('sc_threshold', '40'), ('i_qfactor', '0.71'), ('b_strategy', '1')]
-}
 Damnlog('Init underway, starting to declare fancier stuff.')
 print 'Importing constants.'
 from dConstants import *
@@ -289,12 +254,12 @@ class DamnApp(wx.App):
 				showsplash = True
 		else:
 			pass
-		DamnURLOpener()
+		self.mainURLOpener = DamnURLOpener()
 		self.frame = DamnMainFrame(None, -1, DV.l('DamnVid'))
 		if showsplash:
 			if True:
 				while clock + .5 > time.time():
-					time.sleep(.02) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. I think it's a reasonable compromise between eyecandy and responsiveness/snappiness
+					time.sleep(.02) # Makes splashscreen stay at least half a second on screen, in case the loading was faster than that. A reasonable compromise between eyecandy and responsiveness/snappiness
 				splash.fadeOut(True)
 			else:
 				Damnlog('Error while displaying splash screen.')
@@ -322,7 +287,7 @@ class DamnApp(wx.App):
 			name = [name]
 		self.loadArgs(name)
 def DamnMain():
-	Damnlog('All done, starting wx app already.')
+	Damnlog('All done, starting app already.')
 	app = DamnApp(0)
 	DV.gui_ok = True
 	Damnlog('App up, entering main loop.')

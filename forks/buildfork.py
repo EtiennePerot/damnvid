@@ -67,3 +67,18 @@ def syncTree(t1, t2, exc=None, ignore=[]):
 		print >> sys.stderr, 'Warning: Unknown file type:', t1
 syncTree('..', 'package-'+fork, exc=fork, ignore=['forks', '.svn'])
 syncTree(fork, 'package-'+fork, ignore=['.svn'])
+if os.path.exists(fork + os.sep + 'forkinfo.py'):
+	try:
+		execfile(fork + os.sep + 'forkinfo.py')
+		print 'Fork info:', forkinfo
+	except:
+		print 'Found no fork information file.'
+		forkinfo = {}
+	if 'original' in forkinfo:
+		for f in forkinfo['original']:
+			dest = 'package-' + fork + os.sep + os.path.dirname(f) + os.sep + 'orig_' + os.path.basename(f)
+			print 'Original:', f, '->', dest
+			if not os.path.exists(os.path.dirname(dest)):
+				os.makedirs(os.path.dirname(dest))
+			syncTree('..' + os.sep + f, dest)
+print 'All done.'

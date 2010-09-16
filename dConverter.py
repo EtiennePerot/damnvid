@@ -6,6 +6,41 @@ from dThread import *
 from dSpawn import *
 from dTubes import *
 import unicodedata
+DV.file_ext = {
+	'avi':u'avi',
+	'flv':u'flv',
+	'mpeg1video':u'mpg',
+	'mpeg2video':u'mpg',
+	'mpegts':u'mpg',
+	'mp4':u'mp4',
+	'mov':u'mov',
+	'ipod':u'mp4',
+	'psp':u'mp4',
+	'rm':u'rm',
+	'matroska':u'mkv',
+	'ogg':u'ogg',
+	'vob':u'vob',
+	'3gp':u'3gp',
+	'3g2':u'3g2',
+	'mp3':u'mp3',
+	'mp2':u'mp2'
+}
+DV.file_ext_by_codec = {
+	'rv10':u'rm',
+	'rv20':u'rm',
+	'flv':u'flv',
+	'theora':u'ogg',
+	'wmv1':u'wmv',
+	'wmv2':u'wmv',
+	'ac3':u'ac3',
+	'vorbis':u'ogg',
+	'wmav1':u'wma',
+	'wmav2':u'wma'
+} # Just in case the format isn't defined, fall back to DV.file_ext_by_codec. Otherwise, fall back to .avi (this is why only codecs that shouldn't get a .avi extension are listed here).
+DV.codec_advanced_cl = {
+	'mpeg4':[('g', 300), ('cmp', 2), ('subcmp', 2), ('trellis', 2), '+4mv'],
+	'libx264':[('coder', 1), '+loop', ('cmp', '+chroma'), ('partitions', '+parti4x4+partp8x8+partb8x8'), ('g', 250), ('subq', 6), ('me_range', 16), ('keyint_min', 25), ('sc_threshold', 40), ('i_qfactor', 0.71), ('b_strategy', 1)]
+}
 class DamnConverter(DamnThread): # The actual converter, dammit
 	def __init__(self, parent):
 		self.parent = parent
@@ -258,7 +293,7 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 								flags.append(o)
 						else:
 							if '-' + o[0] not in cmd: # If the option is already there, don't overwrite it
-								cmd.extend(['-' + o[0], o[1]])
+								cmd.extend(['-' + str(o[0]), str(o[1])])
 				if len(flags):
 					cmd.extend(['-flags', ''.join(flags)])
 				self.filename = DamnUnicode(self.getfinalfilename(self.outdir, self.filename, ext))

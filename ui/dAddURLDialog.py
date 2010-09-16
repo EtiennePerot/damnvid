@@ -120,7 +120,7 @@ class DamnAddURLDialog(wx.Dialog):
 		self.videolist.InsertStringItem(len(self.videos), val)
 		self.videolist.SetItemImage(len(self.videos), DamnGetListIcon('generic'), DamnGetListIcon('generic'))
 		self.videos.append(val)
-		self.parent.addVid([val], DV.prefs.get('autoconvert') == 'True')
+		self.parent.addVid([val], None)
 		self.urlbox.SetFocus()
 	def update(self, original, name, icon):
 		for i in range(len(self.videos)):
