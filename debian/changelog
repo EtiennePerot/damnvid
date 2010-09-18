@@ -1,3 +1,9 @@
+damnvid (1.6-1ubuntu1) maverick; urgency=low
+
+  * Build for maverick
+
+ -- Andreas Noteng <andreas@noteng.no>  Sat, 18 Sep 2010 21:44:25 +0200
+
 damnvid (1.6-1ubuntu6) lucid; urgency=low
 
   * Update dependencies to require at least version 2.0 of python-gdata
