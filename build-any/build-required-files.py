@@ -7,7 +7,6 @@ import shutil
 import getopt
 import subprocess
 import py_compile
-import glob
 
 def procs(command):
 	p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -39,31 +38,42 @@ if os.path.exists(outputFile):
 	os.remove(outputFile)
 if os.path.exists('COPYING'):
 	os.remove('COPYING')
+def goodFile(f):
+	return f.find('.svn')==-1 and f.find('LICENSE')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.module.damnvid')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1
 required_files=[]
+absolute_files=[]
+def appendToList(f):
+	global required_files, absolute_files
+	f = f.replace('.' + os.sep, '')
+	a = os.path.abspath(f)
+	if a not in absolute_files and goodFile(a):
+		required_files.append(f)
+		absolute_files.append(a)
 def addFile(*args):
 	global required_files, forkFolder
 	for f in args:
 		if forkFolder is not None:
 			if os.path.exists(forkFolder + f):
-				required_files.append(forkFolder + ':' + f)
+				appendToList(forkFolder + ':' + f)
 			else:
-				required_files.append(f)
+				appendToList(f)
 		else:
-			required_files.append(f)
+			appendToList(f)
 shutil.copyfile('build-any/COPYING','./COPYING')
 addFile('version.d','COPYING')
 if OSNAME=='nt':
 	addFile('DamnVid.exe')
 	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')
 	addFile('DamnVid.exe.manifest')
-required_dirs=['img','conf','locale','ui','socks']
+required_dirs=['img', 'conf', 'locale']
+required_modules=['socks', 'ui']
 def addDir(d):
 	for f in os.listdir(d):
-		if f.find('.svn')==-1 and f.find('LICENSE')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.module.damnvid')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1:
+		if goodFile(f):
 			if os.path.isdir(d+os.sep+f):
-				addDir(d+os.sep+f)
+				addDir(d + os.sep + f)
 			else:
-				addFile(d+os.sep+f)
+				addFile(d + os.sep + f)
 for d in required_dirs:
 	addDir(d)
 for f in os.listdir('./'):
@@ -76,14 +86,15 @@ for f in os.listdir('./modules/'):
 	if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
 		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
 def addModule(f, recursive=True):
-	if OSNAME != 'posix':
+	if OSNAME != 'posix' or not goodFile(f):
 		return
 	if os.path.isdir(f):
-		for i in glob.glob(f):
+		for i in os.listdir(f):
 			if os.path.isdir(f + os.sep + i) and recursive:
-				addModule(f + os.sep + i)
+				addDir(f + os.sep + i)
+				addModule(f + os.sep + i, recursive=recursive)
 			elif i[-3:] == '.py':
-				addModule(f + os.sep + i)
+				addModule(f + os.sep + i, recursive=recursive)
 	elif f[-3:] == '.py':
 		try:
 			py_compile.compile(f)
@@ -93,8 +104,7 @@ def addModule(f, recursive=True):
 			elif os.path.exists(f+'c'):
 				addFile(f+'c')
 				addFile(f)
-			else:
-				addFile(f)
+			addFile(f)
 		except:
 			print >> sys.stderr, 'Error while compyling', f
 			addFile(f)
@@ -107,8 +117,8 @@ for f in os.listdir('.'):
 	if f[-3:] == '.py':
 		addModule(f)
 addModule('.', recursive=False)
-addModule('ui')
-addModule('socks')
+for m in required_modules:
+	addModule(m)
 specialfiles = {}
 if OSNAME=='nt':
 	addFile('bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll')
