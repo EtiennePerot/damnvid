@@ -14,4 +14,4 @@ build:
 	python -OO build-any/build-required-files.py -o debian/install -d /usr/share/damnvid
 
 %:
-	dh --with quilt  $@
+	dh $@

@@ -1,3 +1,11 @@
+damnvid (1.7-1) unreleased; urgency=low
+
+  * Change to source format 3.0 (quilt)
+  * Remove unneeded build-depends
+  * 
+
+ -- Andreas Noteng <andreas@noteng.no>  Mon, 04 Oct 2010 17:34:18 +0200
+
 damnvid (1.6-1ubuntu6) lucid; urgency=low
 
   * Update dependencies to require at least version 2.0 of python-gdata

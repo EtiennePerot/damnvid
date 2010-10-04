@@ -2,12 +2,12 @@ Source: damnvid
 Section: video
 Priority: extra
 Maintainer: Andreas Noteng <andreas@noteng.no>
-Build-Depends: debhelper (>= 7), python-support, python (>=2.5), quilt, python-wxtools, python-gdata (>=2.0), python-beautifulsoup
+Build-Depends: debhelper (>= 7), python-support, python (>=2.5)
 Standards-Version: 3.9.1
 Homepage: http://damnvid.googlecode.com/
 
 Package: damnvid
-Architecture: any
+Architecture: all
 Depends: ${shlibs:Depends}, ${misc:Depends}, ffmpeg-damnvid, python-wxtools, python-gdata (>=2.0), python-beautifulsoup, python-wxgtk2.8 (>= 2.8.10)
 Recommends: python-psyco
 Description: An application to download and convert videos
