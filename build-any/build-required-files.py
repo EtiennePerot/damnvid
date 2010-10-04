@@ -7,6 +7,7 @@ import shutil
 import getopt
 import subprocess
 import py_compile
+import glob
 
 def procs(command):
 	p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -55,10 +56,10 @@ if OSNAME=='nt':
 	addFile('DamnVid.exe')
 	shutil.copyfile('build-exe/DamnVid.exe.manifest','DamnVid.exe.manifest')
 	addFile('DamnVid.exe.manifest')
-required_dirs=['img','conf','locale']
+required_dirs=['img','conf','locale','ui','socks']
 def addDir(d):
 	for f in os.listdir(d):
-		if f.find('.svn')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.module.damnvid')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1:
+		if f.find('.svn')==-1 and f.find('LICENSE')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.module.damnvid')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1:
 			if os.path.isdir(d+os.sep+f):
 				addDir(d+os.sep+f)
 			else:
@@ -78,18 +79,20 @@ def addModule(f, recursive=True):
 	if OSNAME != 'posix':
 		return
 	if os.path.isdir(f):
-		for i in os.listdir(f):
+		for i in glob.glob(f):
 			if os.path.isdir(f + os.sep + i) and recursive:
 				addModule(f + os.sep + i)
-			elif f[-3:] == '.py':
+			elif i[-3:] == '.py':
 				addModule(f + os.sep + i)
 	elif f[-3:] == '.py':
 		try:
 			py_compile.compile(f)
 			if os.path.exists(f+'o'):
 				addFile(f+'o')
+				addFile(f)
 			elif os.path.exists(f+'c'):
 				addFile(f+'c')
+				addFile(f)
 			else:
 				addFile(f)
 		except:
