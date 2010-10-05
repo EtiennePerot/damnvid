@@ -3,7 +3,7 @@
 damnroot="`cd "\`dirname "$0"\`/.."; pwd`"
 cd "$damnroot/.."
 python "$damnroot/build-any/cleanup.py"
-tarname="damnvid-`cat "$damnroot/version.damnvid"`-source.tar.bz2"
+tarname="damnvid-`cat "$damnroot/version.d"`-source.tar.bz2"
 if [ -e "$tarname" ]; then
 	rm "$tarname"
 fi
