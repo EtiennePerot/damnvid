@@ -39,7 +39,7 @@ if os.path.exists(outputFile):
 if os.path.exists('COPYING'):
 	os.remove('COPYING')
 def goodFile(f):
-	return f.find('.svn')==-1 and f.find('LICENSE')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.module.damnvid')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1
+	return f.find('.svn')==-1 and f.find('LICENSE')==-1 and f.find('.psd')==-1 and f.find('.noinclude')==-1 and f.find('.bmp')==-1 and f.find('.ai')==-1 and f.find('.exe')==-1 and f.find('.zip')==-1 and f.find('fireworks.png')==-1
 required_files=[]
 absolute_files=[]
 def appendToList(f):
@@ -70,21 +70,10 @@ required_modules=['socks', 'ui']
 def addDir(d):
 	for f in os.listdir(d):
 		if goodFile(f):
-			if os.path.isdir(d+os.sep+f):
+			if os.path.isdir(d + os.sep + f):
 				addDir(d + os.sep + f)
 			else:
 				addFile(d + os.sep + f)
-for d in required_dirs:
-	addDir(d)
-for f in os.listdir('./'):
-	if f[-15:]=='.module.damnvid':
-		os.remove(f)
-for f in os.listdir('./modules/'):
-	if f[-15:]=='.module.damnvid':
-		os.remove('./modules/'+f)
-for f in os.listdir('./modules/'):
-	if os.path.isdir('./modules/'+f) and f.find('.svn')==-1:
-		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
 def addModule(f, recursive=True):
 	if OSNAME != 'posix' or not goodFile(f):
 		return
@@ -108,23 +97,33 @@ def addModule(f, recursive=True):
 		except:
 			print >> sys.stderr, 'Error while compyling', f
 			addFile(f)
-for f in os.listdir('.'):
-	if f[-15:]=='.module.damnvid':
-		if os.path.lexists('modules/'+f):
-			os.remove('modules/'+f)
-		os.rename(f,'modules/'+f)
-		addFile('modules'+os.sep+f)
-	if f[-3:] == '.py':
-		addModule(f)
+for d in required_dirs:
+	addDir(d)
 addModule('.', recursive=False)
 for m in required_modules:
 	addModule(m)
+# Build DamnVid modules
+for f in os.listdir('.'):
+	if f[-15:]=='.module.damnvid':
+		os.remove(f)
+for f in os.listdir('modules'):
+	if f[-15:]=='.module.damnvid':
+		os.remove('modules' + os.sep + f)
+for f in os.listdir('modules'):
+	if os.path.isdir('modules' + os.sep + f) and goodFile(f):
+		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
+for f in os.listdir('.'):
+	if f[-15:]=='.module.damnvid':
+		if os.path.exists('modules' + os.sep + f):
+			os.remove('modules' + os.sep + f)
+		os.rename(f,'modules' + os.sep + f)
+		addFile('modules' + os.sep + f)
 specialfiles = {}
 if OSNAME=='nt':
-	addFile('bin'+os.sep+'ffmpeg.exe','bin'+os.sep+'taskkill.exe','bin'+os.sep+'SDL.dll')
+	addFile('bin' + os.sep + 'ffmpeg.exe','bin' + os.sep + 'taskkill.exe','bin' + os.sep + 'SDL.dll')
 	specialfiles = {}
 elif OSNAME=='mac':
-	addFile('bin'+os.sep+'ffmpegosx')
+	addFile('bin' + os.sep + 'ffmpegosx')
 	specialfiles = {}
 else:
 	specialfiles = {
