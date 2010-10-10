@@ -113,7 +113,7 @@ class DamnResumableDownload:
 		self.buffersize = buffer
 		self.buffer = ''
 		if type(req) in (type(''), type(u'')):
-			req = DamnURLRequest(DamnUnicode(req))
+			self.req = DamnURLRequest(DamnUnicode(req))
 		self.stream = None
 		self.progress = 0
 		self.totalSize = None
@@ -144,7 +144,7 @@ class DamnResumableDownload:
 				self.totalSize = None
 			if self.autofetch and autostart:
 				self.spawnFetcher()
-			return self.stream
+			return self
 		except urllib2.URLError, e:
 			Damnlog('! DamnResumableDownload failed opening with URLError', e, 'on', self.url)
 			if hasattr(e, 'code'):
@@ -157,22 +157,19 @@ class DamnResumableDownload:
 		except Exception, e:
 			Damnlog('! DamnResumableDownload failed opening with unknown error', e, 'on', self.url)
 		time.sleep(DV.streamTimeout/2)
-		self.open(autostart=autostart)
+		return self.open(autostart=autostart)
 	def info(self, key=None):
 		self.ensureOpen()
-		info = self.stream.info()
+		info2 = self.stream.info()
+		info = {}
+		for i in info2:
+			info[i.lower()] = info2[i]
+		Damnlog('DamnResumableDownload info for', self.url, 'is', info)
 		if key is None:
 			return info
-		if key in info.keys():
+		key = key.lower()
+		if key in info:
 			return info[key]
-		if key.lower() in info.keys():
-			return info[key.lower()]
-		if key.upper() in info.keys():
-			return info[key.upper()]
-		if key.title() in info.keys():
-			return info[key.title()]
-		if key.capitalize() in info.keys():
-			return info[key.capitalize()]
 		return None
 	def ensureOpen(self, autostart=False):
 		if self.stream is None:
@@ -187,7 +184,7 @@ class DamnResumableDownload:
 		self.hasTimeout = False
 		self.ensureOpen()
 		try:
-			c = DamnTimeoutStreamRead(self.stream, self.buffersize)
+			c = DamnTimeoutStreamRead(self.stream, self.buffersize * 4)
 			if c is None:
 				Damnlog('! DamnResumableDownload got None while trying to read stream of', self.url)
 				self.hasTimeout = True
@@ -219,21 +216,22 @@ class DamnResumableDownload:
 		Damnlog('Total size is', self.totalSize,'; Progress is', self.progress)
 		if self.totalSize is None:
 			return self.progress == 0 # Assume done if some stuff has been downloaded
-		return self.totalSize > self.progress or self.progress == 0
-	def spawnFetcher(self):
+		return self.totalSize > self.progress
+	def spawnFetcher(self, join=False):
 		if self.fetchThread is None:
 			self.fetchThread = DamnThreadedFunction(self.fetchBuffer, autostart=True, log=False)
+		if join:
+			self.joinFetcher()
 	def joinFetcher(self):
 		if self.fetchThread is not None:
 			self.fetchThread.join()
 			self.fetchThread = None
 	def readBuffer(self):
-		if self.fetchThread is None:
-			self.spawnFetcher()
-		self.joinFetcher()
-		if self.autofetch and len(self.buffer) <= self.buffersize:
+		self.spawnFetcher(join=True)
+		if self.autofetch and len(self.buffer) <= self.buffersize * 2:
 			self.spawnFetcher()
 	def read(self, bytes=None):
+		Damnlog('DamnResumableDownload reading', bytes, '; buffer size', len(self.buffer))
 		if bytes is None:
 			bytes = -1
 		if bytes == -1:
@@ -242,21 +240,25 @@ class DamnResumableDownload:
 			while len(i):
 				buffer += i
 				i = self.read(self.buffersize)
+			Damnlog('DamnResumableDownload returning0 ', len(buffer))
 			return buffer
 		if len(self.buffer) >= bytes and bytes > 0: # If the buffer is rich enough
 			buffer = self.buffer[:bytes]
 			self.buffer = self.buffer[bytes:]
+			if self.autofetch and len(self.buffer) <= self.buffersize * 2:
+				self.spawnFetcher()
+			Damnlog('DamnResumableDownload returning1 ', len(buffer))
 			return buffer
 		oldBuffer = len(self.buffer)
 		self.readBuffer()
 		if oldBuffer < len(self.buffer): # There is still stuff left
-			return self.read(bytes) # Then keep downloading
+			return self.read(bytes=bytes) # Then keep downloading
 		if self.checkProgress():
-			self.close()
-			self.ensureOpen()
-			return self.read(bytes)
+			self.readBuffer()
+			return self.read(bytes=bytes)
 		buffer = self.buffer # Otherwise stream ended, just flush the buffer
-		self.buffer = ''
+		self.buffer = '' # Empty buffer
+		Damnlog('DamnResumableDownload returning2 ', len(buffer))
 		return buffer
 	def readAll(self):
 		Damnlog('DamnResumableDownload reading all for', self.url)
@@ -272,10 +274,6 @@ class DamnResumableDownload:
 			self.progress = 0
 def DamnURLOpen(req, data=None, throwerror=False, autoresume=True, resumeat=None):
 	Damnlog('DamnURLOpen called with request', req, '; data', data,'; Throw error?', throwerror, '; Autoresume?', autoresume)
-	url = req
-	if type(req) in (type(''), type(u'')):
-		req = DamnURLRequest(DamnUnicode(req))
-		Damnlog('Request was', url, '; request is now',req)
 	try:
 		if data is not None:
 			pipe = DamnResumableDownload(req, data, resumable=autoresume, resumeat=resumeat)
@@ -413,30 +411,19 @@ class DamnDownloader(DamnThread): # Retrieves video by HTTP and feeds it back to
 			copystream = DamnOpenFile(self.copy, 'wb')
 		i = 'letsgo'
 		while len(i):
-			tmptimer = DamnTimer(DV.streamTimeout, self.timeouterror)
-			tmptimer.start()
-			try:
-				i = self.http.read(1024)
-				tmptimer.cancel()
-			except:
-				Damnlog('DamnDownloader stream timeout from exception handler.')
-				self.timeouted = True
-				break
-			if True:
-				if direct:
-					self.pipe.write(i)
-					if self.copy != None:
-						copystream.write(i)
-				else:
-					writing += i
-					if len(writing) > 102400: # Cache the first 100 KB and write them all at once (solves ffmpeg's "moov atom not found" problem)
-						self.pipe.write(writing)
-						if self.copy != None:
-							copystream.write(writing)
-						direct = True
-						del writing
+			i = self.http.read(1024)
+			if direct:
+				self.pipe.write(i)
+				if self.copy != None:
+					copystream.write(i)
 			else:
-				break
+				writing += i
+				if len(writing) > 102400: # Cache the first 100 KB and write them all at once (solves ffmpeg's "moov atom not found" problem)
+					self.pipe.write(writing)
+					if self.copy != None:
+						copystream.write(writing)
+					direct = True
+					del writing
 			self.amountwritten += len(i)
 		if not direct:  # Video weighs less than 100 KB (!)
 			try:

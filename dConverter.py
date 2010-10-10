@@ -190,12 +190,12 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 						copied = 0.0
 						lasttime = 0.0
 						self.update(statustext=DV.l('Copying ') + DamnUnicode(self.parent.meta[self.parent.videos[self.parent.converting]]['name']) + DV.l('...'))
-						Damnlog('Starting raw download of stream', src)
+						Damnlog('Starting raw download of stream', src, 'to', dst, 'with total', total)
 						while keepgoing and not self.abort:
-							i = src.read(4096)
+							i = src.read(32768)
 							if len(i):
 								dst.write(i)
-								copied += 4096.0
+								copied += 32768.0
 							else:
 								if total is not None:
 									copied = float(total)
