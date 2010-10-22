@@ -417,6 +417,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'Minimize to tray':u'Minimize to tray',
 		'Feature disabled':u'Feature disabled',
 		'This feature is disabled because you set the history size to 0.':u'This feature is disabled because you set the history size to 0.',
+		'Opens DamnVid\'s video history.': u'Opens DamnVid\'s video history.',
 		'Video history size':u'Video history size',
 		'Video &history...':u'Video &history...',
 		'Clear history':u'Clear history',

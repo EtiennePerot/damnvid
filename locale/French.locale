@@ -416,6 +416,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'Minimize to tray':u'Réduire dans la barre des tâches',
 		'Feature disabled':u'Fonction désactivée',
 		'This feature is disabled because you set the history size to 0.':u'Cette fonction est désactivée car la taille de l\'historique est 0.',
+		'Opens DamnVid\'s video history.': u'Ouvre l\'historique des vidéos.',
 		'Video history size':u'Taille de l\'historique des vidéos',
 		'Clear history':u'Effacer l\'historique',
 		'Clears the video history.':u'Efface l\'historique des vidéos récemment ajoutées.',
