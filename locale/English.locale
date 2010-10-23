@@ -131,6 +131,7 @@ Additionally, one of your encoding profiles may be set as the default one for ne
 		'&About DamnVid ': u'&About DamnVid ',
 		'There was an error while checking for updates to ': u'There was an error while checking for updates to ',
 		'Success!': u'Success!',
+		'Success': u'Success',
 		'No videos!': u'No videos!',
 		'No videos selected': u'No videos selected',
 		') is available! You are running DamnVid ': u') is available! You are running DamnVid ',

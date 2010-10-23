@@ -131,6 +131,7 @@ L\'un de vos profils d'encodage peut être mis par défaut pour les vidéos ajou
 		'&About DamnVid ': u'À p&ropos de DamnVid ',
 		'There was an error while checking for updates to ': u'Erreur pendant la recherche de mises à jour pour ',
 		'Success!': u'Succès!',
+		'Success': u'Succès',
 		'No videos!': u'Aucune vidéo!',
 		'No videos selected': u'Aucune vidéo sélectionnée',
 		') is available! You are running DamnVid ': u') est disponible! Vous utilisez DamnVid ',
