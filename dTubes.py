@@ -242,20 +242,22 @@ class DamnResumableDownload:
 				i = self.read(self.buffersize)
 			Damnlog('DamnResumableDownload returning0 ', len(buffer))
 			return buffer
-		if len(self.buffer) >= bytes and bytes > 0: # If the buffer is rich enough
-			buffer = self.buffer[:bytes]
-			self.buffer = self.buffer[bytes:]
-			if self.autofetch and len(self.buffer) <= self.buffersize * 2:
-				self.spawnFetcher()
-			Damnlog('DamnResumableDownload returning1 ', len(buffer))
-			return buffer
-		oldBuffer = len(self.buffer)
-		self.readBuffer()
-		if oldBuffer < len(self.buffer): # There is still stuff left
-			return self.read(bytes=bytes) # Then keep downloading
-		if self.checkProgress():
+		while True:
+			if len(self.buffer) >= bytes and bytes > 0: # If the buffer is rich enough
+				buffer = self.buffer[:bytes]
+				self.buffer = self.buffer[bytes:]
+				if self.autofetch and len(self.buffer) <= self.buffersize * 2:
+					self.spawnFetcher()
+				Damnlog('DamnResumableDownload returning1 ', len(buffer))
+				return buffer
+			oldBuffer = len(self.buffer)
 			self.readBuffer()
-			return self.read(bytes=bytes)
+			if oldBuffer < len(self.buffer): # There is still stuff left
+				return self.read(bytes=bytes) # Then keep downloading
+			if self.checkProgress():
+				self.readBuffer()
+			else:
+				break
 		buffer = self.buffer # Otherwise stream ended, just flush the buffer
 		self.buffer = '' # Empty buffer
 		Damnlog('DamnResumableDownload returning2 ', len(buffer))

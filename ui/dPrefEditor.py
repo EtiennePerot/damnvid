@@ -403,6 +403,7 @@ class DamnPrefEditor(wx.Dialog): # Preference dialog (not manager)
 							lang = c
 						c += 1
 						langs.append(DV.languages[l]['title']) # Eventually translate here, but I'm not sure. Maybe both translated and untranslated?
+					langs.sort()
 					self.controls[i] = self.makeList(DV.preferences[i]['strict'], langs, self.prefpane, None, localize=False) # makeList takes care of the event binding
 					self.controls[i].SetSelection(lang)
 					self.prefpanesizer.Add(self.controls[i], controlposition, controlspan, wx.EXPAND)
