@@ -84,7 +84,6 @@ class DamnDoneDialog(wx.Dialog):
 		Damnlog('Finished building done dialog UI, displaying it.')
 		# Finished building UI
 		self.SetClientSize(self.GetBestSize())
-		self.Center()
 		Damnlog('Done dialog displayed and centered.')
 	def onOK(self, event):
 		self.Close(True)
