@@ -60,14 +60,14 @@ class DamnModule_YouTube(DamnVideoModule):
 		if res is not None:
 			fmtHeights = {}
 			if resfmt is not None:
-				allFmts = self.regex['ticket'][2].sub(r'\1', DamnUnicode(resfmt.group(1))).split(u',')
+				allFmts = self.regex['ticket'][2].sub(r'\1', DamnUnicode(resfmt.group(1)).decode('unicode_escape')).split(u',')
 				for fmt in allFmts:
 					try:
 						fmt = DamnUnicode(fmt).split('/')
 						fmtHeights[fmt[0]] = int(fmt[1].split('x')[1])
 					except:
 						pass
-			allUrls = self.regex['ticket'][2].sub(r'\1', DamnUnicode(res.group(1))).split(u',')
+			allUrls = self.regex['ticket'][2].sub(r'\1', DamnUnicode(res.group(1)).decode('unicode_escape')).split(u',')
 			cleanUrls = []
 			for i in allUrls:
 				i =  DamnUnicode(i).split(u'|', 2)
@@ -94,13 +94,24 @@ class DamnModule_YouTube(DamnVideoModule):
 		if self.playlist:
 			return None
 		if self.hd:
-			return 'youtubehd'
-		return 'youtube'
+			return DamnGetListIcon('youtubehd')
+		return DamnGetListIcon('youtube')
 	def renewTicket(self):
 		if self.playlist:
 			return None
 		if self.ticket is None or self.ticketdate+60<time.time():
 			self.YouTube_GetTicket(DamnURLGetAll(self.link, onerror=''))
+	def getDownload(self):
+		if self.playlist:
+			return None
+		self.renewTicket()
+		if type(self.ticket) is type([]):
+			return self.ticket
+		if self.hd == '720':
+			return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=22'
+		elif self.hd == '1080':
+			return 'http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=37'
+		return DamnURLPicker(['http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket+'&fmt=18','http://www.youtube.com/get_video?video_id='+self.id[3:]+'&t='+self.ticket],True)
 	def addVid(self,parent):
 		if not self.playlist:
 			return DamnVideoModule.addVid(self,parent)
@@ -114,7 +125,7 @@ DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
 	'type':'video',
-	'version':'1.93',
+	'version':'1.94',
 	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
@@ -150,7 +161,7 @@ YouTube HD (720p/1080p) is also supported, as well as playlist batch downloading
 			'type':DV.preference_type_profile,
 			'kind':'profile',
 			'strict':True,
-			'default':-1
+			'default':3
 		},
 		'profilehd720':{
 			'name':'Default profile for 720p videos',
@@ -171,21 +182,21 @@ YouTube HD (720p/1080p) is also supported, as well as playlist batch downloading
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/YouTube/'
 		},
 		'outdirhd720':{
 			'name':'Output directory for 720p videos',
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
 		},
 		'outdirhd1080':{
 			'name':'Output directory for 1080p videos',
 			'type':DV.preference_type_misc,
 			'kind':'dir',
 			'strict':True,
-			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/'
+			'default':'?DAMNVID_MY_VIDEOS?/DamnVid/High-definition/'
 		},
 		'maxplaylist':{
 			'name':'Maximum videos from playlists',
