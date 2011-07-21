@@ -10,7 +10,7 @@ def crush(f):
 	if not os.path.lexists(d):
 		os.makedirs(d)
 	shutil.copyfile('./'+f,'/pics/'+f)
-	p=os.popen('pngcrush -rem gAMA -rem cHRM -rem iCCP -rem sRGB -brute "./'+f+'" "./'+f+'.crushed"')
+	p=os.popen('pngcrush -reduce -rem gAMA -rem cHRM -rem iCCP -rem sRGB -brute "./'+f+'" "./'+f+'.crushed"')
 	for i in p.readlines():
 		pass#print i.strip()
 	p.close()
