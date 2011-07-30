@@ -4,11 +4,12 @@ class DamnModule_YouTube(DamnVideoModule):
 	def __init__(self,uri,parent=None):
 		DamnVideoModule.__init__(self,uri)
 		self.name='youtube'
-		self.regex={
-			'url':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
-			'playlist':re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
-			'title':(re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),re.compile('<meta[^<>]*name="?title"?[^<>]*content="\s*([^"<>]+)\s*"', re.IGNORECASE),re.compile('<title>\s*YouTube\s*-*\s*([^<>]+?)\s*</title>', re.IGNORECASE),self.regex['title']),
-			'ticket':(re.compile(r'[\'"]fmt_stream_map[\'"]\s*:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE), re.compile(r'[\'"]fmt_map[\'"]?\s*:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE), re.compile(r'\\(.)'))
+		self.regex = {
+			'url': re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*(?:v|(?:video_)?id)[/=]([-_\w]{6,})',re.IGNORECASE),
+			'playlist': re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
+			'title': (re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),re.compile('<meta[^<>]*name="?title"?[^<>]*content="\s*([^"<>]+)\s*"', re.IGNORECASE),re.compile('<title>\s*YouTube\s*-*\s*([^<>]+?)\s*</title>', re.IGNORECASE),self.regex['title']),
+			'ticket': (re.compile(r'[\'"]fmt_stream_map[\'"]\s*:\s*[\'"]([^\'"]+)[\'"]', re.IGNORECASE), re.compile(r'[\'"]url_encoded_fmt_stream_map[\'"]?\s*:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE), re.compile(r'[\'"]fmt_map[\'"]?\s*:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE), re.compile(r'\\(.)')),
+			'YouTube_replaceHost': re.compile('^(https?://)[^/]+', re.IGNORECASE)
 		}
 		self.YouTube_PreferredFormats = (38, 37, 22, 35, 34, 18, 5, 17, 45, 44, 43)
 		self.hd=None
@@ -55,35 +56,67 @@ class DamnModule_YouTube(DamnVideoModule):
 						pass # Happens with unicode errors and stuff
 				self.YouTube_GetTicket(html)
 		return DamnVideoModule.getTitle(self)
+	def YouTube_URLQuery2Dict(self, query):
+		query = DamnUnicode(query)
+		if query[0] == u'?':
+			query = query[1:]
+		urlParams = query.split(u'&')
+		d = {}
+		for u in urlParams:
+			param = u.split(u'=')
+			if len(param) == 2:
+				d[DamnUnicode(urllib.unquote(param[0]))] = DamnUnicode(urllib.unquote(param[1]))
+		return d
 	def YouTube_GetTicket(self, html):
 		res = self.regex['ticket'][0].search(html)
-		resfmt = self.regex['ticket'][1].search(html)
+		resUrlEncoded = self.regex['ticket'][1].search(html)
+		resfmt = self.regex['ticket'][2].search(html)
+		availableFmts = {}
+		def addUrl(fmt, url):
+			fmt = str(int(fmt))
+			if fmt not in availableFmts:
+				availableFmts[fmt] = []
+			availableFmts[fmt].append(url)
+		fmtHeights = {}
+		if resfmt is not None:
+			allFmts = self.regex['ticket'][3].sub(r'\1', DamnUnicode(resfmt.group(1)).decode('unicode_escape')).split(u',')
+			for fmt in allFmts:
+				try:
+					fmt = DamnUnicode(fmt).split('/')
+					availableFmts.append(int(fmt[0]))
+					fmtHeights[fmt[0]] = int(fmt[1].split('x')[1])
+				except:
+					pass
 		if res is not None:
-			availableFmts = []
-			fmtHeights = {}
-			if resfmt is not None:
-				allFmts = self.regex['ticket'][2].sub(r'\1', DamnUnicode(resfmt.group(1)).decode('unicode_escape')).split(u',')
-				for fmt in allFmts:
-					try:
-						fmt = DamnUnicode(fmt).split('/')
-						availableFmts.append(int(fmt[0]))
-						fmtHeights[fmt[0]] = int(fmt[1].split('x')[1])
-					except:
-						pass
-			allUrls = self.regex['ticket'][2].sub(r'\1', DamnUnicode(res.group(1)).decode('unicode_escape')).split(u',')
-			cleanUrls = []
-			for tryFmt in self.YouTube_PreferredFormats:
-				if tryFmt not in availableFmts:
-					continue
-				for i in allUrls:
-					i = DamnUnicode(i).split(u'|')
-					if int(i[0]) == tryFmt:
-						if fmtHeights[i[0]] >= 1080 and (self.hd is None or self.hd == u'720'):
-							self.hd = u'1080'
-						elif fmtHeights[i[0]] >= 720 and self.hd is None:
-							self.hd = u'720'
-						cleanUrls.append(i[1])
-			self.newTicket(cleanUrls)
+			allUrls = self.regex['ticket'][3].sub(r'\1', DamnUnicode(res.group(1)).decode('unicode_escape')).split(u',')
+			for i in allUrls:
+				i = DamnUnicode(i).split(u'|')
+				if fmtHeights[i[0]] >= 1080 and (self.hd is None or self.hd == u'720'):
+					self.hd = u'1080'
+				elif fmtHeights[i[0]] >= 720 and self.hd is None:
+					self.hd = u'720'
+				addUrl(i[0], i[1])
+		elif resUrlEncoded is not None:
+			allUrlsSplit = DamnUnicode(resUrlEncoded.group(1)).split(u',')
+			for u in allUrlsSplit:
+				params = self.YouTube_URLQuery2Dict(self.regex['ticket'][3].sub(r'\1', u.decode('unicode_escape')))
+				fmt = -1
+				if 'itag' in params:
+					fmt = int(params['itag'])
+				if 'url' in params:
+					addUrl(fmt, params['url'])
+					if 'fallback_host' in params:
+						addUrl(fmt, self.regex['YouTube_replaceHost'].sub(DamnUnicode(r'\1') + params['fallback_host'], params['url']))
+		cleanUrls = []
+		knownFormats = []
+		for i in self.YouTube_PreferredFormats:
+			if str(i) in availableFmts:
+				cleanUrls.extend(availableFmts[str(i)])
+				knownFormats.append(str(i))
+		for f in availableFmts:
+			if f not in knownFormats:
+				cleanUrls.extend(availableFmts[f])
+		self.newTicket(cleanUrls)
 	def getProfile(self):
 		if self.playlist:
 			return None
@@ -120,7 +153,7 @@ DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
 	'type':'video',
-	'version':'1.96',
+	'version':'1.97',
 	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
