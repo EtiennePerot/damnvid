@@ -150,7 +150,7 @@ DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
 	'type':'video',
-	'version':'1.98',
+	'version':'1.99',
 	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
