@@ -193,7 +193,10 @@ def DamnLoadConfig(forcemodules=False):
 			for i in os.listdir(DV.curdir + 'modules'):
 				if os.path.isdir(DV.curdir + 'modules/' + i) and i.find('svn') == -1:
 					Damnlog('Building module ' + i)
-					DamnSpawner(['python', 'build-any/module-package.py', DV.curdir + 'modules/' + i ], cwd=DV.curdir).wait()
+					try:
+						DamnSpawner(['python2', 'build-any/module-package.py', DV.curdir + 'modules/' + i ], cwd=DV.curdir).wait()
+					except:
+						DamnSpawner(['python', 'build-any/module-package.py', DV.curdir + 'modules/' + i ], cwd=DV.curdir).wait()
 			for i in os.listdir(DV.curdir):
 				if i.lower().endswith(u'.module.' + DV.safeProduct):
 					os.rename(DV.curdir + i, DV.curdir + 'modules/' + i)

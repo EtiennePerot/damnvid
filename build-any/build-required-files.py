@@ -18,7 +18,10 @@ OSNAME=os.name
 if OSNAME=='posix' and sys.platform=='darwin':
 	OSNAME='mac'
 os.chdir(os.path.abspath(os.path.dirname(sys.argv[0]) + os.sep + '..'))
-procs(['python', 'build-any' + os.sep + 'cleanup.py'])
+try:
+	procs(['python2', 'build-any' + os.sep + 'cleanup.py'])
+except:
+	procs(['python', 'build-any' + os.sep + 'cleanup.py'])
 opts, args = getopt.getopt(sys.argv[1:], 'o:d:f:')
 outputFile = 'required-files.txt'
 destFolder = None
@@ -111,7 +114,10 @@ for f in os.listdir('modules'):
 		os.remove('modules' + os.sep + f)
 for f in os.listdir('modules'):
 	if os.path.isdir('modules' + os.sep + f) and goodFile(f):
-		procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
+		try:
+			procs(['python2', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
+		except:
+			procs(['python', 'build-any' + os.sep + 'module-package.py', 'modules' + os.sep + f])
 for f in os.listdir('.'):
 	if f[-15:]=='.module.damnvid':
 		if os.path.exists('modules' + os.sep + f):

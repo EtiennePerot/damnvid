@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 import os
@@ -17,7 +17,7 @@ def out(*args):
 args=sys.argv
 if len(args)!=2:
 	out('Invalid arguments.')
-	out('Usage: python ./module-package.py ./path-to-modules-folder/module')
+	out('Usage: ./module-package.py ./path-to-modules-folder/module')
 	out('Aborting.')
 	exit()
 module=args[1]
