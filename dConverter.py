@@ -5,7 +5,8 @@ from dLog import *
 from dThread import *
 from dSpawn import *
 from dTubes import *
-import unicodedata
+import os, sys, unicodedata
+
 DV.file_ext = {
 	'avi':u'avi',
 	'flv':u'flv',
@@ -89,8 +90,9 @@ class DamnConverter(DamnThread): # The actual converter, dammit
 		return tmpfilename
 	def getfinalfilename(self, path, prefix, ext):
 		ext = DamnUnicode(ext)
-		prefix = DamnUnicode(prefix)
+		prefix = DamnUnicode(prefix).encode(sys.getfilesystemencoding(), errors='ignore').decode(sys.getfilesystemencoding())
 		path = DamnUnicode(path)
+		Damnlog('Checking prefix', prefix, '/ Full path:', path + prefix + ext)
 		if not os.path.exists(path + prefix + ext):
 			return prefix
 		c = 2
