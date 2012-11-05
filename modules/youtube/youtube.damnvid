@@ -6,7 +6,7 @@ class DamnModule_YouTube(DamnVideoModule):
 		self.name='youtube'
 		self.regex = {
 			'url': re.compile('^https?://(?:[-_\w]+\.)*(?:youtu\.be|youtube\.\w+.*(?:v|(?:video_)?id))[/=]([-_\w]{6,})',re.IGNORECASE),
-			'playlist': re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*p(?:lay_?list)?[/=]([-_\w]{6,})',re.IGNORECASE),
+			'playlist': re.compile('^https?://(?:[-_\w]+\.)*youtube\.\w+.*[?&](?:playlist|list|play_list)[/=]([-_\w]{6,})',re.IGNORECASE),
 			'title': (re.compile('(?:^|&)title=([^&]+)',re.IGNORECASE),re.compile('<meta[^<>]*name="?title"?[^<>]*content="\s*([^"<>]+)\s*"', re.IGNORECASE),re.compile('<title>\s*YouTube\s*-*\s*([^<>]+?)\s*</title>', re.IGNORECASE),self.regex['title']),
 			'ticket': (re.compile(r'[\'"]url_encoded_fmt_stream_map[\'"]?\s*:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE), re.compile(r'[\'"]fmt_map[\'"]?\s*:\s*[\'"]([^\'"]+)[\'"]',re.IGNORECASE), re.compile(r'\\(.)')),
 			'YouTube_replaceHost': re.compile('^(https?://)[^/]+', re.IGNORECASE)
@@ -143,14 +143,14 @@ class DamnModule_YouTube(DamnVideoModule):
 		playlist=DV.youtube_service.GetYouTubeVideoFeed('http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
 		for i in playlist.entry:
 			try:
-				DamnModule_YouTube(i.media.player.url).addVid(parent)
+				self.__class__(i.media.player.url).addVid(parent)
 			except:
 				pass # Might fail for a number of reasons (private video, video is down, etc)
 DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
 	'type':'video',
-	'version':'1.99',
+	'version':'1.100',
 	'minversion':'1.7',
 	'author':{
 		'name':'Etienne Perot',
