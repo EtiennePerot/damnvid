@@ -4,7 +4,7 @@ from setuptools import setup
 import os
 
 path2src='./'
-versionfile=open(path2src+'version.damnvid','r')
+versionfile=open(path2src+'version.d','r')
 version=versionfile.readline().strip()
 versionfile.close()
 files=open(path2src+'required-files.txt','r')

@@ -3,7 +3,7 @@
 import os
 
 path2src='./../'
-versionfile=open(path2src+'version.damnvid','r')
+versionfile=open(path2src+'version.d','r')
 version=versionfile.readline().strip()
 versionfile.close()
 reqdirs=[]
