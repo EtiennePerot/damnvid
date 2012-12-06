@@ -56,7 +56,7 @@ try:
 except:
 	pass # File is optional
 DamnLocaleAddOverride('%moduleext%', u'module.' + DV.safeProduct)
-versionfile = DamnOpenFile(DV.curdir + 'version.d', 'r')
+versionfile = DamnOpenFile(DV.curdir + 'version.damnvid', 'r')
 DV.version = DamnUnicode(versionfile.readline().strip())
 DV.argv = []
 for i in sys.argv[1:]:
