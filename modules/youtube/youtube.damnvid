@@ -140,12 +140,24 @@ class DamnModule_YouTube(DamnVideoModule):
 	def addVid(self,parent):
 		if not self.playlist:
 			return DamnVideoModule.addVid(self,parent)
-		playlist=DV.youtube_service.GetYouTubeVideoFeed('http://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
+		playlist = DV.youtube_service.GetYouTubeVideoFeed('https://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist')))
 		for i in playlist.entry:
 			try:
 				self.__class__(i.media.player.url).addVid(parent)
 			except:
 				pass # Might fail for a number of reasons (private video, video is down, etc)
+		if len(playlist.entry) == 50 and int(self.pref('maxplaylist')) == 50:
+			# Add all videos until there is no more
+			startIndex = 50
+			keepGoing = True
+			while len(playlist.entry) == 50:
+				playlist = DV.youtube_service.GetYouTubeVideoFeed('https://gdata.youtube.com/feeds/api/playlists/'+self.id[3:]+'?v=2&max-results='+str(self.pref('maxplaylist'))+'&start-index='+str(startIndex))
+				for i in playlist.entry:
+					try:
+						self.__class__(i.media.player.url).addVid(parent)
+					except:
+						pass
+				startIndex += 50
 DamnRegisterModule({
 	'name':'youtube',
 	'title':'YouTube',
